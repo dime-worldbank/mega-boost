@@ -9,12 +9,15 @@ import unicodedata
 from pathlib import Path
 import openpyxl
 import csv
+import pandas as pd
 
 TOP_DIR = "/dbfs/mnt/DAP/data/BOOSTProcessed"
 INPUT_DIR = f"{TOP_DIR}/Documents/input/Countries"
 WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
 COUNTRY = 'Mozambique'
 COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/microdata_csv/{COUNTRY}'
+
+# COMMAND ----------
 
 moz_excel_files = list(glob(f"{INPUT_DIR}/{COUNTRY}*.xlsx"))
 assert len(moz_excel_files) == 1, f'expect there to be 1 Mozambique boost data file, found {len(moz_excel_files)}'
@@ -68,3 +71,18 @@ for sheet_name in workbook.sheetnames:
             csv_writer.writerow([cell.value for i, cell in enumerate(row) if i < len(cleaned_header)])
 
 workbook.close()
+
+# COMMAND ----------
+
+# adm5 from master key file is needed to map admin 1 names to WB admin1 labels
+MASTER_KEY_FILE = f"{TOP_DIR}/Documents/input/Auxiliary/MozambiqueMasterKeys.xlsx"
+AUXILIARY_CSV_DIR = f'{WORKSPACE_DIR}/auxiliary_csv/Mozambique'
+
+Path(AUXILIARY_CSV_DIR).mkdir(parents=True, exist_ok=True)
+
+adm5 = pd.read_excel(MASTER_KEY_FILE, sheet_name='Admin Master Key', usecols='N:Q')\
+         .dropna(how='any')
+adm5 = adm5.rename(columns={adm5.columns[0]: 'UGB_third'})
+adm5.columns = adm5.columns.str.replace('\W', '', regex=True)
+adm5.to_csv(f'{AUXILIARY_CSV_DIR}/adm5.csv', index=False)
+adm5
