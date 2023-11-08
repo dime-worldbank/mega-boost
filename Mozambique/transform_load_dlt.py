@@ -39,11 +39,11 @@ def boost_bronze():
 @dlt.table(name=f'moz_boost_silver')
 def boost_silver():
     # take the opportunity to make Adm5 consistent - unify with/without accent, upper/lower case
-    return (dlt.read(f'boost_bronze')
+    return (dlt.read(f'moz_boost_bronze')
         .select("*",
                 substring('Adm5', 1, 1).alias("UGB_third")
                )
-        .join(dlt.read(f'adm5_master_key_bronze'), ["UGB_third"], "left")
+        .join(dlt.read(f'moz_adm5_master_key_bronze'), ["UGB_third"], "left")
         .drop('Adm5')
         .select("*", col('Adm51').alias('Adm5'))
         .drop('Adm51', 'UGB_third')
@@ -51,7 +51,7 @@ def boost_silver():
     
 @dlt.table(name=f'moz_boost_gold')
 def boost_gold():
-    return (dlt.read(f'boost_silver')
+    return (dlt.read(f'moz_boost_silver')
         .select(col('Year').alias('year'),
                 withColumn('country_name', COUNTRY),
                 col('Adm5En').alias('adm1_name'),
