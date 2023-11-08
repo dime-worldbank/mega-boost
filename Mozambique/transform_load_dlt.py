@@ -1,7 +1,8 @@
 # Databricks notebook source
 import dlt
 
-TOP_DIR = "/dbfs/mnt/DAP/data/BOOSTProcessed"
+# Note DLT requires the path to not start with /dbfs
+TOP_DIR = "/mnt/DAP/data/BOOSTProcessed"
 INPUT_DIR = f"{TOP_DIR}/Documents/input/Countries"
 WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
 COUNTRY = 'Mozambique'
