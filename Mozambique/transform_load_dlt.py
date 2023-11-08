@@ -1,6 +1,6 @@
 # Databricks notebook source
 import dlt
-from pyspark.sql.functions import substring, col
+from pyspark.sql.functions import substring, col, lit
 
 # Note DLT requires the path to not start with /dbfs
 TOP_DIR = "/mnt/DAP/data/BOOSTProcessed"
@@ -53,7 +53,7 @@ def boost_silver():
 @dlt.table(name=f'moz_boost_gold')
 def boost_gold():
     return (dlt.read(f'moz_boost_silver')
-        .withColumn('country_name', COUNTRY)
+        .withColumn('country_name', lit(COUNTRY))
         .select(col('Year').alias('year'),
                 col('Adm5En').alias('adm1_name'),
                 col('DotacaoInicial').alias('approved'),
