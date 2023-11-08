@@ -54,7 +54,8 @@ def boost_silver():
 def boost_gold():
     return (dlt.read(f'moz_boost_silver')
         .withColumn('country_name', lit(COUNTRY))
-        .select(col('Year').alias('year'),
+        .select('country_name',
+                col('Year').alias('year'),
                 col('Adm5En').alias('adm1_name'),
                 col('DotacaoInicial').alias('approved'),
                 col('DotacaoActualizada').alias('revised'),
