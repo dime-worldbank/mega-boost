@@ -6,7 +6,7 @@ from pyspark.sql.window import Window
 # TODO: stack all country's microdata into 'boost_gold'
 @dlt.table(name=f'boost_gold')
 def boost_gold():
-    return (dlt.read(f'boost_intermediate.moz_boost_gold')
+    return (spark.table('boost_intermediate.moz_boost_gold')
         .select('*')
     )
 
