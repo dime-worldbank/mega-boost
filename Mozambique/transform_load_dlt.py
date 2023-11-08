@@ -15,7 +15,7 @@ CSV_READ_OPTIONS = {
     "escape": '"',
 }
 
-@dlt.table(name=f'adm5_master_key_bronze')
+@dlt.table(name=f'moz_adm5_master_key_bronze')
 def adm5_master_key_bronze():
     return (spark.read
       .format("csv")
@@ -26,7 +26,7 @@ def adm5_master_key_bronze():
 
 @dlt.expect_or_drop("exp_type_not_null", "ExpType IS NOT NULL")
 @dlt.expect_or_drop("year_not_null", "Year IS NOT NULL")
-@dlt.table(name=f'boost_bronze')
+@dlt.table(name=f'moz_boost_bronze')
 def boost_bronze():
     return (spark.read
       .format("csv")
@@ -35,7 +35,7 @@ def boost_bronze():
       .load(COUNTRY_MICRODATA_DIR)
     )
 
-@dlt.table(name=f'boost_silver')
+@dlt.table(name=f'moz_boost_silver')
 def boost_silver():
     # take the opportunity to make Adm5 consistent - unify with/without accent, upper/lower case
     return (dlt.read(f'boost_bronze')
@@ -48,7 +48,7 @@ def boost_silver():
         .drop('Adm51', 'UGB_third')
     )
     
-@dlt.table(name=f'boost_gold')
+@dlt.table(name=f'moz_boost_gold')
 def boost_gold():
     return (dlt.read(f'boost_silver')
         .select(col('Year').alias('year'),
