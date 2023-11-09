@@ -13,20 +13,24 @@ def boost_gold():
 def cpi_factor():
     earliest_years = (dlt.read('boost_gold')
         .groupBy("country_name")
-        .agg(F.min("year").alias("earliest_year"))
+        .agg(F.min("year").alias("year"))
     )
-    cpi_data = (dlt.read('indicator.consumer_price_index')
-        .join(earliest_years, on=["country_name", "year"], how="inner")
-        .withColumn("cpi_factor", F.col("cpi") / F.first("cpi").over(Window.partitionBy("country").orderBy("year")))
-        .select("country", "year", "cpi_factor")
+    base_cpis = (earliest_years.join(spark.table('indicator.consumer_price_index'), on=["country_name", "year"], how="inner")
+        .select(F.col('year').alias('base_cpi_year'),
+                'country_name',
+                F.col('cpi').alias('base_cpi'))
     )
-    return cpi_data
+    return (spark.table('indicator.consumer_price_index')
+        .join(base_cpis, on=["country_name"], how="inner")
+        .withColumn("cpi_factor", F.col("cpi") / F.col('base_cpi'))
+        .select('country_name', "year", "cpi_factor")
+    )
 
 @dlt.table(name=f'expenditure_by_country_year')
 def expenditure_by_country_year():
     cpi_factors = dlt.read('cpi_factor')
     return (dlt.read(f'boost_gold')
         .groupBy("country_name", "year").agg(F.sum("executed").alias("expenditure"))
-        .join(cpi_factors, on=["country", "year"], how="inner")
+        .join(cpi_factors, on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("expenditure") * F.col("cpi_factor"))
     )
