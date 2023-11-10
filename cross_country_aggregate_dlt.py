@@ -32,5 +32,5 @@ def expenditure_by_country_year():
     return (dlt.read(f'boost_gold')
         .groupBy("country_name", "year").agg(F.sum("executed").alias("expenditure"))
         .join(cpi_factors, on=["country_name", "year"], how="inner")
-        .withColumn("real_expenditure", F.col("expenditure") * F.col("cpi_factor"))
+        .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
     )
