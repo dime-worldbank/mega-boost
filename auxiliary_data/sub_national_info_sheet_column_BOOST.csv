@@ -1,0 +1,105 @@
+filename,sheet_name,col_name,admin_level,country,country_code,comment
+Afghanistan BOOST 2010-20 CCI.xlsx,Raw,Province,admin1,Afghanistan,AFG,
+Afghanistan BOOST 2010-20 CCI.xlsx,Raw,District,admin2,Afghanistan,AFG,
+Afghanistan BOOST 2010-20 CCI.xlsx,Raw,District,admin2,Afghanistan,AFG,mentions provincial captitals
+Albania BOOST 2010-22 CCI.xlsx,Data_Expenditures,admin2_new,admin1,Albania,ALB,
+Albania BOOST 2010-22 CCI.xlsx,Data_Expenditures,county,admin1,Albania,ALB,
+Albania BOOST 2010-22 CCI.xlsx,Data_Expenditures,admin2,admin2,Albania,ALB,seems to be the municipalities
+Albania BOOST 2010-22 CCI.xlsx,Data_Expenditures,admin5,admin2,Albania,ALB,possibly cities and towns
+Albania BOOST 2010-22 CCI.xlsx,Data_Revenues,county,admin1,Albania,ALB,
+Argentina BOOST 2007-22 CCI.xlsx,Base,geo,admin1,Argentina,ARG,
+Argentina BOOST 2007-22 CCI.xlsx,subnational,Admin,admin1,Argentina,ARG,the column names are the provinces
+Argentina BOOST 2007-22 CCI.xlsx,subnational,Admin,admin1,Argentina,ARG,provinces are columns in this sheet
+Argentina BOOST 2007-22 CCI.xlsx,2021 onward,Geo1,admin1,Argentina,ARG,
+Belarus BOOST 2013-18 CCI.xlsx,raw education,admin4,admin1,Belarus,BLR,
+Belarus BOOST 2013-18 CCI.xlsx,raw education,admin5,admin2,Belarus,BLR,
+Bhutan BOOST 2011-21 CCI.xlsx,BOOST,Admin2,admin1,Bhutan,BTN,
+Burkina Faso BOOST 2006-20 CCI.xlsx,BOOST,GEO1,admin1,Burkina Faso,BFA,
+Burkina Faso BOOST 2006-20 CCI.xlsx,BOOST_,GEO_REGION,admin1,Burkina Faso,BFA,
+Burkina Faso BOOST 2006-20 CCI.xlsx,BOOST_,GEO_REG,admin1,Burkina Faso,BFA,
+Burkina Faso BOOST 2006-20 CCI.xlsx,BOOST_,GEO_PROVINCE,admin2,Burkina Faso,BFA,
+Burundi BOOST 2013-15 CCI.xlsx,Database,Geo,admin1,Burundi,BDI,
+Chile BOOST 2006-22 CCI.xlsx,Cen,region,admin1,Chile,CHL,
+Colombia BOOST HL 2019-22 CCI.xlsx,subnational,admin1,admin1,Colombia,COL,admin0 gives additional information about the unit being department or municipality
+Colombia BOOST HL 2019-22 CCI.xlsx,subnational,admin1,admin1,Colombia,COL,
+Congo DR BOOST 2012-21 CCI.xlsx,BOOST 2012-2021,Province,admin1,Congo Dr,COD,
+Dominican Republic BOOST 2008-22 CCI.xlsx,Raw,GEO2,admin2,Dominican Republic,DOM,
+Dominican Republic BOOST 2008-22 CCI.xlsx,Raw,GEO1,admin1,Dominican Republic,DOM,
+Ecuador BOOST 2009-22 CCI.xlsx,2018-22,GEO2 (canton),admin2,Ecuador,ECU,unclear
+Ecuador BOOST 2009-22 CCI.xlsx,2018-22,GEO1 (provincia),admin1,Ecuador,ECU,
+Ecuador BOOST 2009-22 CCI.xlsx,2018-22,GEO2 (canton),admin2,Ecuador,ECU,
+Ecuador BOOST 2009-22 CCI.xlsx,GADS reduced,GEO2 (canton),admin2,Ecuador,ECU,
+Ecuador BOOST 2009-22 CCI.xlsx,GADS reduced,GEO1 (provincia),admin1,Ecuador,ECU,
+El Salvador BOOST PS 2009-22 CCI.xlsx,2009-16,admin2,admin1,El Salvador,SLV,
+El Salvador BOOST PS 2009-22 CCI.xlsx,2017 onward,admin3,admin2,El Salvador,SLV,
+El Salvador BOOST PS 2009-22 CCI.xlsx,2009-16,admin2,admin1,El Salvador,SLV,some department info present
+Gabon BOOST 2015-16 CCI.xlsx,raw,Geo,admin1,Gabon,GAB,
+Ghana BOOST 2016-21 CCI.xlsx,Raw,GEO,admin1,Ghana,GHA,combined admin1 and admin2 info
+Ghana BOOST 2016-21 CCI.xlsx,Raw,GEO,admin2,Ghana,GHA,admin1_admin2
+Guyana BOOST 2018-22 CCI.xlsx,Raw data,Admin1,admin1,Guyana,GUY,
+Haiti BOOST 2009-16 CCI.xlsx,Database,geo1,admin1,Haiti,HTI,
+Jordan BOOST 2010-18 CCI.xlsx,raw,Geo4,admin2,Jordan,JOR,
+Jordan BOOST 2010-18 CCI.xlsx,raw,Geo3,admin2,Jordan,JOR,additional disaggreagation in Geo4
+Jordan BOOST 2010-18 CCI.xlsx,raw,Geo2,admin1,Jordan,JOR,Governorates
+Jordan BOOST 2010-18 CCI.xlsx,raw,Geo2,admin1,Jordan,JOR,
+Kenya BOOST 2006-21 CCI.xlsx,Raw2,Wards (Geo4),admin3,Kenya,KEN,
+Kenya BOOST 2006-21 CCI.xlsx,Raw2,District/Constituency (Geo3),admin2,Kenya,KEN,
+Kenya BOOST 2006-21 CCI.xlsx,Raw2,Counties (Geo2),admin1,Kenya,KEN,
+Kenya BOOST 2006-21 CCI.xlsx,Raw3,Wards (Geo4),admin3,Kenya,KEN,unclear if this is ward level
+Kenya BOOST 2006-21 CCI.xlsx,Raw3,District/Constituency (Geo3),admin2,Kenya,KEN,
+Kenya BOOST 2006-21 CCI.xlsx,Raw3,Counties (Geo2),admin1,Kenya,KEN,
+Kenya BOOST 2006-21 CCI.xlsx,Raw1,admin2,admin2,Kenya,KEN,unclear. GEO has a subnational entry. These could indicate sub-counties
+Laos HL 2010-20 CCI.xlsx,ministry,Level,admin1,Laos,LAO,
+Liberia BOOST 2012-21 CCI.xlsx,Donor Data 12_15,County,admin1,Liberia,LBR,
+Liberia BOOST 2012-21 CCI.xlsx,rawfy20,geo2,admin2,Liberia,LBR,incomplete
+Liberia BOOST 2012-21 CCI.xlsx,Data,Geo2-Disctrict,admin2,Liberia,LBR,
+Liberia BOOST 2012-21 CCI.xlsx,Data,Geo1-County,admin1,Liberia,LBR,
+Liberia BOOST 2012-21 CCI.xlsx,Geo,Geo1,admin1,Liberia,LBR,these are geo codes along with Geo2
+Liberia BOOST 2012-21 CCI.xlsx,Geo,Geo1,admin1,Liberia,LBR,dictionary
+Liberia BOOST 2012-21 CCI.xlsx,rawfy20,geo2,admin2,Liberia,LBR,
+Liberia BOOST 2012-21 CCI.xlsx,Data,Geo2-District,admin1,Liberia,LBR,
+Liberia BOOST 2012-21 CCI.xlsx,rawfy20,geo1,admin1,Liberia,LBR,
+Macedonia BOOST 2011-22 CCI.xlsx,Raw,admin1,admin1,Macedonia,MKD,contains both giv departments and municipalities/
+Macedonia BOOST 2011-22 CCI.xlsx,Raw,admin1,admin2,Macedonia,MKD,select the rows with Local in admin0
+Madagascar BOOST 2017-20 CCI.xlsx,BOOST,REGION,admin1,Madagascar,MDG,
+Madagascar BOOST 2017-20 CCI.xlsx,BOOST,COMMUNE,admin2,Madagascar,MDG,
+Maldives BOOST 2017-22 CCI.xlsx,data,Admin2,admin1,Maldives,MDV,councils and ministries
+Mali BOOST 2006-18 CCI.xlsx,Base,Geo1,admin1,Mali,MLI,
+Mali BOOST 2006-18 CCI.xlsx,Base2,admin1,admin1,Mali,MLI,contains both gov departments and regions
+Mongolia BOOST 2010-21 CCI.xlsx,Base,Admin2,admin1,Mongolia,MNG,
+Mongolia BOOST 2010-21 CCI.xlsx,Base_old,GEO,admin1,Mongolia,MNG,
+Mongolia BOOST 2010-21 CCI.xlsx,Base_old,GEO,admin1,Mongolia,MNG,potentially mixed with lower admin levels as well
+Mongolia BOOST 2010-21 CCI.xlsx,Base,Admin2,admin2,Mongolia,MNG,Admin0 has indicatrs of whether its provinces or districts
+Mozambique BOOST 2009-22 CCI.xlsx,2009-18,Adm5,admin1,Mozambique,MOZ,
+Mozambique BOOST 2009-22 CCI.xlsx,2019-22,Adm5,admin1,Mozambique,MOZ,
+Mozambique BOOST 2009-22 CCI.xlsx,2019-22,Adm5,,Mozambique,MOZ,
+Mozambique BOOST 2009-22 CCI.xlsx,2009-18,Adm5,,Mozambique,MOZ,
+Niger BOOST 2006-17 CCI.xlsx,BOOST,geo,admin1,Niger,NER,
+Niger BOOST 2006-17 CCI.xlsx,2018 (check),geographique_code,admin1,Niger,NER,
+Oman BOOST 2010-19 CCI.xlsx,Raw,GEO_eng,admin1,Oman,OMN,
+Pakistan BOOST 2011-21 CCI.xlsx,Raw,Admin0,admin1,Pakistan,PAK,
+Paraguay BOOST PS 2006-22 CCI.xlsx,Revenue all,Admin0,admin1,Paraguay,PRY,
+Paraguay BOOST PS 2006-22 CCI.xlsx,Revenue all,ORIGIN,admin1,Paraguay,PRY,contains other items as well
+Paraguay BOOST PS 2006-22 CCI.xlsx,Revenue all,ADMIN2,admin1,Paraguay,PRY,contains other items as well
+Paraguay BOOST PS 2006-22 CCI.xlsx,cen,GEO1,admin1,Paraguay,PRY,
+Paraguay BOOST PS 2006-22 CCI.xlsx,Municipalidades,geo,admin1,Paraguay,PRY,
+Paraguay BOOST PS 2006-22 CCI.xlsx,Revenue all,ADMIN2,admin3,Paraguay,PRY,
+Poland BOOST 2006-21 CCI.xlsx,2006-17,admin4,admin1,Poland,POL,
+Poland BOOST 2006-21 CCI.xlsx,2018 onward,admin3,admin1,Poland,POL,
+Poland BOOST 2006-21 CCI.xlsx,2018 onward,admin4,admin1,Poland,POL,
+Saudi Arabia BOOST 2009-19 CCI.xlsx,raw,REGION,admin1,Saudi Arabia,SAU,
+Senegal BOOST 2010-18 CCI.xlsx,Raw,geo2 (Région),admin1,Senegal,SEN,
+Solomon Islands BOOST 2006-21 CCI.xlsx,BOOST,GEO1,admin1,Solomon Islands,SLB,
+South Africa BOOST 2015-22 CCI.xlsx,raw,Department,admin1,South Africa,ZAF,to be read along with the Admin1 column
+South Africa BOOST 2015-22 CCI.xlsx,raw,Department,admin1,South Africa,ZAF,select PROVINCES in ADMIN1
+Tanzania BOOST 2010-22 CCI.xlsx,Data,"Admin2 (vote, region)",admin1,Tanzania,TZA,select Local in Admin1 (level govt)
+Timor Leste BOOST 2008-22 CCI.xlsx,raw,admin4,admin1,Timor Leste,TLS,seems to include other cities from around the world?
+Togo BOOST 2009-21 CCI.xlsx,BOOST,Region,admin1,Togo,TGO,
+Tunisia BOOST 2009-22 CCI.xlsx,BOOST,GEO1 (الولاية),admin1,Tunisia,TUN,
+Tunisia BOOST 2009-22 CCI.xlsx,BOOST,GEO1 (الولاية),admin1,Tunisia,TUN,seems to be the capitals of the governorates
+Uganda BOOST 2006-22 CCI.xlsx,Raw,Vote,admin1,Uganda,UGA,to be read along with MALGs column
+kyrgyz BOOST-GFS 2008-21 CCI .xlsx,Data,admin4,admin1,Kyrgyz,KGZ,
+kyrgyz BOOST-GFS 2008-21 CCI .xlsx,Data,admin5,admin2,Kyrgyz,KGZ,
+romania BOOST 2006-13 2014-20 (gfs) CCI.xlsx,Data,admin2,admin1,Romania,ROU,
+tajikistan BOOST 2006-11 CCI.xlsx,BOOST,admin2,admin1,Tajikistan,TJK,to be read along with admin1
+tajikistan BOOST 2006-11 CCI.xlsx,BOOST,admin2,admin1,Tajikistan,TJK,"city, district and provinces"
