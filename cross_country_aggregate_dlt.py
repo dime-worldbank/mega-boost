@@ -38,8 +38,16 @@ def expenditure_by_country_year():
 @dlt.table(name=f'expenditure_by_country_adm1_year')
 def expenditure_by_country_adm1_year():
     cpi_factors = dlt.read('cpi_factor')
+    # TODO: change this to read from indicator.subnational_population 
+    pop = (spark.table('indicator_intermediate.moz_subnational_population')
+        .select("country_name", "adm1_name_alt", "year", "population")
+    )
+
     return (dlt.read(f'boost_gold')
         .groupBy("country_name", "adm1_name", "adm1_name_alt", "year").agg(F.sum("executed").alias("expenditure"))
         .join(cpi_factors, on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
+        .join(pop, on=["country_name", "adm1_name_alt", "year"], how="inner")
+        .withColumn("per_capita_expenditure", F.col("expenditure") / F.col("population"))
+        .withColumn("per_capita_real_expenditure", F.col("real_expenditure") / F.col("population"))
     )
