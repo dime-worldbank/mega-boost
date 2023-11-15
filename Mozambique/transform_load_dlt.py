@@ -1,6 +1,6 @@
 # Databricks notebook source
 import dlt
-from pyspark.sql.functions import substring, col, lit
+from pyspark.sql.functions import substring, col, lit, when
 
 # Note DLT requires the path to not start with /dbfs
 TOP_DIR = "/mnt/DAP/data/BOOSTProcessed"
@@ -48,6 +48,7 @@ def boost_silver():
         .drop('Adm5')
         .select("*", col('Adm51').alias('Adm5'))
         .drop('Adm51', 'UGB_third')
+        .withColumn('adm1_name_alt', when(col("Adm5En") == "Maputo (city)", "Cidade de Maputo").otherwise(col("Adm5En")))
     )
     
 @dlt.table(name=f'moz_boost_gold')
@@ -57,6 +58,7 @@ def boost_gold():
         .select('country_name',
                 col('Year').alias('year'),
                 col('Adm5En').alias('adm1_name'),
+                'adm1_name_alt',
                 col('DotacaoInicial').alias('approved'),
                 col('DotacaoActualizada').alias('revised'),
                 col('Execution').alias('executed'))

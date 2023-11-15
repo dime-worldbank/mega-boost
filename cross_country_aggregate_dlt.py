@@ -34,3 +34,12 @@ def expenditure_by_country_year():
         .join(cpi_factors, on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
     )
+
+@dlt.table(name=f'expenditure_by_country_adm1_year')
+def expenditure_by_country_adm1_year():
+    cpi_factors = dlt.read('cpi_factor')
+    return (dlt.read(f'boost_gold')
+        .groupBy("country_name", "adm1_name", "adm1_name_alt", "year").agg(F.sum("executed").alias("expenditure"))
+        .join(cpi_factors, on=["country_name", "year"], how="inner")
+        .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
+    )
