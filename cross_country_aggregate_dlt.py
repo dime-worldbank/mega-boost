@@ -28,11 +28,17 @@ def cpi_factor():
 
 @dlt.table(name=f'expenditure_by_country_year')
 def expenditure_by_country_year():
+    year_ranges = (dlt.read('boost_gold')
+        .groupBy("country_name")
+        .agg(F.min("year").alias("earliest_year"), 
+             F.max("year").alias("latest_year"))
+    )
     cpi_factors = dlt.read('cpi_factor')
     return (dlt.read(f'boost_gold')
         .groupBy("country_name", "year").agg(F.sum("executed").alias("expenditure"))
         .join(cpi_factors, on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
+        .join(year_ranges, on=['country_name'], how='left')
     )
 
 @dlt.table(name=f'expenditure_by_country_adm1_year')
@@ -43,6 +49,12 @@ def expenditure_by_country_adm1_year():
         .select("country_name", "adm1_name_alt", "year", "population")
     )
 
+    year_ranges = (dlt.read('boost_gold')
+        .groupBy("country_name", "adm1_name", "adm1_name_alt")
+        .agg(F.min("year").alias("earliest_year"), 
+             F.max("year").alias("latest_year"))
+    )
+
     return (dlt.read(f'boost_gold')
         .groupBy("country_name", "adm1_name", "adm1_name_alt", "year").agg(F.sum("executed").alias("expenditure"))
         .join(cpi_factors, on=["country_name", "year"], how="inner")
@@ -50,4 +62,5 @@ def expenditure_by_country_adm1_year():
         .join(pop, on=["country_name", "adm1_name_alt", "year"], how="inner")
         .withColumn("per_capita_expenditure", F.col("expenditure") / F.col("population"))
         .withColumn("per_capita_real_expenditure", F.col("real_expenditure") / F.col("population"))
+        .join(year_ranges, on=['country_name', "adm1_name", "adm1_name_alt"], how='left')
     )
