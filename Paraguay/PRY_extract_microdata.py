@@ -37,9 +37,6 @@ def is_named_column(cell):
 
 # TODO: Figure out the difference between cen and Municipalidades
 disaggregated_data_sheets = ['cen']
-
-# COMMAND ----------
-
 for sheet in tqdm(disaggregated_data_sheets):
     csv_file_path = f'{COUNTRY_MICRODATA_DIR}/{sheet}.csv'
     # Open the Excel file with openpyxl

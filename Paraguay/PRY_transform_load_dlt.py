@@ -1,4 +1,5 @@
 # Databricks notebook source
+
 import dlt
 import unicodedata
 from pyspark.sql.functions import substring, col, lit, when, udf, trim, regexp_replace, initcap, concat
@@ -18,9 +19,6 @@ CSV_READ_OPTIONS = {
     "quote": '"',
     "escape": '"',
 }
-
-# COMMAND ----------
-
 
 @dlt.table(name=f'pry_boost_bronze')
 def boost_bronze():
