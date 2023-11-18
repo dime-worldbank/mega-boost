@@ -48,7 +48,14 @@ def boost_silver():
         .drop('Adm5')
         .select("*", col('Adm51').alias('Adm5'))
         .drop('Adm51', 'UGB_third')
-        .withColumn('adm1_name_alt', when(col("Adm5En") == "Maputo (city)", "Cidade de Maputo").otherwise(col("Adm5En")))
+        .withColumn('adm1_name',
+                    when(
+                        col("Adm5En") == "Maputo (city)", "Cidade de Maputo"
+                    ).otherwise(
+                        when(
+                            col("Adm5En") == "Central", "Central Scope"
+                        ).otherwise(col("Adm5En"))
+                    ))
     )
     
 @dlt.table(name=f'moz_boost_gold')
@@ -56,9 +63,8 @@ def boost_gold():
     return (dlt.read(f'moz_boost_silver')
         .withColumn('country_name', lit(COUNTRY))
         .select('country_name',
+                'adm1_name',
                 col('Year').alias('year'),
-                col('Adm5En').alias('adm1_name'),
-                'adm1_name_alt',
                 col('DotacaoInicial').alias('approved'),
                 col('DotacaoActualizada').alias('revised'),
                 col('Execution').alias('executed'))

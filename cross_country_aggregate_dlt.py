@@ -3,11 +3,12 @@ import dlt
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window
 
-
-# TODO: stack all country's microdata into 'boost_gold'
+# Adding a new country requires adding the country here
 @dlt.table(name=f'boost_gold')
 def boost_gold():
-    return spark.table('boost_intermediate.moz_boost_gold')
+    moz = spark.table('boost_intermediate.moz_boost_gold')
+    pry = spark.table('boost_intermediate.pry_boost_gold')
+    return moz.union(pry)
 
 @dlt.table(name=f'cpi_factor')
 def cpi_factor():
@@ -44,23 +45,22 @@ def expenditure_by_country_year():
 @dlt.table(name=f'expenditure_by_country_adm1_year')
 def expenditure_by_country_adm1_year():
     cpi_factors = dlt.read('cpi_factor')
-    # TODO: change this to read from indicator.subnational_population 
-    pop = (spark.table('indicator_intermediate.moz_subnational_population')
-        .select("country_name", "adm1_name_alt", "year", "population")
+    pop = (spark.table('indicator.subnational_population')
+        .select("country_name", "adm1_name", "year", "population")
     )
 
     year_ranges = (dlt.read('boost_gold')
-        .groupBy("country_name", "adm1_name", "adm1_name_alt")
+        .groupBy("country_name", "adm1_name")
         .agg(F.min("year").alias("earliest_year"), 
              F.max("year").alias("latest_year"))
     )
 
     return (dlt.read(f'boost_gold')
-        .groupBy("country_name", "adm1_name", "adm1_name_alt", "year").agg(F.sum("executed").alias("expenditure"))
+        .groupBy("country_name", "adm1_name", "year").agg(F.sum("executed").alias("expenditure"))
         .join(cpi_factors, on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
-        .join(pop, on=["country_name", "adm1_name_alt", "year"], how="inner")
+        .join(pop, on=["country_name", "adm1_name", "year"], how="inner")
         .withColumn("per_capita_expenditure", F.col("expenditure") / F.col("population"))
         .withColumn("per_capita_real_expenditure", F.col("real_expenditure") / F.col("population"))
-        .join(year_ranges, on=['country_name', "adm1_name", "adm1_name_alt"], how='left')
+        .join(year_ranges, on=['country_name', "adm1_name"], how='left')
     )
