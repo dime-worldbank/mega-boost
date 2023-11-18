@@ -38,15 +38,20 @@ def boost_silver():
 
     # Define the standardization function
     def clean_province_name(name):
+        SPECIAL_ADM1_MAP = {
+            'Alcance Nacional': 'Central Scope',
+            'Auxiliar Traspaso': 'Auxiliary Transfer',
+            'No Disponible': None
+        }
+
         if not name:
             return
-        not_province = ['Alcance Nacional', 'Auxiliar Traspaso', 'No Disponible']
+        
         nfkd_form = unicodedata.normalize('NFKD', name)
         name = ''.join([c for c in nfkd_form if not unicodedata.combining(c)]).split(' - ')[-1].strip().title()
-        # dont return name when it's not a province
-        if name in not_province:
-            return
-        return name
+        
+        return SPECIAL_ADM1_MAP.get(name, name)
+        
     
     # Register the UDF
     clean_province_udf = udf(clean_province_name, StringType())
@@ -64,8 +69,9 @@ def boost_gold():
                 (col('ECON5') != '740 - Amortización de la Deuda Pública Externa'))
         .withColumn('country_name', lit(COUNTRY))
         .select('country_name',
-                col('YEAR').alias('year'),
                 'adm1_name',
+                col('YEAR').alias('year'),
                 col('APPROVED').alias('approved'),
+                col('MODIFIED').alias('revised'),
                 col('PAID').alias('executed'))
     )

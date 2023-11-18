@@ -59,7 +59,3 @@ for sheet in tqdm(disaggregated_data_sheets):
             normalized_row = [normalize_cell(cell.value) for i, cell in enumerate(row) if mask[i]]
             csv_writer.writerow(normalized_row)
 
-
-# COMMAND ----------
-
-
