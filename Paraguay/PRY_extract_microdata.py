@@ -27,7 +27,10 @@ Path(COUNTRY_MICRODATA_DIR).mkdir(parents=True, exist_ok=True)
 
 # Helper functions
 def normalize_cell(cell):
-    return unicodedata.normalize('NFKD', str(cell))
+    if type(cell) != str:
+        return cell
+    return ''.join(c for c in unicodedata.normalize('NFD', cell)
+                if unicodedata.category(c) != 'Mn')
 
 def is_named_column(cell):
     return cell.value is not None and "Unnamed" not in str(cell.value) and cell.value != ''
@@ -36,7 +39,6 @@ def is_named_column(cell):
 disaggregated_data_sheets = ['cen']
 
 # COMMAND ----------
-
 
 for sheet in tqdm(disaggregated_data_sheets):
     csv_file_path = f'{COUNTRY_MICRODATA_DIR}/{sheet}.csv'
@@ -58,4 +60,3 @@ for sheet in tqdm(disaggregated_data_sheets):
         for row in sheet_data.iter_rows(min_row=2):
             normalized_row = [normalize_cell(cell.value) for i, cell in enumerate(row) if mask[i]]
             csv_writer.writerow(normalized_row)
-

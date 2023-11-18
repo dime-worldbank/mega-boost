@@ -1,7 +1,7 @@
 # Databricks notebook source
 import dlt
 import unicodedata
-from pyspark.sql.functions import substring, col, lit, when, udf
+from pyspark.sql.functions import substring, col, lit, when, udf, trim, regexp_replace, initcap, concat
 from pyspark.sql.types import StringType
 
 
@@ -21,6 +21,7 @@ CSV_READ_OPTIONS = {
 
 # COMMAND ----------
 
+
 @dlt.table(name=f'pry_boost_bronze')
 def boost_bronze():
     # Load the data from CSV
@@ -33,40 +34,25 @@ def boost_bronze():
 
 @dlt.table(name=f'pry_boost_silver')
 def boost_silver():
-    # Load the bronze data
-    bronze_df = dlt.read(f'pry_boost_bronze')
-
-    # Define the standardization function
-    def clean_province_name(name):
-        SPECIAL_ADM1_MAP = {
-            'Alcance Nacional': 'Central Scope',
-            'Auxiliar Traspaso': 'Auxiliary Transfer',
-            'No Disponible': None
-        }
-
-        if not name:
-            return
-        
-        nfkd_form = unicodedata.normalize('NFKD', name)
-        name = ''.join([c for c in nfkd_form if not unicodedata.combining(c)]).split(' - ')[-1].strip().title()
-        
-        return SPECIAL_ADM1_MAP.get(name, name)
-        
-    
-    # Register the UDF
-    clean_province_udf = udf(clean_province_name, StringType())
-
-    # Add a new column 'admin1_name' using the clean_province_name function
-    silver_df = bronze_df.withColumn('adm1_name', clean_province_udf('GEO1'))
-    return silver_df
-
+    return (dlt.read(f'pry_boost_bronze')
+        .withColumn('adm1_name_tmp', 
+                    initcap(trim(regexp_replace(col("GEO1"), "^.+-", "")))
+        )
+        .withColumn('adm1_name',
+                    when(col("adm1_name_tmp") == 'Alcance Nacional', 'Central Scope')
+                    .when(col("adm1_name_tmp") == 'Auxiliar Traspaso', 'Auxiliary Transfer')
+                    .when(col("adm1_name_tmp") == 'No Disponible', None)
+                    .otherwise(col("adm1_name_tmp"))
+        )
+        .drop('adm1_name_tmp')
+    )
     
 @dlt.table(name=f'pry_boost_gold')
 def boost_gold():
     return (dlt.read(f'pry_boost_silver')
-        .filter((col('ECON4') != '600 - Inversión Financiera') &
-                (col('ECON5') != '730 - Amortización de la Deuda Pública Interna') &
-                (col('ECON5') != '740 - Amortización de la Deuda Pública Externa'))
+        .filter(~(col('ECON4').startswith("600 -") |
+                  col('ECON5').startswith("730 -") |
+                  col('ECON5').startswith('740 -')))
         .withColumn('country_name', lit(COUNTRY))
         .select('country_name',
                 'adm1_name',
