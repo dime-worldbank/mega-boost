@@ -62,5 +62,15 @@ def expenditure_by_country_adm1_year():
         .join(pop, on=["country_name", "adm1_name", "year"], how="inner")
         .withColumn("per_capita_expenditure", F.col("expenditure") / F.col("population"))
         .withColumn("per_capita_real_expenditure", F.col("real_expenditure") / F.col("population"))
+        .withColumn("adm1_name_for_map", 
+            F.when(
+                ((F.col("country_name") == 'Paraguay') & (F.col("adm1_name") == 'Asuncion')),
+                F.lit("Asunción")
+            ).when(
+                ((F.col("country_name") == 'Paraguay')),
+                F.concat(F.col("adm1_name"), F.lit(" Department"))
+            ).otherwise(
+                F.col("adm1_name")
+            ))
         .join(year_ranges, on=['country_name', "adm1_name"], how='left')
     )
