@@ -29,14 +29,24 @@ def cpi_factor():
 
 @dlt.table(name=f'expenditure_by_country_year')
 def expenditure_by_country_year():
-    year_ranges = (dlt.read('boost_gold')
+    boost_gold = dlt.read('boost_gold')
+    year_ranges = (boost_gold
         .groupBy("country_name")
         .agg(F.min("year").alias("earliest_year"), 
              F.max("year").alias("latest_year"))
     )
     cpi_factors = dlt.read('cpi_factor')
-    return (dlt.read(f'boost_gold')
-        .groupBy("country_name", "year").agg(F.sum("executed").alias("expenditure"))
+
+    return (boost_gold
+        .groupBy("country_name", "year").agg(
+            F.sum("executed").alias("expenditure"),
+            F.sum(
+                F.when(boost_gold["adm1_name"] != "Central Scope", boost_gold["executed"])
+            ).alias("decentralized_expenditure")
+        )
+        .withColumn("expenditure_decentralization",
+            F.col("decentralized_expenditure") / F.col("expenditure")
+        )
         .join(cpi_factors, on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
         .join(year_ranges, on=['country_name'], how='left')
