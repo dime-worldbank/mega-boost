@@ -35,25 +35,26 @@ def boost_bronze():
 
 @dlt.table(name=f'pak_boost_silver')
 def boost_silver():
-    return (dlt.read(f'pak_boost_bronze')
-        .withColumn('adm1_name',                     
-                    when(
-                        col("Admin0") == "Federal", "Islamabad"
-                    ).otherwise(
-                        when(
-                            col("Admin0") == "KP", "Khyber Paktunkhwa"
-                        ).otherwise(col("Admin0"))
-                    )       
+    return (
+        dlt.read(f'pak_boost_bronze')
+        .withColumn('adm1_name',
+            when(col("Admin0") == "Federal", "Islamabad")
+            .otherwise(
+                when(col("Admin0") == "KP", "Khyber Paktunkhwa")
+                .otherwise(col("Admin0"))
+            )
         )
     )
 
 @dlt.table(name=f'pak_boost_gold')
 def boost_gold():
     return (dlt.read(f'pak_boost_silver')
-        .withColumn('country_name', lit(COUNTRY))
-        .select('country_name',
-                'adm1_name',
-                'year',
-                'approved',
-                'executed')
+            .filter(~(col('econ1')== "A08 Loans and Advances"|
+                      col('econ1')=="A10 Principal Repayments of Loans"))
+            .withColumn('country_name', lit(COUNTRY))
+            .select('country_name',
+                    'adm1_name',
+                    'year',
+                    'approved',
+                    'executed')
     )
