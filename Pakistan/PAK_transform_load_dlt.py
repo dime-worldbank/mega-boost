@@ -52,6 +52,7 @@ def boost_gold():
             .filter(~((col('econ1')== "A08 Loans and Advances")|
                     (col('econ1')=="A10 Principal Repayments of Loans")))
             .withColumn('country_name', lit(COUNTRY))
+            .withColumn('revised', lit(None))
             .select('country_name',
                     'adm1_name',
                     'year',
