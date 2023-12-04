@@ -49,8 +49,8 @@ def boost_silver():
 @dlt.table(name=f'pak_boost_gold')
 def boost_gold():
     return (dlt.read(f'pak_boost_silver')
-            .filter(~(col('econ1')== "A08 Loans and Advances"|
-                      col('econ1')=="A10 Principal Repayments of Loans"))
+            .filter(~(col('econ1')== "A08 Loans and Advances")|
+                    (col('econ1')=="A10 Principal Repayments of Loans"))
             .withColumn('country_name', lit(COUNTRY))
             .select('country_name',
                     'adm1_name',
