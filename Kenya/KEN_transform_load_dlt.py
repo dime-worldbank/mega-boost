@@ -51,6 +51,8 @@ def your_bronze_table_silver():
 @dlt.table(name=f'ken_boost_gold')
 def your_gold_table():
     return (dlt.read(f'ken_boost_silver')
+        .filter(~((col('Class')== "2 Revenue")|
+                  (col('Class')=="4 Funds & Deposits (BTL)")))
         .withColumn('country_name', lit(COUNTRY))
         .select('country_name',
                 'adm1_name',
