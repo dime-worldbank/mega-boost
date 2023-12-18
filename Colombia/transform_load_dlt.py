@@ -1,6 +1,6 @@
 # Databricks notebook source
 import dlt
-from pyspark.sql.functions import substring, col, lit, when
+from pyspark.sql.functions import substring, col, lit, when, element_at, split
 
 # Note DLT requires the path to not start with /dbfs
 TOP_DIR = "/mnt/DAP/data/BOOSTProcessed"
@@ -46,10 +46,13 @@ def central_boost_silver():
              ))
   )
 
+@dlt.expect_or_drop("adm1_name_not_null", "adm1_name IS NOT NULL")
 @dlt.table(name=f'col_subnat_boost_silver')
 def subnat_boost_silver():
+  adm_lookup = spark.table('indicator_intermediate.col_subnational_adm2_adm1_lookup')
   return (dlt.read('col_subnat_boost_bronze')
-    # map adm2 to adm1
+    .select('*', element_at(split('admin1', ' ', 2), 1).cast('integer').alias("nso_code"))
+    .join(adm_lookup, on=["nso_code"], how="left")
   )
 
 @dlt.table(name='col_boost_gold')
@@ -68,7 +71,7 @@ def boost_gold():
       .withColumn('revised', lit(None))
       .select(col('Ano').alias('year'),
               'country_name',
-              col('admin1').alias('adm1_name'),
+              'adm1_name',
               col('Approved').alias('approved'),
               'revised',
               col('Executed').alias('executed'))
