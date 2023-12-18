@@ -10,7 +10,8 @@ def boost_gold():
     pry = spark.table('boost_intermediate.pry_boost_gold')
     ken = spark.table('boost_intermediate.ken_boost_gold')
     pak = spark.table('boost_intermediate.pak_boost_gold')
-    return moz.union(pry).union(ken).union(pak)
+    col = spark.table('boost_intermediate.col_boost_gold')
+    return moz.union(pry).union(ken).union(pak).union(col)
 
 @dlt.table(name=f'cpi_factor')
 def cpi_factor():
