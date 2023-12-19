@@ -60,18 +60,18 @@ def boost_gold():
   return(dlt.read('col_central_boost_silver')
     .withColumn('country_name', lit(COUNTRY))
     .withColumn('adm1_name', lit('Central Scope'))
-    .select('year',
-            'country_name',
+    .select('country_name',
             'adm1_name',
+            'year',
             col('ApropiacionDefinitiva').alias('approved'),
             col('Compromiso').alias('revised'),
             col('Pago').alias('executed'))
     .union(dlt.read('col_subnat_boost_silver')
       .withColumn('country_name', lit(COUNTRY))
       .withColumn('revised', lit(None))
-      .select(col('Ano').alias('year'),
-              'country_name',
+      .select('country_name',
               'adm1_name',
+              col('Ano').alias('year'),
               col('Approved').alias('approved'),
               'revised',
               col('Executed').alias('executed'))
