@@ -85,6 +85,12 @@ def expenditure_by_country_adm1_year():
             ).when(
                 ((F.col("country_name") == 'Pakistan') & (F.col("adm1_name") == 'Punjab')),
                 F.lit("PK-PB")
+            ).when(
+                ((F.col("country_name") == 'Colombia') & (F.col("adm1_name") == 'AMAZONAS')),
+                F.lit("Amazonas Department Colombia")
+            ).when(
+                ((F.col("country_name") == 'Colombia')),
+                F.concat(F.col("adm1_name"), F.lit(" DEPARTMENT"))
             ).otherwise(
                 F.col("adm1_name")
             ))
