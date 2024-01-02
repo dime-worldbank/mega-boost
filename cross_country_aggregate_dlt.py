@@ -4,15 +4,21 @@ from pyspark.sql import functions as F
 from pyspark.sql.window import Window
 
 # Adding a new country requires adding the country here
+country_codes = ['moz', 'pry', 'ken', 'pak', 'bfa', 'col']
+
 @dlt.table(name=f'boost_gold')
 def boost_gold():
-    moz = spark.table('boost_intermediate.moz_boost_gold')
-    pry = spark.table('boost_intermediate.pry_boost_gold')
-    ken = spark.table('boost_intermediate.ken_boost_gold')
-    pak = spark.table('boost_intermediate.pak_boost_gold')
-    col = spark.table('boost_intermediate.col_boost_gold')
-    bfa = spark.table('boost_intermediate.bfa_boost_gold')
-    return moz.union(pry).union(ken).union(pak).union(col).union(bfa)
+    unioned_df = None
+    for code in country_codes:
+        current_df = spark.table(f'boost_intermediate.{code}_boost_gold')
+        if "is_transfer" not in current_df.columns:
+            current_df = current_df.withColumn("is_transfer", F.lit(False))
+            
+        if unioned_df is None:
+            unioned_df = current_df
+        else:
+            unioned_df = unioned_df.union(current_df)
+    return unioned_df
 
 @dlt.table(name=f'cpi_factor')
 def cpi_factor():
@@ -42,6 +48,7 @@ def expenditure_by_country_year():
     cpi_factors = dlt.read('cpi_factor')
 
     return (boost_gold
+        .filter(~F.col('is_transfer'))
         .groupBy("country_name", "year").agg(
             F.sum("executed").alias("expenditure"),
             F.sum(
@@ -70,6 +77,7 @@ def expenditure_by_country_adm1_year():
         )
     
     return (dlt.read(f'boost_gold')
+        .filter(~F.col('is_transfer'))
         .groupBy("country_name", "adm1_name", "year").agg(F.sum("executed").alias("expenditure"))
         .join(cpi_factors, on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))

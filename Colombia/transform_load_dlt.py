@@ -1,6 +1,6 @@
 # Databricks notebook source
 import dlt
-from pyspark.sql.functions import substring, col, lit, when, element_at, split
+from pyspark.sql.functions import substring, col, lit, when, element_at, split, upper
 
 # Note DLT requires the path to not start with /dbfs
 TOP_DIR = "/mnt/DAP/data/BOOSTProcessed"
@@ -40,10 +40,61 @@ def subnat_boost_bronze():
 @dlt.table(name=f'col_central_boost_silver')
 def central_boost_silver():
   return (dlt.read('col_central_boost_bronze')
-    .filter(~((col('econ2') == "Adquisición de Activos Financieros") |
-              (col('econ3').startswith('03-03-05-001')) |
-              (col('econ3').startswith('03-03-05-002'))
-             ))
+    .filter(~(col('econ2') == "Adquisición de Activos Financieros"))
+    .withColumn('pension',
+      upper(col("func1")).like('%PENSIONES%') | upper(col("econ3")).like('%(DE PENSIONES)%')
+    )
+    .withColumn('is_transfer',
+      ((col('econ3').startswith('03-03-05-001')) |
+      (col('econ3').startswith('03-03-05-002'))) # These need to be included in functional calculations but excluded for total expenditure as functional calculations are only done at central level
+    )
+    .withColumn('func_sub',
+      when(
+        col("func1").isin("RAMA JUDICIAL", "JUSTICIA Y DEL DERECHO") , "judiciary"
+      ).when(
+        (col("admin1").startswith("151100") |
+         col("admin1").startswith("151201") |
+         col("admin1").startswith("151600") |
+         col("admin1").startswith("160101") |
+         col("admin1").startswith("160102")), "public safety"
+      )
+    )
+    .withColumn('func',
+      when(
+        col("func_sub").isin("judiciary", "public safety") , "Public order and safety"
+      ).when(
+        col("func1") == "DEFENSA Y POLICÍA", "Defense" # important for this to be after "Public order and safety" to exclude those line items
+      ).when(
+        col("func1").isin(
+          "AGRICULTURA Y DESARROLLO RURAL", 
+          "TRANSPORTE",
+          "MINAS Y ENERGÍA",
+          "TECNOLOGÍAS DE LA INFORMACIÓN Y LAS COMUNICACIONES",
+          "COMERCIO, INDUSTRIA Y TURISMO",
+          "EMPLEO PÚBLICO",
+        ), "Economic affairs"
+      ).when(
+        col("func1") == "AMBIENTE Y DESARROLLO SOSTENIBLE", "Environmental protection"
+      ).when(
+        col("func1") == "VIVIENDA, CIUDAD Y TERRITORIO", "Housing and community amenities"
+      ).when(
+        (col("admin1").startswith("1912") |
+         col("admin1").startswith("1913") |
+         col("admin1").startswith("1914")), "Social protection" 
+         # In excel there is overlap between SP & health, it's removed here
+      ).when(
+        col("func1") == "SALUD Y PROTECCIÓN SOCIAL", "Health" # important for this to be after Social protection
+      ).when(
+        col("func1").isin(
+          "CULTURA", 
+          "DEPORTE Y RECREACIÓN"
+        ), "Recreation, culture and religion"
+      ).when(
+        col("func1") == "EDUCACIÓN", "Education"
+      ).otherwise(
+        lit("General public services")
+      )
+    )
   )
 
 @dlt.expect_or_drop("adm1_name_not_null", "adm1_name IS NOT NULL")
@@ -65,7 +116,8 @@ def boost_gold():
             'year',
             col('ApropiacionDefinitiva').alias('approved'),
             col('Compromiso').alias('revised'),
-            col('Pago').alias('executed'))
+            col('Pago').alias('executed'),
+            'is_transfer')
     .union(dlt.read('col_subnat_boost_silver')
       .withColumn('country_name', lit(COUNTRY))
       .withColumn('revised', lit(None))
@@ -75,5 +127,6 @@ def boost_gold():
               col('Approved').alias('approved'),
               'revised',
               col('Executed').alias('executed'))
+      .withColumn('is_transfer', lit(False))
     )
   )
