@@ -11,7 +11,8 @@ def boost_gold():
     ken = spark.table('boost_intermediate.ken_boost_gold')
     pak = spark.table('boost_intermediate.pak_boost_gold')
     col = spark.table('boost_intermediate.col_boost_gold')
-    return moz.union(pry).union(ken).union(pak).union(col)
+    bfa = spark.table('boost_intermediate.bfa_boost_gold')
+    return moz.union(pry).union(ken).union(pak).union(col).union(bfa)
 
 @dlt.table(name=f'cpi_factor')
 def cpi_factor():
@@ -66,8 +67,8 @@ def expenditure_by_country_adm1_year():
         .groupBy("country_name", "adm1_name")
         .agg(F.min("year").alias("earliest_year"), 
              F.max("year").alias("latest_year"))
-    )
-
+        )
+    
     return (dlt.read(f'boost_gold')
         .groupBy("country_name", "adm1_name", "year").agg(F.sum("executed").alias("expenditure"))
         .join(cpi_factors, on=["country_name", "year"], how="inner")
@@ -91,6 +92,15 @@ def expenditure_by_country_adm1_year():
             ).when(
                 ((F.col("country_name") == 'Colombia')),
                 F.concat(F.col("adm1_name"), F.lit(" DEPARTMENT"))
+            ).when(
+                ((F.col("country_name")=="Kenya") & (F.col("adm1_name")=="Transnzoia")),
+                F.lit("Trans-Nzoia County")
+            ).when(
+                ((F.col("country_name")=="Kenya") & (F.col("adm1_name")=="Murang’A")),
+                F.lit("Murang'a County")
+            ).when(
+                ((F.col("country_name")=="Kenya") & (F.col("adm1_name")=="Tana River")),
+                F.lit("Tana River County")
             ).otherwise(
                 F.col("adm1_name")
             ))
