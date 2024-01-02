@@ -1,7 +1,7 @@
 # Databricks notebook source
 import dlt
 import unicodedata
-from pyspark.sql.functions import col, lower, initcap, trim, regexp_replace, when, lit, substring
+from pyspark.sql.functions import col, lower, initcap, trim, regexp_replace, when, lit, substring, expr
 from pyspark.sql.types import StringType
 
 
@@ -38,9 +38,9 @@ def boost_silver():
     return (
         dlt.read(f'pak_boost_bronze')
         .withColumn('adm1_name',
-            when(col("Admin0") == "Federal", "Islamabad")
+            when(col("Admin0") == "Federal", "Central Scope")
             .otherwise(
-                when(col("Admin0") == "KP", "Khyber Paktunkhwa")
+                when(col("Admin0") == "KP", "Khyber Pakhtunkhwa")
                 .otherwise(col("Admin0"))
             )
         )
@@ -52,10 +52,11 @@ def boost_gold():
             .filter(~((col('econ1')== "A08 Loans and Advances")|
                     (col('econ1')=="A10 Principal Repayments of Loans")))
             .withColumn('country_name', lit(COUNTRY))
-            .withColumn('revised', lit(None))
             .select('country_name',
                     'adm1_name',
                     'year',
                     'approved',
+                    expr("CAST(NULL AS STRING) as revised"),
                     'executed')
+            
     )

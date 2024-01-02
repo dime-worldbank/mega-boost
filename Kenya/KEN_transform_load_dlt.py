@@ -33,7 +33,7 @@ def boost_bronze():
     return bronze_df
 
 @dlt.table(name=f'ken_boost_silver')
-def your_bronze_table_silver():
+def boost_silver():
     return (dlt.read(f'ken_boost_bronze')
         .withColumn('adm1_name', 
                     when(col("Counties_Geo2").isNotNull(),
@@ -42,14 +42,17 @@ def your_bronze_table_silver():
                          )
                          .when(lower(col("Counties_Geo2")).like("%nation%"), 'Central Scope')
                          .otherwise('Other') # When 0
-                    )
-                    .otherwise('Other') # When Null
+                    ).otherwise('Other') # When Null
+        ).withColumn('adm1_name',
+                     when(col("adm1_name") == 'Muranga', "Murang’A")
+                    .when(col("adm1_name") == "Transnzoia",  'Trans Nzoia')
+                    .otherwise(col("adm1_name"))
         )
         .withColumn('year', substring(col('Year'), 1, 4).cast('int'))
     )
     
 @dlt.table(name=f'ken_boost_gold')
-def your_gold_table():
+def boost_gold():
     return (dlt.read(f'ken_boost_silver')
         .filter(~((col('Class')== "2 Revenue")|
                   (col('Class')=="4 Funds & Deposits (BTL)")))
