@@ -13,6 +13,8 @@ def boost_gold():
         current_df = spark.table(f'boost_intermediate.{code}_boost_gold')
         if "is_transfer" not in current_df.columns:
             current_df = current_df.withColumn("is_transfer", F.lit(False))
+        if "func" not in current_df.columns:
+            current_df = current_df.withColumn("func", F.lit(None))
             
         if unioned_df is None:
             unioned_df = current_df
@@ -113,4 +115,19 @@ def expenditure_by_country_adm1_year():
                 F.col("adm1_name")
             ))
         .join(year_ranges, on=['country_name', "adm1_name"], how='left')
+    )
+
+@dlt.table(name=f'expenditure_by_country_func_year')
+def expenditure_by_country_func_year():
+    transfers = (dlt.read('boost_gold')
+        .filter(F.col('is_transfer'))
+        .groupBy("country_name", "year")
+        .agg(F.sum("executed").alias("expenditure_transfered"))
+        .withColumn('func', F.lit("General public services"))
+    )
+    return (dlt.read(f'boost_gold')
+        .groupBy("country_name", "func", "year")
+        .agg(F.sum("executed").alias("expenditure_raw"))
+        .join(transfers, on=["country_name", "func", "year"], how="left")
+        .withColumn('expenditure', F.col("expenditure_raw")-F.coalesce(F.col("expenditure_transfered"), F.lit(0)))
     )

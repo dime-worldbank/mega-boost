@@ -117,7 +117,8 @@ def boost_gold():
             col('ApropiacionDefinitiva').alias('approved'),
             col('Compromiso').alias('revised'),
             col('Pago').alias('executed'),
-            'is_transfer')
+            'is_transfer',
+            'func')
     .union(dlt.read('col_subnat_boost_silver')
       .withColumn('country_name', lit(COUNTRY))
       .withColumn('revised', lit(None))
@@ -128,5 +129,6 @@ def boost_gold():
               'revised',
               col('Executed').alias('executed'))
       .withColumn('is_transfer', lit(False))
+      .withColumn('func', lit("General public services"))
     )
   )
