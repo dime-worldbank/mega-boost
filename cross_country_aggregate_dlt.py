@@ -131,3 +131,20 @@ def expenditure_by_country_func_year():
         .join(transfers, on=["country_name", "func", "year"], how="left")
         .withColumn('expenditure', F.col("expenditure_raw")-F.coalesce(F.col("expenditure_transfered"), F.lit(0)))
     )
+
+@dlt.table(name='quality_boost_agg')
+@dlt.expect_or_fail('country has subnational agg', 'row_count IS NOT NULL')
+def quality_exp_by_country_year():
+    country_codes_upper = [c.upper() for c in country_codes]
+    boost_countries = (spark.table('indicator.country')
+        .filter(F.col('country_code').isin(country_codes_upper))
+        .select('country_code', 'country_name')
+    )
+    assert boost_countries.count() == len(country_codes),\
+        f'expect all BOOST countries ({country_codes_upper}) to be present in indicator.country table ({boost_countries.select("country_code").collect()})'
+
+    return (dlt.read('expenditure_by_country_adm1_year')
+        .groupBy('country_name')
+        .agg(F.count('*').alias('row_count'))
+        .join(boost_countries, on=['country_name'], how="right")
+    )
