@@ -3,31 +3,29 @@
 
 # COMMAND ----------
 
-from glob import glob
 import re
 import unicodedata
 from pathlib import Path
 import openpyxl
 import csv
 import pandas as pd
-
-TOP_DIR = "/dbfs/mnt/DAP/data/BOOSTProcessed"
-INPUT_DIR = f"{TOP_DIR}/Documents/input/Countries"
-WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
-COUNTRY = 'Mozambique'
-COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/microdata_csv/{COUNTRY}'
+import sys
+import os
 
 # COMMAND ----------
 
-moz_excel_files = list(glob(f"{INPUT_DIR}/{COUNTRY}*.xlsx"))
-assert len(moz_excel_files) == 1, f'expect there to be 1 Mozambique boost data file, found {len(moz_excel_files)}'
+# MAGIC %run ../utils
 
-Path(COUNTRY_MICRODATA_DIR).mkdir(parents=True, exist_ok=True)
+# COMMAND ----------
+
+COUNTRY = 'Mozambique'
 
 # If there are multiple data sheets, we use the same header to ensure consistent column names
 cleaned_header = None
 
-filename = moz_excel_files[0]
+microdata_csv_dir = prepare_microdata_csv_dir(COUNTRY)
+
+filename = input_excel_filename(COUNTRY)
 workbook = openpyxl.open(filename, read_only=True, data_only=True)
 
 for sheet_name in workbook.sheetnames:
@@ -35,7 +33,7 @@ for sheet_name in workbook.sheetnames:
         continue
     print(f'Reading {COUNTRY} BOOST coded microdata from sheet {sheet_name}')
     sheet = workbook[sheet_name]
-    csv_file_path = f'{COUNTRY_MICRODATA_DIR}/{sheet_name}.csv'
+    csv_file_path = f'{microdata_csv_dir}/{sheet_name}.csv'
 
     with open(csv_file_path, 'w', encoding='utf-8') as csv_file:
         csv_writer = csv.writer(csv_file)
