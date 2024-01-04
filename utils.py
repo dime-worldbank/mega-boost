@@ -33,6 +33,8 @@ def get_cci_metadata(prune=False):
 
     columns = ["country", "fiscal_year", "data_source", "updated_at"]
     meta_df = pd.DataFrame(columns=columns)
+
+    countries = spark.table('indicator.country').toPandas()
     
     for filename in tqdm(files):
         try:
@@ -43,21 +45,34 @@ def get_cci_metadata(prune=False):
             print(e)
             continue
         
-        meta_columns = ['Country', 'Fiscal year']
-        country_info = df.loc[:, meta_columns]\
+        meta_columns = {'Country': 'country', 'Fiscal year': 'fiscal_year'}
+        country_info = df.loc[:, meta_columns.keys()]\
                          .dropna().drop_duplicates()\
-                         .rename(columns={'Country': 'country', 'Fiscal year': 'fiscal_year'})
-        assert country_info.shape == (1, 2), f'Unexpected country information {country_info} from {filename}'
+                         .rename(columns=meta_columns)\
+                         .iloc[0:1, :]
+        assert country_info.shape == (1, 2), f'Unexpected country information {country_info} with shape {country_info.shape} from {filename}'
         
         country_info['data_source'] = filename
         country_info['updated_at'] = os.path.getmtime(filename)
-        country = country_info.country[0]
-        country_in_meta_df = meta_df[meta_df.country == country]
+        country_row = country_info.iloc[0]
+
+        # convert country code to country name
+        if len(country_row.country) == 3 and country_row.country.upper() == country_row.country:
+            country_found = countries[countries.country_code == country_row.country]
+            if country_found.empty:
+                print(f"Unable to look up country code {country_row.country} from {filename}. Skipping")
+                continue
+            country_name = country_found.iloc[0].country_name
+            country_info['country'] = country_name
+        else:
+            country_name = country_row.country
+
+        country_in_meta_df = meta_df[meta_df.country == country_name]
         if not country_in_meta_df.empty:
             existing_country = country_in_meta_df.iloc[0]
             file_basename = os.path.basename(filename)
             existing_file_basename = os.path.basename(existing_country.data_source)
-            print(f'Skipping {file_basename} because a more recent version of {country} already processed: {existing_file_basename} last modified {existing_country.updated_at}')
+            print(f'Skipping {file_basename} because a more recent version of {country_name} already processed: {existing_file_basename} last modified {existing_country.updated_at}')
             if prune:
                 dbutils.fs.rm(filename.replace("/dbfs", ""))
                 print(f"Pruned {file_basename}")

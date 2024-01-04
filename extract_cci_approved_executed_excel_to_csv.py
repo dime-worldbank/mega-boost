@@ -18,7 +18,7 @@ merged_metadata_df
 # COMMAND ----------
 
 to_process_df = merged_metadata_df[merged_metadata_df.updated_at > merged_metadata_df.updated_at_old]
-to_process_df
+display(to_process_df)
 
 # COMMAND ----------
 
@@ -36,21 +36,24 @@ def process_country(meta_row):
     
     for sheet_name in ['Approved', 'Executed']:
         df = pd.read_excel(filename, sheet_name=sheet_name, na_values=['..'])
-        unnamed_cols = df.filter(regex='^Unnamed.+', axis=1).columns
-        if len(unnamed_cols) < 1:
-            unnamed_cols = df.filter(regex='^[\s|\.]+$', axis=1).columns
-        assert len(unnamed_cols) > 0, f'Expect to find an unnamed or blank column in {df.columns} from {filename}'
+        
         first_year_col = next(col for col in df.columns if str(col).startswith('200'))
-        category_col = df.columns[df.columns.get_loc(first_year_col)-1]
-        data = df.loc[:, category_col:unnamed_cols[0]].dropna(axis=1, how="all")
+        first_year_col_index = df.columns.get_loc(first_year_col)
+        
+        for col_index, col_name in enumerate(df.columns[first_year_col_index:], start=first_year_col_index):
+            if not str(col_name).startswith('200'):
+                last_year_col_index = col_index - 1
+                break
+  
+        category_col = df.columns[first_year_col_index-1]
+        last_year_col = df.columns[last_year_col_index]
+        data = df.loc[:, category_col:last_year_col].dropna(axis=1, how="all")
         data.columns = ['category'] + list(range(2006, 2006+len(data.columns)-1))
         csv_filename = f"{csv_dir}/{sheet_name}.csv"
         data.to_csv(csv_filename, index=False)
+    return data.shape[0] # only return the number of rows of executed for quick sanity check
 
-    return data # only return executed for quick ref
-
-result_df = to_process_df.progress_apply(process_country, axis=1, result_type="expand")
-result_df
+to_process_df.progress_apply(process_country, axis=1)
 
 # COMMAND ----------
 
