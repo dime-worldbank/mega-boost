@@ -1,31 +1,22 @@
 # Databricks notebook source
-# MAGIC %pip install openpyxl unidecode
+# MAGIC %run ../utils
 
 # COMMAND ----------
 
-from glob import glob
+# MAGIC %pip install unidecode
+
+# COMMAND ----------
+
 import re
-import unicodedata
-from pathlib import Path
-# import openpyxl
-import csv
 import pandas as pd
 from unidecode import unidecode
 
-TOP_DIR = "/dbfs/mnt/DAP/data/BOOSTProcessed"
-INPUT_DIR = f"{TOP_DIR}/Documents/input/Countries"
-WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
 COUNTRY = 'Colombia'
-COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/microdata_csv/{COUNTRY}'
+microdata_csv_dir = prepare_microdata_csv_dir(COUNTRY)
+filename = input_excel_filename(COUNTRY)
 
 # COMMAND ----------
 
-excel_files = list(glob(f"{INPUT_DIR}/{COUNTRY}*.xlsx"))
-assert len(excel_files) == 1, f'expect there to be 1 {COUNTRY} boost data file, found {len(excel_files)}'
-
-Path(COUNTRY_MICRODATA_DIR).mkdir(parents=True, exist_ok=True)
-
-filename = excel_files[0]
 central = pd.read_excel(filename, sheet_name='Raw data', usecols='A:J')
 subnational = pd.read_excel(filename, sheet_name='subnational', usecols='A:F')
 
@@ -66,5 +57,5 @@ assert subnational.shape[0] >= min_num_rows_subnat, f'Expect to find at least {m
 
 # COMMAND ----------
 
-central.to_csv(f'{COUNTRY_MICRODATA_DIR}/central.csv', index=False)
-subnational.to_csv(f'{COUNTRY_MICRODATA_DIR}/subnational.csv', index=False)
+central.to_csv(f'{microdata_csv_dir}/central.csv', index=False)
+subnational.to_csv(f'{microdata_csv_dir}/subnational.csv', index=False)

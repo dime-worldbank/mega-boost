@@ -1,44 +1,22 @@
 # Databricks notebook source
-# MAGIC %pip install openpyxl tqdm
+# MAGIC %run ../utils
 
 # COMMAND ----------
 
-from glob import glob
 from tqdm import tqdm
-import re
 import unicodedata
 import pandas as pd
-from pathlib import Path
 import openpyxl
 import csv
-import pandas as pd
 
-TOP_DIR = "/dbfs/mnt/DAP/data/BOOSTProcessed"
-INPUT_DIR = f"{TOP_DIR}/Documents/input/Countries"
-WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
 COUNTRY = 'Paraguay'
-COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/microdata_csv/{COUNTRY}'
-
-pry_excel_files = list(glob(f"{INPUT_DIR}/{COUNTRY}*.xlsx"))
-assert len(pry_excel_files) == 1, f'expect there to be 1 Paraguay boost data file, found {len(pry_excel_files)}'
-filename = pry_excel_files[0]
-
-Path(COUNTRY_MICRODATA_DIR).mkdir(parents=True, exist_ok=True)
-
-# Helper functions
-def normalize_cell(cell):
-    if type(cell) != str:
-        return cell
-    return ''.join(c for c in unicodedata.normalize('NFD', cell)
-                if unicodedata.category(c) != 'Mn')
-
-def is_named_column(cell):
-    return cell.value is not None and "Unnamed" not in str(cell.value) and cell.value != ''
+microdata_csv_dir = prepare_microdata_csv_dir(COUNTRY)
+filename = input_excel_filename(COUNTRY)
 
 # TODO: Figure out the difference between cen and Municipalidades
 disaggregated_data_sheets = ['cen']
 for sheet in tqdm(disaggregated_data_sheets):
-    csv_file_path = f'{COUNTRY_MICRODATA_DIR}/{sheet}.csv'
+    csv_file_path = f'{microdata_csv_dir}/{sheet}.csv'
     # Open the Excel file with openpyxl
     wb = openpyxl.load_workbook(filename, read_only=True)
     sheet_data = wb[sheet]

@@ -1,5 +1,5 @@
 # Databricks notebook source
-# MAGIC %pip install openpyxl
+# MAGIC %run ../utils
 
 # COMMAND ----------
 
@@ -9,12 +9,6 @@ from pathlib import Path
 import openpyxl
 import csv
 import pandas as pd
-import sys
-import os
-
-# COMMAND ----------
-
-# MAGIC %run ../utils
 
 # COMMAND ----------
 
