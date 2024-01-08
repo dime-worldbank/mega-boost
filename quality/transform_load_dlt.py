@@ -53,6 +53,35 @@ def quality_total_silver():
 
 # COMMAND ----------
 
+@dlt.table(name=f'quality_functional_silver')
+def quality_functional_silver():
+    udf_capitalize  = F.udf(lambda x: str(x).capitalize(), StringType())
+    bronze = dlt.read('quality_cci_bronze')
+    year_cols = list(col_name for col_name in bronze.columns if col_name.isnumeric())
+    return (bronze
+        .filter(F.col('category').contains('COFOG'))
+        .withColumn("func_tmp", F.regexp_replace(F.col("category"), "\\(.*\\)", ""))
+        .withColumn('func',
+            F.when(
+                F.col("func_tmp").contains("Economic relations") , "Economic affairs"
+            ).when(
+                F.col("func_tmp").contains("Housing") , "Housing and community amenities"
+            ).when(
+                F.col("func_tmp").contains("Environment") , "Environmental protection"
+            ).otherwise(
+                F.trim(udf_capitalize(F.col("func_tmp")))
+            )
+        )
+        .melt(ids=["country_name", "approved_or_executed", "func"], 
+            values=year_cols, 
+            variableColumnName="year", 
+            valueColumnName="amount"
+        )
+        .filter(F.col('amount').isNotNull())
+    )
+
+# COMMAND ----------
+
 # Exploratory for Manuel. Remove if they are not going to use
 @dlt.table(name=f'quality_judiciary_silver')
 def quality_judiciary_silver():
