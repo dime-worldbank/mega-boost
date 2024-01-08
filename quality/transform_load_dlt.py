@@ -50,3 +50,20 @@ def quality_total_silver():
         )
         .filter(F.col('amount').isNotNull())
     )
+
+# COMMAND ----------
+
+# Exploratory for Manuel. Remove if they are not going to use
+@dlt.table(name=f'quality_judiciary_silver')
+def quality_judiciary_silver():
+    bronze = dlt.read('quality_cci_bronze')
+    year_cols = list(col_name for col_name in bronze.columns if col_name.isnumeric())
+    return (bronze
+        .filter(F.col('category') == 'Spending in judiciary')
+        .melt(ids=["country_name", "approved_or_executed"], 
+            values=year_cols, 
+            variableColumnName="year", 
+            valueColumnName="amount"
+        )
+        .filter(F.col('amount').isNotNull())
+    )
