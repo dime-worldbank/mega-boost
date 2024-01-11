@@ -97,11 +97,11 @@ def expenditure_by_country_adm1_year():
                 ((F.col("country_name") == 'Pakistan') & (F.col("adm1_name") == 'Punjab')),
                 F.lit("PK-PB")
             ).when(
-                ((F.col("country_name") == 'Colombia') & (F.col("adm1_name") == 'AMAZONAS')),
+                ((F.col("country_name") == 'Colombia') & (F.col("adm1_name") == 'Amazonas')),
                 F.lit("Amazonas Department Colombia")
             ).when(
                 ((F.col("country_name") == 'Colombia')),
-                F.concat(F.col("adm1_name"), F.lit(" DEPARTMENT"))
+                F.concat(F.col("adm1_name"), F.lit(" Department"))
             ).when(
                 ((F.col("country_name")=="Kenya") & (F.col("adm1_name")=="Transnzoia")),
                 F.lit("Trans-Nzoia County")
@@ -119,17 +119,28 @@ def expenditure_by_country_adm1_year():
 
 @dlt.table(name=f'expenditure_by_country_func_year')
 def expenditure_by_country_func_year():
-    transfers = (dlt.read('boost_gold')
+    boost_gold = dlt.read('boost_gold')
+    year_ranges = (boost_gold
+        .groupBy("country_name")
+        .agg(F.min("year").alias("earliest_year"), 
+             F.max("year").alias("latest_year"))
+    )
+    cpi_factors = dlt.read('cpi_factor')
+    
+    transfers = (boost_gold
         .filter(F.col('is_transfer'))
         .groupBy("country_name", "year")
         .agg(F.sum("executed").alias("expenditure_transfered"))
         .withColumn('func', F.lit("General public services"))
     )
-    return (dlt.read(f'boost_gold')
+    return (boost_gold
         .groupBy("country_name", "func", "year")
         .agg(F.sum("executed").alias("expenditure_raw"))
         .join(transfers, on=["country_name", "func", "year"], how="left")
         .withColumn('expenditure', F.col("expenditure_raw")-F.coalesce(F.col("expenditure_transfered"), F.lit(0)))
+        .join(cpi_factors, on=["country_name", "year"], how="inner")
+        .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
+        .join(year_ranges, on=['country_name'], how='left')
     )
 
 @dlt.table(name='quality_boost_agg')
