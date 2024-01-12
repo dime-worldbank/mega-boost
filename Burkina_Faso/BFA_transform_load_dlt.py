@@ -85,7 +85,7 @@ def boost_silver():
         .when(col('FUNCTION1').startswith('08'), 'Recreation, culture and religion')              
         .when(col('FUNCTION1').startswith('09'), 'Education')        
         .when(col('FUNCTION1').startswith('10'), 'Social protection')    
-    )
+    ).withColumn('is_transfer', lit(False))
     return silver_df
 
 @dlt.table(name=f'bfa_boost_gold')
@@ -105,6 +105,7 @@ def boost_gold():
                        col('APPROVED').alias('approved'),
                        col('REVISED').alias('revised'),
                        col('PAID').alias('executed'),
+                       'is_transfer',
                        'func')
               )
     return gold_df
