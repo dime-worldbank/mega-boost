@@ -1,8 +1,8 @@
 # Databricks notebook source
 import dlt
 import unicodedata
-from pyspark.sql.functions import col, lower, initcap, trim, regexp_replace, when, lit, substring
-from pyspark.sql.types import StringType
+from pyspark.sql.functions import col, lower, initcap, trim, regexp_replace, when, lit, substring, concat
+from pyspark.sql.types import StringType, DoubleType
 
 
 # Note DLT requires the path to not start with /dbfs
@@ -47,20 +47,20 @@ def boost_silver():
                      when(col("adm1_name") == 'Muranga', "Murang’A")
                     .when(col("adm1_name") == "Transnzoia",  'Trans Nzoia')
                     .otherwise(col("adm1_name"))
-        )
-        .withColumn('year', substring(col('Year'), 1, 4).cast('int'))
+        ).withColumn('year', concat(lit('20'), substring(col('Year'), -2, 2)).cast('int'))
+
     )
     
 @dlt.table(name=f'ken_boost_gold')
 def boost_gold():
     return (dlt.read(f'ken_boost_silver')
-        .filter(~((col('Class')== "2 Revenue")|
-                  (col('Class')=="4 Funds & Deposits (BTL)")))
+        .filter(~col('Class').isin('2 Revenue', '4 Funds & Deposits (BTL)'))
         .withColumn('country_name', lit(COUNTRY))
         .select('country_name',
                 'adm1_name',
                 'year',
-                col('Initial_Budget_Printed_Estimate').alias('approved'),
+                col('Initial_Budget_Printed_Estimate').alias('approved').cast(DoubleType()),
                 col('Final_Budget_Approved_Estimate').alias('revised'),
-                col('`Final_Expenditure_Total_Payment_Comm.`').alias('executed'))
+                col('`Final_Expenditure_Total_Payment_Comm.`').alias('executed'),
+                )
     )
