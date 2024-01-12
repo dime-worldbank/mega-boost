@@ -4,7 +4,7 @@ from pyspark.sql import functions as F
 from pyspark.sql.window import Window
 
 # Adding a new country requires adding the country here
-country_codes = ['moz', 'pry', 'ken', 'pak', 'bfa', 'col']
+country_codes = ['moz', 'pry', 'ken', 'pak', 'bfa', 'col', 'cod']
 
 @dlt.table(name=f'boost_gold')
 def boost_gold():
@@ -15,6 +15,9 @@ def boost_gold():
             current_df = current_df.withColumn("is_transfer", F.lit(False))
         if "func" not in current_df.columns:
             current_df = current_df.withColumn("func", F.lit(None))
+        
+        col_order = ['country_name', 'adm1_name', 'year', 'approved','revised', 'executed', 'is_transfer', 'func']
+        current_df = current_df.select(col_order)
             
         if unioned_df is None:
             unioned_df = current_df
