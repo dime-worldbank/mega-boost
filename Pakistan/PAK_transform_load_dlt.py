@@ -35,14 +35,28 @@ def boost_bronze():
 
 @dlt.table(name=f'pak_boost_silver')
 def boost_silver():
-    return (
-        dlt.read(f'pak_boost_bronze')
+    return (dlt.read(f'pak_boost_bronze')
         .withColumn('adm1_name',
             when(col("Admin0") == "Federal", "Central Scope")
             .otherwise(
                 when(col("Admin0") == "KP", "Khyber Pakhtunkhwa")
                 .otherwise(col("Admin0"))
             )
+        ).withColumn(
+            'func',
+            when((col('func1') == '0') & col('admin1').startswith('H01'), 'Health')
+            .when((col('func1') == '0') & col('admin1').startswith('E01'), 'Education')
+            .when(col('func1').startswith('01'), 'General public services')
+            .when(col('func1').startswith('02'), 'Defence')
+            .when(col('func1').startswith('03'), 'Public order and safety')
+            .when(col('func1').startswith('04'), 'Economic affairs')
+            .when(col('func1').startswith('05'), 'Environmental protection')
+            .when(col('func1').startswith('06'), 'Housing and community amenities')
+            .when(col('func1').startswith('07'), 'Health')
+            .when(col('func1').startswith('08'), 'Recreation, culture and religion')
+            .when(col('func1').startswith('09'), 'Education')
+            .when(col('func1').startswith('10'), 'Social protection')
+            .otherwise(lit("Other")) # TODO: func1 (blank) is currently marked as 'Other'
         )
     )
 
@@ -57,6 +71,6 @@ def boost_gold():
                     'year',
                     'approved',
                     expr("CAST(NULL AS STRING) as revised"),
-                    'executed')
-            
+                    'executed',
+                    'func')
     )
