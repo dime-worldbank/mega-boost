@@ -31,16 +31,17 @@ for sheet in tqdm(disaggregated_data_sheets):
     # In Burkina Faso in BOOST_ we modify Approved.1, Revised, Paid and GEO_REGION
     if sheet == 'BOOST_':
         column_mapping = {
-            'GEO_REGION': 'GEO1',
-            'Approved.1': 'APPROVED',
+            'GEO_REG': 'GEO1',
+            'Approved.1': 'APPROVED_1',
             'Paid': 'PAID',
             'Revised': 'REVISED'
         }
         # Rename columns based on the mapping
         df.rename(columns=column_mapping, inplace=True)
-    
-    # Since there are common years between the sheets, we retain the sheet name in the sabed CSV
-    df['sheet_name'] = sheet
 
     # Write to CSV
     df.to_csv(csv_file_path, index=False, encoding='utf-8')
+
+# COMMAND ----------
+
+
