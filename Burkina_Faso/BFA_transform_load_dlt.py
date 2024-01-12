@@ -25,7 +25,7 @@ def boost_bronze_1():
                  .option("inferSchema", "true")
                  .load(f'{COUNTRY_MICRODATA_DIR}/BOOST.csv'))
 
-    bronze1_selected_columns = ['YEAR', 'GEO1', 'ECON1', 'ECON2', 'APPROVED', 'MODIFIED', 'PAID'] 
+    bronze1_selected_columns = ['YEAR', 'GEO1', 'ECON1', 'ECON2', 'FUNCTION1', 'APPROVED', 'MODIFIED', 'PAID'] 
     bronze1_dlt = bronze_df.select(*bronze1_selected_columns)
     bronze1_filtered_dlt = bronze1_dlt.na.drop("all")
     bronze1_filtered_dlt = bronze1_filtered_dlt.filter(col("YEAR") < 2017)
@@ -40,7 +40,7 @@ def boost_bronze_2():
                  .option("inferSchema", "true")
                  .load(f'{COUNTRY_MICRODATA_DIR}/BOOST_.csv'))
 
-    bronze2_selected_columns = ["YEAR", "GEO1", "ECON1", "ECON2", "APPROVED_1", "REVISED", "PAID"] 
+    bronze2_selected_columns = ["YEAR", "GEO1", "ECON1", "ECON2", "FUNCTION1", "APPROVED_1", "REVISED", "PAID"] 
     bronze2_dlt = bronze_df.select(*bronze2_selected_columns)
     bronze2_filtered_dlt = bronze2_dlt.na.drop("all")
     return bronze2_filtered_dlt
@@ -54,7 +54,6 @@ def boost_bronze_combined():
     bronze2 = bronze2.withColumnRenamed("APPROVED_1", "APPROVED")
     # Concatenate the two DataFrames
     combined_bronze = bronze1.union(bronze2)
-
     return combined_bronze
 
 
@@ -71,9 +70,21 @@ def boost_silver():
     # Replace specific values in adm1_name
     silver_df = silver_df.withColumn(
         'adm1_name',
-        when(col('adm1_name') == 'Central', 'Central Scope')
-        .when(col('adm1_name') == 'Region Etrangere', 'Other')
+        when(col('adm1_name').isin('Central', 'Centrale'), 'Central Scope')
+        .when(col('adm1_name') == 'Region Etrangere', 'Other') # TODO: Check if the region etrandere should be central scope
         .otherwise(col('adm1_name'))
+    ).withColumn(
+        'func',
+        when(col('FUNCTION1').startswith('01'), 'General public services')
+        .when(col('FUNCTION1').startswith('02'), 'Defence')
+        .when(col('FUNCTION1').startswith('03'), 'Public order and safety')
+        .when(col('FUNCTION1').startswith('04'), 'Economic affairs')
+        .when(col('FUNCTION1').startswith('05'), 'Environmental protection')
+        .when(col('FUNCTION1').startswith('06'), 'Housing and community amenities')
+        .when(col('FUNCTION1').startswith('07'), 'Health')
+        .when(col('FUNCTION1').startswith('08'), 'Recreation, culture and religion')              
+        .when(col('FUNCTION1').startswith('09'), 'Education')        
+        .when(col('FUNCTION1').startswith('10'), 'Social protection')    
     )
     return silver_df
 
@@ -83,8 +94,8 @@ def boost_gold():
     
     gold_df = (silver
                .filter(
-                   (col('ECON1') != '1 Amortissement, charge de la dette et depenses en attenuation des recettes') |
-                   ((col('ECON1') == '1 Amortissement, charge de la dette et depenses en atténuation des recettes') &
+                   (col('ECON1') != '1 Amortissement, charge de la dette et depenses en attenuation des recettes ') |
+                   ((col('ECON1') == '1 Amortissement, charge de la dette et depenses en attenuation des recettes ') &
                     (col('ECON2') == '65 Interets et frais financiers'))
                    )
                .withColumn('country_name', lit(COUNTRY))
@@ -93,7 +104,8 @@ def boost_gold():
                        col('YEAR').alias('year').cast('int'),
                        col('APPROVED').alias('approved'),
                        col('REVISED').alias('revised'),
-                       col('PAID').alias('executed'))
+                       col('PAID').alias('executed'),
+                       'func')
               )
     return gold_df
 
