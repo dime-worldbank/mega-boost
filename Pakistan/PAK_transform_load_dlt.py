@@ -57,7 +57,7 @@ def boost_silver():
             .when(col('func1').startswith('09'), 'Education')
             .when(col('func1').startswith('10'), 'Social protection')
             .otherwise(lit("Other")) # TODO: func1 (blank) is currently marked as 'Other'
-        )
+        ).withColumn('is_transfer', lit(False))
     )
 
 @dlt.table(name=f'pak_boost_gold')
@@ -70,7 +70,8 @@ def boost_gold():
                     'adm1_name',
                     'year',
                     'approved',
-                    expr("CAST(NULL AS STRING) as revised"),
+                    expr("CAST(NULL AS DOUBLE) as revised"),
                     'executed',
+                    'is_transfer',
                     'func')
     )
