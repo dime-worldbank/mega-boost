@@ -146,6 +146,14 @@ def expenditure_by_country_func_year():
         .join(year_ranges, on=['country_name'], how='left')
     )
 
+@dlt.table(name=f'edu_private_expenditure_by_country_year')
+def edu_private_expenditure_by_country_year():
+    cpi_factors = dlt.read('cpi_factor')
+    return (spark.table('indicator.edu_private_spending')
+        .join(cpi_factors, on=["country_name", "year"], how="inner")
+        .withColumn("real_expenditure", F.col("edu_private_spending_current_lcu") / F.col("cpi_factor"))
+    )
+
 @dlt.table(name='quality_boost_agg')
 @dlt.expect_or_fail('country has subnational agg', 'row_count IS NOT NULL')
 def quality_exp_by_country_year():
