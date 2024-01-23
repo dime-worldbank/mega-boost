@@ -56,16 +56,50 @@ def boost_silver():
                             col("Adm5En") == "Central", "Central Scope"
                         ).otherwise(col("Adm5En"))
                     ))
+        .withColumn('func_sub',
+            when(
+                col("Func1").startswith('03') & (col('Func2') == '03311 Tribunais') , "judiciary"
+            ).when(
+                col("Func1").startswith('03'), "public safety" # important for this to be after judiciary
+            )
+        )
+        .withColumn('func',
+            when(
+                col('Func1').startswith("01"), "General public services"
+            ).when(
+                col('Func1').startswith("02"), "Defense"
+            ).when(
+                col("func_sub").isin("judiciary", "public safety") , "Public order and safety"
+            ).when(
+                col('Func1').startswith("04"), "Economic affairs"
+            ).when(
+                col('Func1').startswith("05"), "Environmental protection"
+            ).when(
+                col('Func1').startswith("06"), "Housing and community amenities"
+            ).when(
+                col('Func1').startswith("07"), "Health"
+            ).when(
+                col('Func1').startswith("08"), "Recreation, culture and religion"
+            ).when(
+                col('Func1').startswith("09"), "Education"
+            ).when(
+                col('Func1').startswith("10"), "Social protection"
+            )
+        )
     )
     
 @dlt.table(name=f'moz_boost_gold')
 def boost_gold():
     return (dlt.read(f'moz_boost_silver')
         .withColumn('country_name', lit(COUNTRY))
+        .withColumn('is_transfer', lit(False))
         .select('country_name',
                 'adm1_name',
                 col('Year').alias('year'),
                 col('DotacaoInicial').alias('approved'),
                 col('DotacaoActualizada').alias('revised'),
-                col('Execution').alias('executed'))
+                col('Execution').alias('executed'),
+                'is_transfer',
+                'func',
+        )
     )
