@@ -72,6 +72,8 @@ def boost_silver():
         'adm1_name',
         when(col('adm1_name').isin('Central', 'Centrale'), 'Central Scope')
         .when(col('adm1_name') == 'Region Etrangere', 'Other') # TODO: Check if the region etrandere should be central scope
+        .when(col('adm1_name') == 'Est', 'Est Region Burkina Faso')
+        .when(col('adm1_name') == 'Centre Sud', 'Centre Sud Region Burkina Faso')
         .otherwise(col('adm1_name'))
     ).withColumn(
         'func',
