@@ -11,6 +11,7 @@ COUNTRY = 'Kenya'
 microdata_csv_dir = prepare_microdata_csv_dir(COUNTRY)
 filename = input_excel_filename(COUNTRY)
 
+# TODO: add Raw1 (2006-2014)
 disaggregated_data_sheets = ['Raw2', 'Raw3']
 for sheet in tqdm(disaggregated_data_sheets):
     csv_file_path = f'{microdata_csv_dir}/{sheet}.csv'

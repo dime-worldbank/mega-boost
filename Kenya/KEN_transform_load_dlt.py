@@ -35,91 +35,81 @@ def boost_bronze():
 @dlt.table(name=f'ken_boost_silver')
 def boost_silver():
     return (dlt.read(f'ken_boost_bronze')
+        .filter(~col('Class').isin('2 Revenue', '4 Funds & Deposits (BTL)'))
         .withColumn('adm1_name', 
-                    when(col("Counties_Geo2").isNotNull(),
-                         when(lower(col("Counties_Geo2")).like("%county%"),
-                              initcap(trim(regexp_replace(regexp_replace(col("Counties_Geo2"), "\d+", ""), "County", "")))
-                         )
-                         .when(lower(col("Counties_Geo2")).like("%nation%"), 'Central Scope')
-                         .otherwise('Other') # When 0
-                    ).otherwise('Other') # When Null
+            when(lower(col("Counties_Geo2")).like("%county%"),
+                 initcap(trim(regexp_replace(regexp_replace(col("Counties_Geo2"), "\d+", ""), "County", "")))
+            ).when(lower(col("Counties_Geo2")).like("%nation%"), 'Central Scope')
         ).withColumn('adm1_name',
-                     when(col("adm1_name") == 'Muranga', "Murang’A")
-                    .when(col("adm1_name") == "Transnzoia",  'Trans Nzoia')
-                    .otherwise(col("adm1_name"))
+            when(col("adm1_name") == 'Muranga', "Murang’A")
+            .when(col("adm1_name") == "Transnzoia",  'Trans Nzoia')
+            .otherwise(col("adm1_name"))
         ).withColumn('year', concat(lit('20'), substring(col('Year'), -2, 2)).cast('int')
+        ).withColumn('func_sub',
+            when(
+                (col('Sector_prog1').startswith('06') & 
+                 (col('National_Government_Votes_&_Counties_adm2').startswith('102') |
+                  col('National_Government_Votes_&_Counties_adm2').startswith('210') |
+                  col('National_Government_Votes_&_Counties_adm2').startswith('215'))),
+                "public safety"
+            ).when(
+                col('Sector_prog1').startswith('06'), 
+                "judiciary" # important for this to be after public safety
+            )
         ).withColumn('func', 
-    # Social protection has double counting of certain rows (it is sum of two quantities that have overlapping rows)
-    when(
-        ((col('Class').isNotNull()) & 
-         (col('Class').substr(1, 1) != '2') & 
-         (col('Class').substr(1, 1) != '4') & 
-         col('Item_econ4').startswith('27101')),
-        'Social protection'
-    ).when(
-        ((col('Class').isNotNull()) & 
-         (col('Class').substr(1, 1) != '2') & 
-         (col('Class').substr(1, 1) != '4') & 
-         col('Sector_prog1').startswith('09')),
-        'Social protection'
-    ).when(
-        ((col('Class').isNotNull()) & 
-         (col('Class').substr(1, 1) != '2') & 
-         col('Sector_prog1').startswith('05')),
-        'Education' # 2014/15 doesn't match
-    ).when(
-        ((col('Class').isNotNull()) & 
-         (col('Class').substr(1, 1) != '2') & 
-         col('Sector_prog1').startswith('04')),
-        'Health'
-    ).when(
-        ((col('Class').isNotNull()) & 
-         (col('Class').substr(1, 1) != '2') & 
-         col('Sector_prog1').startswith('06') & 
-         ~(col('National_Government_Votes_&_Counties_adm2').startswith('102') | col('National_Government_Votes_&_Counties_adm2').startswith('210') | col('National_Government_Votes_&_Counties_adm2').startswith('215'))),
-        'Public order and safety'
-    ).when(
-        ((col('Class').isNotNull()) & 
-         (col('Class').startswith('0')) & 
-         col('Sector_prog1').startswith('06') & 
-         (col('National_Government_Votes_&_Counties_adm2').startswith('102') | col('National_Government_Votes_&_Counties_adm2').startswith('210') | col('National_Government_Votes_&_Counties_adm2').startswith('215'))),
-        'Public order and safety'
-    ).when(
-        ((col('Class').isNotNull()) & 
-         (col('Class').startswith('1')) & 
-         col('Sector_prog1').startswith('06') & 
-         (col('National_Government_Votes_&_Counties_adm2').startswith('102') | col('National_Government_Votes_&_Counties_adm2').startswith('210') | col('National_Government_Votes_&_Counties_adm2').startswith('215'))),
-        'Public order and safety' # 2022 doesn't match
-    ).when(
-        ((col('Class').isNotNull()) & 
-         (col('Class').substr(1, 1) != '2') & 
-         (col('Class').substr(1, 1) != '4') &  
-         col('Sector_prog1').startswith('07')),
-        'General public services' # matches only for 2021 and 2022
-    ).when(
-        ((col('Class').isNotNull()) & 
-         (col('Class').substr(1, 1) != '2') & 
-         (col('Class').substr(1, 1) != '4') &
-         (col('Sector_prog1').startswith('01') | col('Sector_prog1').startswith('02') | col('Sector_prog1').startswith('03') | col('Sector_prog1').startswith('10'))),
-        'Economic affairs'
-    ).when(
-        ((col('Class').isNotNull()) & 
-         (col('Class').substr(1, 1) != '2') & 
-         (col('Class').substr(1, 1) != '4') &
-         (col('Programme_pro2').startswith('0907'))),
-        'Economic affairs'
-    ).otherwise(lit("Other"))
+            when(
+                (col('Programme_pro2').startswith('0901 Sports') | 
+                col('Programme_pro2').startswith('0902 Culture') | 
+                col('Programme_pro2').startswith('0903 The Arts') | 
+                col('Programme_pro2').startswith('0904 Library Services') | 
+                col('Programme_pro2').startswith('0905 National Heritage and Culture')),
+                'Recreation, culture and religion'
+            ).when(
+                (col('Item_econ4').startswith('27101') | 
+                 (col('Sector_prog1').startswith('09') & ~col('Programme_pro2').endswith('Manpower Development, Employment and Productivity Management'))),
+                'Social protection' # This needs to be after 'Recreation, culture and religion' as Sector_prog1 09 includes both
+                # This also needs to be before almost everything else that rely on Sector_prog1 because it uses econ4 which can be cross sector
+            ).when(
+                col('Sector_prog1').startswith('07'),
+                'General public services'
+            ).when(
+                col('Sector_prog1').startswith('08'),
+                'Defense' # Note: Defence has no allocated amount in the executed sheet
+            ).when(
+                col("func_sub").isin("judiciary", "public safety"),
+                "Public order and safety"
+            ).when(
+                col('Programme_pro2').isin([
+                    '1002 Environment Management and Protection',
+                    '1007 Environment Management and Protection'
+                ]),
+                'Environmental protection'
+            ).when(
+                (col('Programme_pro2').endswith('Housing Development and Human Settlement') | 
+                col('Programme_pro2').endswith('Integrated Regional Development') | 
+                (col('Sector_prog1').startswith('10') & lower(col('Programme_pro2')).like('%water%'))),
+                "Housing and community amenities"
+            ).when(
+                col('Sector_prog1').startswith('04'),
+                'Health'
+            ).when(
+                col('Sector_prog1').startswith('05'),
+                'Education' # 2015 doesn't match
+            ).when(
+                (col('Sector_prog1').startswith('01') |
+                col('Sector_prog1').startswith('02') | 
+                col('Sector_prog1').startswith('03') | 
+                col('Sector_prog1').startswith('10') |
+                col('Programme_pro2').endswith('Manpower Development, Employment and Productivity Management')),
+                'Economic affairs' # This needs to be after Environment and housing to catch the rest of Sector_prog1 startin with 10
+            ) 
+            # Sector_prog1 = 00 Default - Non Programmatic are not tagged
+        )
     )
-    )
-# Note: Defence has no allocated amount in the executed sheet
-# Environment has overlapping categories with pervious COFOG codes
-# Housing: The codes seem to change across years and are overlapping with other COFOG codes
-# Recreation and culture seems to have overlap with social protection
     
 @dlt.table(name=f'ken_boost_gold')
 def boost_gold():
     return (dlt.read(f'ken_boost_silver')
-        .filter(~col('Class').isin('2 Revenue', '4 Funds & Deposits (BTL)'))
         .withColumn('country_name', lit(COUNTRY))
         .select('country_name',
                 'adm1_name',
