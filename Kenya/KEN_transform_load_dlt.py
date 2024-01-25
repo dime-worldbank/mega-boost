@@ -47,9 +47,74 @@ def boost_silver():
                      when(col("adm1_name") == 'Muranga', "Murang’A")
                     .when(col("adm1_name") == "Transnzoia",  'Trans Nzoia')
                     .otherwise(col("adm1_name"))
-        ).withColumn('year', concat(lit('20'), substring(col('Year'), -2, 2)).cast('int'))
-
+        ).withColumn('year', concat(lit('20'), substring(col('Year'), -2, 2)).cast('int')
+        ).withColumn('func', 
+    # Social protection has double counting of certain rows (it is sum of two quantities that have overlapping rows)
+    when(
+        ((col('Class').isNotNull()) & 
+         (col('Class').substr(1, 1) != '2') & 
+         (col('Class').substr(1, 1) != '4') & 
+         col('Item_econ4').startswith('27101')),
+        'Social protection'
+    ).when(
+        ((col('Class').isNotNull()) & 
+         (col('Class').substr(1, 1) != '2') & 
+         (col('Class').substr(1, 1) != '4') & 
+         col('Sector_prog1').startswith('09')),
+        'Social protection'
+    ).when(
+        ((col('Class').isNotNull()) & 
+         (col('Class').substr(1, 1) != '2') & 
+         col('Sector_prog1').startswith('05')),
+        'Education' # 2014/15 doesn't match
+    ).when(
+        ((col('Class').isNotNull()) & 
+         (col('Class').substr(1, 1) != '2') & 
+         col('Sector_prog1').startswith('04')),
+        'Health'
+    ).when(
+        ((col('Class').isNotNull()) & 
+         (col('Class').substr(1, 1) != '2') & 
+         col('Sector_prog1').startswith('06') & 
+         ~(col('National_Government_Votes_&_Counties_adm2').startswith('102') | col('National_Government_Votes_&_Counties_adm2').startswith('210') | col('National_Government_Votes_&_Counties_adm2').startswith('215'))),
+        'Public order and safety'
+    ).when(
+        ((col('Class').isNotNull()) & 
+         (col('Class').startswith('0')) & 
+         col('Sector_prog1').startswith('06') & 
+         (col('National_Government_Votes_&_Counties_adm2').startswith('102') | col('National_Government_Votes_&_Counties_adm2').startswith('210') | col('National_Government_Votes_&_Counties_adm2').startswith('215'))),
+        'Public order and safety'
+    ).when(
+        ((col('Class').isNotNull()) & 
+         (col('Class').startswith('1')) & 
+         col('Sector_prog1').startswith('06') & 
+         (col('National_Government_Votes_&_Counties_adm2').startswith('102') | col('National_Government_Votes_&_Counties_adm2').startswith('210') | col('National_Government_Votes_&_Counties_adm2').startswith('215'))),
+        'Public order and safety' # 2022 doesn't match
+    ).when(
+        ((col('Class').isNotNull()) & 
+         (col('Class').substr(1, 1) != '2') & 
+         (col('Class').substr(1, 1) != '4') &  
+         col('Sector_prog1').startswith('07')),
+        'General public services' # matches only for 2021 and 2022
+    ).when(
+        ((col('Class').isNotNull()) & 
+         (col('Class').substr(1, 1) != '2') & 
+         (col('Class').substr(1, 1) != '4') &
+         (col('Sector_prog1').startswith('01') | col('Sector_prog1').startswith('02') | col('Sector_prog1').startswith('03') | col('Sector_prog1').startswith('10'))),
+        'Economic affairs'
+    ).when(
+        ((col('Class').isNotNull()) & 
+         (col('Class').substr(1, 1) != '2') & 
+         (col('Class').substr(1, 1) != '4') &
+         (col('Programme_pro2').startswith('0907'))),
+        'Economic affairs'
+    ).otherwise(lit("Other"))
     )
+    )
+# Note: Defence has no allocated amount in the executed sheet
+# Environment has overlapping categories with pervious COFOG codes
+# Housing: The codes seem to change across years and are overlapping with other COFOG codes
+# Recreation and culture seems to have overlap with social protection
     
 @dlt.table(name=f'ken_boost_gold')
 def boost_gold():
@@ -62,5 +127,6 @@ def boost_gold():
                 col('Initial_Budget_Printed_Estimate').alias('approved').cast(DoubleType()),
                 col('Final_Budget_Approved_Estimate').alias('revised'),
                 col('`Final_Expenditure_Total_Payment_Comm.`').alias('executed'),
+                'func'
                 )
     )
