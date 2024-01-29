@@ -32,10 +32,33 @@ def boost_bronze():
         bronze_df = bronze_df.withColumnRenamed(old_col_name, new_col_name)
     return bronze_df
 
+def contains_any(column, words_to_check):
+    filter_condition = None
+    for word in words_to_check:
+        if filter_condition is None:
+            filter_condition = lower(column).contains(word)
+        else:
+            filter_condition = filter_condition | lower(column).contains(word)
+    return filter_condition
+
 @dlt.table(name=f'ken_boost_silver')
 def boost_silver():
+    cuture_keywords = ["sports", "culture", "heritage", "library", "arts"]
+    housing_keywords_01 = [
+        "housing development and human settlement",
+    ]
+    housing_keywords_10 = [
+        "integrated regional development",
+        "water policy and management",
+        "water supply services",
+        "water resources management",
+    ]
     return (dlt.read(f'ken_boost_bronze')
         .filter(~col('Class').isin('2 Revenue', '4 Funds & Deposits (BTL)'))
+        .filter(~col('Chapter_econ2').isin(
+            '52 Settlement Of Financial Liabilities',
+            '55 Settlement Of Financial Liabilities',
+        ))
         .withColumn('adm1_name', 
             when(lower(col("Counties_Geo2")).like("%county%"),
                  initcap(trim(regexp_replace(regexp_replace(col("Counties_Geo2"), "\d+", ""), "County", "")))
@@ -58,15 +81,12 @@ def boost_silver():
             )
         ).withColumn('func', 
             when(
-                (col('Programme_pro2').startswith('0901 Sports') | 
-                col('Programme_pro2').startswith('0902 Culture') | 
-                col('Programme_pro2').startswith('0903 The Arts') | 
-                col('Programme_pro2').startswith('0904 Library Services') | 
-                col('Programme_pro2').startswith('0905 National Heritage and Culture')),
+                (col('Sector_prog1').startswith('09') &
+                 contains_any(col('Programme_pro2'), cuture_keywords)),
                 'Recreation, culture and religion'
             ).when(
                 (col('Item_econ4').startswith('27101') | 
-                 (col('Sector_prog1').startswith('09') & ~col('Programme_pro2').endswith('Manpower Development, Employment and Productivity Management'))),
+                 col('Sector_prog1').startswith('09')),
                 'Social protection' # This needs to be after 'Recreation, culture and religion' as Sector_prog1 09 includes both
                 # This also needs to be before almost everything else that rely on Sector_prog1 because it uses econ4 which can be cross sector
             ).when(
@@ -85,9 +105,10 @@ def boost_silver():
                 ]),
                 'Environmental protection'
             ).when(
-                (col('Programme_pro2').endswith('Housing Development and Human Settlement') | 
-                col('Programme_pro2').endswith('Integrated Regional Development') | 
-                (col('Sector_prog1').startswith('10') & lower(col('Programme_pro2')).like('%water%'))),
+                (((col('Sector_prog1').startswith('01') &
+                 contains_any(col('Programme_pro2'), housing_keywords_01))) |
+                 (col('Sector_prog1').startswith('10') &
+                 contains_any(col('Programme_pro2'), housing_keywords_10))),
                 "Housing and community amenities"
             ).when(
                 col('Sector_prog1').startswith('04'),
@@ -99,8 +120,7 @@ def boost_silver():
                 (col('Sector_prog1').startswith('01') |
                 col('Sector_prog1').startswith('02') | 
                 col('Sector_prog1').startswith('03') | 
-                col('Sector_prog1').startswith('10') |
-                col('Programme_pro2').endswith('Manpower Development, Employment and Productivity Management')),
+                col('Sector_prog1').startswith('10')),
                 'Economic affairs' # This needs to be after Environment and housing to catch the rest of Sector_prog1 startin with 10
             ) 
             # Sector_prog1 = 00 Default - Non Programmatic are not tagged
