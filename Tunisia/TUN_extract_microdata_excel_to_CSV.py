@@ -3,38 +3,6 @@
 
 # COMMAND ----------
 
-# MAGIC %fs ls /dbfs/mnt/DAP
-
-# COMMAND ----------
-
-
-
-# COMMAND ----------
-
-dbutils.fs.ls("/dbfs/mnt/DAP/data")
-
-
-# COMMAND ----------
-
-
-
-# COMMAND ----------
-
-
-
-# COMMAND ----------
-
-from tqdm import tqdm
-import openpyxl
-import pandas as pd
-import re
-
-COUNTRY = 'Tunisia'
-microdata_csv_dir = prepare_microdata_csv_dir(COUNTRY)
-filename = input_excel_filename(COUNTRY)
-
-# COMMAND ----------
-
 from tqdm import tqdm
 import openpyxl
 import pandas as pd
