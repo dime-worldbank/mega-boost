@@ -40,7 +40,25 @@ def boost_silver():
             )
             .otherwise('Other') 
         ).withColumn(
-        'func',
+    'func_sub',
+        # education breakdown
+        # NOTE: post 2016 the code for primary education is not present. pre-primary is the only one tagged -- we assume it refers to primary as well following previous years codes
+        .when(
+            col('Sous_Fonction_').startswith('091'), 'primary education')
+        .when(
+            col('Sous_Fonction_').startswith('092'), 'secondary education') 
+        .when(
+            col('Sous_Fonction_').startswith('094'), 'tertiary education')
+        # public safety
+        .when(
+            col('Fonction2').startswith('03'), 'public safety'
+        )
+        # judiciary (SHOULD come after public safety)
+        .when(
+            col('Fonction2').startswith('033'), 'judiciary')
+        # No specific indicators for primary, secondary, tertiary or quaternary health
+    ).withColumn(
+            'func',
         when(col('Grande_Fonction').startswith('01'), 'General public services')
         .when(col('Grande_Fonction').startswith('02'), 'Defence')
         .when(col('Grande_Fonction').startswith('03'), 'Public order and safety')
