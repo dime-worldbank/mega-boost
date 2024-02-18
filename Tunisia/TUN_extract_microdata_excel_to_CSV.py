@@ -29,6 +29,7 @@ for sheet in tqdm(disaggregated_data_sheets):
     df = df.dropna(how='all')
 
     # change some of the names in the subnational regions -- in 2020 the names are in arabic
+    # adm1 region if the code is between 10 and 90
     code_2_name = {
         '00': 'Projects non distribuees',
         '83': 'Tataouine',
@@ -63,3 +64,7 @@ for sheet in tqdm(disaggregated_data_sheets):
 
     # Write to CSV
     df.to_csv(csv_file_path, index=False, encoding='utf-8')
+
+# COMMAND ----------
+
+
