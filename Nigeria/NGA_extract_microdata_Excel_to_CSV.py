@@ -43,7 +43,7 @@ code_2_adm1 = {'01': 'Abia',
  '34': 'Taraba',
  '35': 'Yobe',
  '36': 'Zamfara',
- '37': 'Federal Capital Territory (FCT)'}
+ '37': 'Federal Capital Territory'}
 
 COUNTRY = 'Nigeria'
 microdata_csv_dir = prepare_microdata_csv_dir(COUNTRY)
