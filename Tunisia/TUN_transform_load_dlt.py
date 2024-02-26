@@ -48,8 +48,11 @@ def boost_silver():
     # No breakdown in health expenditure into primary, secondary and tertiary       
     ).withColumn(
     'func',
-    when((col('ADMIN1').startswith('09') | col('ADMIN1').startswith('06')), 'Defense')
-    .when(col("func_sub").isin("judiciary", "public safety") , "Public order and safety")
+    # Defence spending in the datasoruce includes ADMIN1 items tagged with 06 Intérieur et Développement Regional as well (but we match cci_Expenditure if we only consider items starting with '09 Défense Nationale')
+    when((col('ADMIN1').startswith('09') 
+          #| col('ADMIN1').startswith('06')
+          ), 'Defence')
+    .when(col("func_sub").isin('judiciary', 'public safety') , "Public order and safety")
     .when(col('ADMIN2').startswith('21'), 'Environmental protection')
     .when(col('ADMIN2').startswith('27') | col('ADMIN2').startswith('34'), 'Health')
     .when(substring(col("ADMIN2"), 1, 2).isin('04 29 30 33 37 39 40'.split()), 'Education')
