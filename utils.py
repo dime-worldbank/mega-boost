@@ -12,6 +12,7 @@ import unicodedata
 
 TOP_DIR = "/dbfs/mnt/DAP/data/BOOSTProcessed"
 INPUT_DIR = f"{TOP_DIR}/Documents/input/Countries"
+RAW_INPUT_DIR = f"{TOP_DIR}/Documents/input/Data from authorities"
 WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
 
 # COMMAND ----------
@@ -28,6 +29,11 @@ def prepare_microdata_csv_dir(country_name):
     Path(microdata_dir).mkdir(parents=True, exist_ok=True)
     return microdata_dir
 
+def prepare_raw_microdata_csv_dir(country_name):
+    microdata_dir = f'{WORKSPACE_DIR}/raw_microdata_csv/{country_name}'
+    Path(microdata_dir).mkdir(parents=True, exist_ok=True)
+    return microdata_dir
+
 def normalize_cell(cell_value):
     if pd.notna(cell_value) and isinstance(cell_value, str):
         return ''.join(c for c in unicodedata.normalize('NFD', cell_value)
@@ -37,3 +43,14 @@ def normalize_cell(cell_value):
 
 def is_named_column(column_name):
     return column_name is not None and "Unnamed" not in str(column_name) and column_name != ''
+
+# Check if the given file path already exists on DBFS
+def dbfs_file_exists(path):
+  try:
+    dbutils.fs.ls(path)
+    return True
+  except Exception as e:
+    if 'java.io.FileNotFoundException' in str(e):
+      return False
+    else:
+      raise
