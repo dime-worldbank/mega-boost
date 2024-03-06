@@ -32,43 +32,37 @@ def boost_bronze():
 @dlt.table(name=f'tun_boost_silver')
 def boost_silver():
     return (dlt.read(f'tun_boost_bronze')
-            # Central scope not explicitly defined. Only other entries are 00: not disbursed, 99: interest 98: unnamed
-            # If null then attach to central scope
-        .withColumn('adm1_name', 
-            when(regexp_extract(col("GEO1"), r'^[1-8]', 0).isNotNull(), trim(regexp_replace(col("GEO1"), "\d+", "")))
-            .when(col("GEO1").startswith("0") | col("GEO1").startswith("9"), "Other")
-            .when(col("GEO1").isNull(), "Central Scope"))
+            .withColumn('adm1_name', 
+                when(col("GEO1").isNull(), "Central Scope")
+                .when(col("GEO1").startswith("0") | col("GEO1").startswith("9"), "Other")
+                .when(col("GEO1").rlike('^[1-8]'), trim(regexp_replace(col("GEO1"), '^[1-8]+\\s*', '')))
+                )
         ).withColumn(
     'func_sub',
-    when(col('ADMIN1').startswith('07'), 'judiciary')
-    .when((col('ADMIN1').startswith('06')) & (col('ADMIN2').startswith('07')), 'public safety')
-    .when(col('Primary')==1, 'primary education')
-    .when(col('Secondary')==1, 'secondary education')
-    .when(col("ADMIN2").startswith("02") | col("ADMIN2").startswith("30") | col("ADMIN2").startswith("33"),  "tertiary education")
-    # No breakdown in health expenditure into primary, secondary and tertiary       
+    when((col('ADMIN1').startswith('06')) & (col('ADMIN2').startswith('07')), 'public safety')
+    .when(col('ADMIN1').startswith('07'), 'judiciary')
+    .when(substring(col("ADMIN2"), 1, 2).isin('04 30 33'.split()), 'tertiary education')
+    .when((col("ADMIN2").startswith("16") | col("ADMIN2").startswith("17")), 'agriculture')
+    .when(col('ADMIN1').startswith('18') , 'telecom')
+    .when(((col('Roads') ==1) | (col('railroads') == 1) | (col('Air') == 1) | (col('WSS')==1)), 'transport')
     ).withColumn(
     'func',
-    # Defence spending in the datasoruce includes ADMIN1 items tagged with 06 Intérieur et Développement Regional as well (but we match cci_Expenditure if we only consider items starting with '09 Défense Nationale')
-    when((col('ADMIN1').startswith('09') 
-          #| col('ADMIN1').startswith('06')
-          ), 'Defence')
-    .when(col("func_sub").isin('judiciary', 'public safety') , "Public order and safety")
+    when((col('ADMIN1').startswith('09') | col('ADMIN1').startswith('06')), 'Defence')
+    .when(col("func_sub").isin('public safety', 'judiciary') , "Public order and safety")
     .when(col('ADMIN2').startswith('21'), 'Environmental protection')
     .when(col('ADMIN2').startswith('27') | col('ADMIN2').startswith('34'), 'Health')
-    .when(substring(col("ADMIN2"), 1, 2).isin('04 29 30 33 37 39 40'.split()), 'Education')
     .when(col('ADMIN1').startswith('05'), 'Social protection')
-    # missing classification into 
-    #General public services, 
-    #Economic affairs, 
-    #Housing & community amenities, and 
-    #Recreation, culture & religion
+    .when(substring(col("ADMIN2"), 1, 2).isin('04 29 30 33 37 39 40'.split()), 'Education')
+    .when(col('WSS')==1, 'Housing and community amenities')
+    .when(substring(col("ADMIN1"), 1, 2).isin('19 10 20'.split()), 'Recreation, culture and religion')
+    .when(col("func_sub").isin('agriculture', 'transport', 'telecom') , "Economic affairs")
+    .otherwise('General public services')
     ).withColumn('is_transfer', lit(False))
-    
 
 @dlt.table(name=f'tun_boost_gold')
 def boost_gold():
     return (dlt.read(f'tun_boost_silver')
-            .filter(~(col('ECON2').startswith('10')))
+            #.filter(~((col('Maintenance')==1)& (col('ECON1').startswith('Titre 2'))))
             .withColumn('country_name', lit('Tunisia')) 
             .select('country_name',
                     'adm1_name',
