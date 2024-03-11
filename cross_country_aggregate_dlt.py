@@ -15,8 +15,10 @@ def boost_gold():
             current_df = current_df.withColumn("is_transfer", F.lit(False))
         if "func" not in current_df.columns:
             current_df = current_df.withColumn("func", F.lit(None))
+        if "admin2" not in current_df.columns:
+            current_df = current_df.withColumn("admin2", F.lit(None))
         
-        col_order = ['country_name', 'adm1_name', 'year', 'approved','revised', 'executed', 'is_transfer', 'func']
+        col_order = ['country_name', 'adm1_name', 'year', 'approved','revised', 'executed', 'is_transfer', 'asmin2', 'func']
         current_df = current_df.select(col_order)
             
         if unioned_df is None:
@@ -125,7 +127,7 @@ def expenditure_by_country_func_year():
     boost_gold = dlt.read('boost_gold')
     year_ranges = (boost_gold
         .groupBy("country_name")
-        .agg(F.min("year").alias("earliest_year"), 
+        .agg(F.min("year").alias("earliest_year"),
              F.max("year").alias("latest_year"))
     )
     cpi_factors = dlt.read('cpi_factor')
