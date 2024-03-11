@@ -67,6 +67,8 @@ def boost_silver():
             when(col("adm1_name") == 'Muranga', "Murang’A")
             .when(col("adm1_name") == "Transnzoia",  'Trans Nzoia')
             .otherwise(col("adm1_name"))
+        ).withColumn(
+            'admin2', trim(regexp_replace(col("National_Government_Votes_&_Counties_adm2"), '^[0-9\\s]*', ''))
         ).withColumn('year', concat(lit('20'), substring(col('Year'), -2, 2)).cast('int')
         ).withColumn('func_sub',
             when(
@@ -137,6 +139,7 @@ def boost_gold():
                 col('Initial_Budget_Printed_Estimate').alias('approved').cast(DoubleType()),
                 col('Final_Budget_Approved_Estimate').alias('revised'),
                 col('`Final_Expenditure_Total_Payment_Comm.`').alias('executed'),
+                'admin2',
                 'func'
                 )
     )

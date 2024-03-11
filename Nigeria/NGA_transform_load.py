@@ -1,6 +1,6 @@
 # Databricks notebook source
 import dlt
-from pyspark.sql.functions import substring, col, lit, when, element_at, split, upper
+from pyspark.sql.functions import substring, col, lit, when, element_at, split, upper, expr, trim, regexp_replace
 
 # Note DLT requires the path to not start with /dbfs
 TOP_DIR = "/mnt/DAP/data/BOOSTProcessed"
@@ -29,10 +29,13 @@ def nga_boost_bronze():
 @dlt.table(name=f'nga_boost_silver')
 def nga_boost_silver():
   return (dlt.read('nga_boost_bronze')
+    .withColumn('Year', col('Year').cast('int'))
     .withColumn(
         'is_transfer', col('Econ2').startswith('2207')
     ).filter(
         ~col('is_transfer')
+    ).withColumn(
+        'admin2', trim(regexp_replace(col("adm2"), '^[0-9\\s]*', ''))
     ).withColumn('func_sub',
         when(
             col('Func1').startswith('703'), 'Public safety'
@@ -54,9 +57,9 @@ def nga_boost_silver():
             (
                 col('Func1').startswith('702') & (
                     ~(
-                        col('ECON4').startswith('22010102') |
-                        col('ECON4').startswith('22010104') |
-                        col('ECON4').startswith('22021059')
+                        col('Econ4').startswith('22010102') |
+                        col('Econ4').startswith('22010104') |
+                        col('Econ4').startswith('22021059')
                     )
                 )
             ), 'Defense'
@@ -65,44 +68,44 @@ def nga_boost_silver():
                 col('Func1').startswith('709') & 
                     (
                         ~(
-                            col('ECON4').startswith('22010102') |
-                            col('ECON4').startswith('21030102') |
-                            col('ECON4').startswith('22010104') |
-                            col('ECON4').startswith('22021059')
+                            col('Econ4').startswith('22010102') |
+                            col('Econ4').startswith('21030102') |
+                            col('Econ4').startswith('22010104') |
+                            col('Econ4').startswith('22021059')
                         )
                     ) &
                     (
-                        col('Year').isin('2015', '2016')
+                        col('Year').isin(2015, 2016)
                     )
             ), 'Education'
         ).when(
-            col('Func1').startswith('709') & (~(col('Year').isin('2015', '2016'))), 'Education'
+            col('Func1').startswith('709') & (~(col('Year').isin(2015, 2016))), 'Education'
         ).when(
             (            
                 col('Func1').startswith('707') & 
                     (
                         ~(
-                            col('ECON4').startswith('22010102') |
-                            col('ECON4').startswith('22010104') |
-                            col('ECON4').startswith('21030102') |
-                            col('ECON4').startswith('22021059')
+                            col('Econ4').startswith('22010102') |
+                            col('Econ4').startswith('22010104') |
+                            col('Econ4').startswith('21030102') |
+                            col('Econ4').startswith('22021059')
                         )
                     ) &
                     (
-                        col('Year').isin('2015')
+                        col('Year').isin(2015)
                     )
             ), 'Health'
         ).when(
-            col('Func1').startswith('709') & ~col('Year').isin('2015', '2016'), 'Education'
+            col('Func1').startswith('709') & ~col('Year').isin(2015, 2016), 'Education'
     ).when(
             (            
                 col('Func1').startswith('701') & 
                     (
                         ~(
-                            col('ECON4').startswith('22010102') |
-                            col('ECON4').startswith('21030102') |
-                            col('ECON4').startswith('22010104') |
-                            col('ECON4').startswith('22021059')
+                            col('Econ4').startswith('22010102') |
+                            col('Econ4').startswith('21030102') |
+                            col('Econ4').startswith('22010104') |
+                            col('Econ4').startswith('22021059')
                         )
                     ) 
             ), 'General public services'
@@ -110,12 +113,12 @@ def nga_boost_silver():
             (
                 col('Program').startswith('ERGP22112823') |
                 col('adm3').startswith('161002') |
-                col('ECON4').startswith('22040109') |
-                col('ECON4').startswith('22021007') |
-                col('ECON4').startswith('22010102') |
-                col('ECON4').startswith('21030102') |
-                col('ECON4').startswith('22010104') |
-                col('ECON4').startswith('22021059')
+                col('Econ4').startswith('22040109') |
+                col('Econ4').startswith('22021007') |
+                col('Econ4').startswith('22010102') |
+                col('Econ4').startswith('21030102') |
+                col('Econ4').startswith('22010104') |
+                col('Econ4').startswith('22021059')
             ), 'Social protection'
         )
     )
@@ -129,7 +132,9 @@ def nga_boost_gold():
             'adm1_name',
             col('Year').alias('year'),
             col('Approved').alias('approved'),
+            expr("CAST(NULL AS DOUBLE) as revised"),
             col('Executed').alias('executed'),
+            'admin2',
             'is_transfer',
             'func')    
   )

@@ -43,6 +43,9 @@ def boost_silver():
                 .otherwise(col("Admin0"))
             )
         ).withColumn(
+            'admin2',
+            trim(expr("substring(admin1, instr(admin1, '-') + 1)"))
+            ).withColumn(
             'func',
             when((col('func1') == '0') & col('admin1').startswith('H01'), 'Health')
             .when((col('func1') == '0') & col('admin1').startswith('E01'), 'Education')
@@ -72,6 +75,7 @@ def boost_gold():
                     'approved',
                     expr("CAST(NULL AS DOUBLE) as revised"),
                     'executed',
+                    'admin2',
                     'is_transfer',
                     'func')
     )

@@ -42,7 +42,7 @@ def boost_silver():
                 # imputing that the rest belongs to central scope (various ministries etc)
                 .otherwise("Central Scope")
             ).withColumn(
-                'admin1', trim(regexp_replace(col("ADMIN2"), '^[0-9\\s]*', ''))
+                'admin2', trim(regexp_replace(col("ADMIN2"), '^[0-9\\s]*', ''))
             ).withColumn(
                 'func_sub',
                 when(col('prog1').startswith('5 '), 'judiciary')
@@ -103,7 +103,7 @@ def boost_gold():
                     col('Budget').alias('approved'),
                     col('Executed').alias('executed'),
                     expr("CAST(NULL AS DOUBLE) as revised"),
-                    col('admin1'),
+                    'admin2',
                     'is_transfer',
                     'func'
             )

@@ -1,6 +1,6 @@
 # Databricks notebook source
 import dlt
-from pyspark.sql.functions import substring, col, lit, when
+from pyspark.sql.functions import substring, col, lit, when, trim, regexp_replace 
 
 # Note DLT requires the path to not start with /dbfs
 TOP_DIR = "/mnt/DAP/data/BOOSTProcessed"
@@ -56,6 +56,9 @@ def boost_silver():
                             col("Adm5En") == "Central", "Central Scope"
                         ).otherwise(col("Adm5En"))
                     ))
+        .withColumn('admin2',
+            trim(regexp_replace(col("Adm2"), '^[0-9\\s]*', ''))
+        )
         .withColumn('func_sub',
             when(
                 col("Func1").startswith('03') & (col('Func2') == '03311 Tribunais') , "judiciary"
@@ -99,6 +102,7 @@ def boost_gold():
                 col('DotacaoInicial').alias('approved'),
                 col('DotacaoActualizada').alias('revised'),
                 col('Execution').alias('executed'),
+                'admin2',
                 'is_transfer',
                 'func',
         )

@@ -38,7 +38,7 @@ def boost_silver():
                 .when(col("GEO1").rlike('^[1-8]'), trim(regexp_replace(col("GEO1"), '^[1-8]+\\s*', '')))
                 )
         ).withColumn(
-        'admin1', trim(regexp_replace(col("ADMIN2"), '^[0-9\\s]*', ''))
+        'admin2', trim(regexp_replace(col("ADMIN2"), '^[0-9\\s]*', ''))
         ).withColumn(
     'func_sub',
         when((col('ADMIN1').startswith('06')) & (col('ADMIN2').startswith('07')), 'public safety')
@@ -72,7 +72,7 @@ def boost_gold():
                     col('OUVERT').alias('approved'),
                     col('ORDONNANCE').alias('revised'),
                     col('PAYE').alias('executed'),
-                    col('admin1'),
+                    'admin2',
                     'is_transfer',
                     'func'
                     )
