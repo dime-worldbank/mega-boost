@@ -20,6 +20,48 @@ def normalize(cell):
 
 # COMMAND ----------
 
+HEADER = ["EntidadDetalle", "ApropiacionDefinitiva", "Compromiso", "Obligacion", "Pago"]
+central_files = glob(f'{RAW_INPUT_DIR}/{COUNTRY}/central/execution/*.xlsx')
+for f in central_files:
+    num_sheets = len(pd.ExcelFile(f).sheet_names)
+    sheet_name = 0 if num_sheets == 1 else 'Cuadro No. 7'
+    df = pd.read_excel(f, sheet_name=sheet_name, header=None)
+
+    # Search year, starting row & column index
+    row_index = None
+    col_index = None
+    year = None
+    year_pattern = r'Acumulada a diciembre de (\d{4})'
+    for i, row in df.iterrows():
+        for j, value in enumerate(row):
+            if type(value) == str:
+                year_matched = re.match(year_pattern, value, re.IGNORECASE)
+                if year_matched:
+                    year = int(year_matched.group(1))
+                elif value == 'TOTAL':
+                    row_index = i
+                    col_index = j
+                    break
+        if row_index is not None:
+            break
+    
+    assert year is not None, f'Failed to parse year out of central execution file {f}'
+
+    skiprows = row_index-1
+    usecols = range(col_index, col_index+5)
+    df = pd.read_excel(f, sheet_name=sheet_name, skiprows=skiprows, usecols=usecols, names=HEADER)
+    df['year'] = year
+    df.index.name = 'raw_row_id'
+    print(year, row_index, col_index, df.shape)
+
+    assert df.shape[0] > 4000, f'Expected more than 4000 rows of line items but got {df.shape[0]} from {f}'
+    assert df.shape[1] == 6, f'Expected 6 columns but got {df.shape[1]}: {df.columns} from {f}'
+
+    outfile = f'{microdata_csv_dir}/central_execution_{year}.csv'
+    df.to_csv(outfile)
+
+# COMMAND ----------
+
 earlier_filenames = glob(f'{RAW_INPUT_DIR}/{COUNTRY}/subnational/gastos/*_FUT_*.xlsx')
 recent_filenames = glob(f'{RAW_INPUT_DIR}/{COUNTRY}/subnational/gastos/*_EJECUCION_*.xlsx')
 
@@ -61,10 +103,6 @@ for filename in earlier_filenames + recent_filenames:
     df.index.name = 'raw_row_id'
     df['year'] = int(filename_stem.split('_')[0])
     df.to_csv(outfile)
-
-# COMMAND ----------
-
-df
 
 # COMMAND ----------
 
