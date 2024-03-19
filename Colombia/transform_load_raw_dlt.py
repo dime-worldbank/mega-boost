@@ -155,6 +155,21 @@ def col_subnat_recent_silver():
       )
     )
 
+@dlt.table(name='col_subnat_gold')
+def col_subnat_gold():
+  # TODO: add 2019,2020
+  return (dlt.read('col_subnat_recent_silver')
+    .filter(col('is_line_item') & (col('vigenciagasto')==1))
+    .withColumn('admin0', lit("Regional"))
+    .select("year",
+            "admin0",
+            col("adm1_name").alias("admin1"),
+            col("adm2_name").alias("admin2"),
+            "func1",
+            "econ1", "econ2", "econ3", "econ4", "econ5",
+            "compromisos", "obligaciones", "pagos")
+  )
+
 # COMMAND ----------
 
 ## Central ##
@@ -214,3 +229,115 @@ def col_central_gold():
         .select('year', 'func1', 'admin1', 'econ1', 'econ2', 'econ3',
                 'ApropiacionDefinitiva', 'Compromiso', 'Obligacion', 'Pago')
     )
+
+# COMMAND ----------
+
+## Harmonize to BOOST – Central ##
+
+@dlt.table(name=f'col_central_boost_silver_from_raw')
+def col_central_boost_silver_from_raw():
+  return (dlt.read('col_central_gold')
+    .filter(~(col('econ2') == "Adquisición de Activos Financieros"))
+    .filter(~col('econ3').startswith('03-03-05-001') & ~col('econ3').startswith('03-03-05-002'))
+    .withColumn('pension',
+      upper(col("func1")).like('%PENSIONES%') | upper(col("econ3")).like('%(DE PENSIONES)%')
+    )
+    .withColumn('func_sub',
+      when(
+        col("func1").isin("RAMA JUDICIAL", "JUSTICIA Y DEL DERECHO") , "judiciary"
+      ).when(
+        (col("admin1").startswith("151100") |
+         col("admin1").startswith("151201") |
+         col("admin1").startswith("151600") |
+         col("admin1").startswith("160101") |
+         col("admin1").startswith("160102")), "public safety"
+      )
+    )
+    .withColumn('func',
+      when(
+        col("func_sub").isin("judiciary", "public safety") , "Public order and safety"
+      ).when(
+        col("func1") == "DEFENSA Y POLICÍA", "Defense" # important for this to be after "Public order and safety" to exclude those line items
+      ).when(
+        col("func1").isin(
+          "AGRICULTURA Y DESARROLLO RURAL", 
+          "TRANSPORTE",
+          "MINAS Y ENERGÍA",
+          "TECNOLOGÍAS DE LA INFORMACIÓN Y LAS COMUNICACIONES",
+          "COMERCIO, INDUSTRIA Y TURISMO",
+          "EMPLEO PÚBLICO",
+        ), "Economic affairs"
+      ).when(
+        col("func1") == "AMBIENTE Y DESARROLLO SOSTENIBLE", "Environmental protection"
+      ).when(
+        col("func1") == "VIVIENDA, CIUDAD Y TERRITORIO", "Housing and community amenities"
+      ).when(
+        (col("admin1").startswith("1912") |
+         col("admin1").startswith("1913") |
+         col("admin1").startswith("1914")), "Social protection" 
+         # In excel there is overlap between SP & health, it's removed here
+      ).when(
+        col("func1") == "SALUD Y PROTECCIÓN SOCIAL", "Health" # important for this to be after Social protection
+      ).when(
+        col("func1").isin(
+          "CULTURA", 
+          "DEPORTE Y RECREACIÓN"
+        ), "Recreation, culture and religion"
+      ).when(
+        col("func1") == "EDUCACIÓN", "Education"
+      ).otherwise(
+        lit("General public services")
+      )
+    )
+  )
+
+# COMMAND ----------
+
+## Harmonize to BOOST – Regional ##
+
+@dlt.table(name=f'col_subnat_boost_silver_from_raw')
+def col_subnat_boost_silver_from_raw():
+    return (dlt.read('col_subnat_gold')
+        .withColumn("func",
+            when(col("func1") == "Salud", lit("Health"))
+            .when(col("func1") == "Pensions", lit("Social protection"))
+            .otherwise(col("func1"))
+        )
+    )
+
+# COMMAND ----------
+
+## Combine BOOST Central & Regional ##
+
+@dlt.table(name='col_boost_gold_from_raw')
+def col_boost_gold_from_raw():
+  return(dlt.read('col_central_boost_silver_from_raw')
+    .select("*", col('admin1').alias('admin2'))
+    .drop("admin1")
+    .withColumn('country_name', lit(COUNTRY))
+    .withColumn('admin0', lit('Central'))
+    .withColumn('admin1', lit('Central Scope'))
+    .select('country_name',
+            'year',
+            'admin0',
+            'admin1',
+            'admin2',
+            'func',
+            'func_sub',
+            col('ApropiacionDefinitiva').alias('approved'),
+            col('Pago').alias('executed'))
+    .union(dlt.read('col_subnat_boost_silver_from_raw')
+      .withColumn('country_name', lit(COUNTRY))
+      .withColumn('revised', lit(None))
+      .withColumn('func_sub', lit(None))
+      .select('country_name',
+              'year',
+              'admin0',
+              'admin1',
+              'admin2',
+              'func',
+              'func_sub',
+              col('compromisos').alias('approved'),
+              col('pagos').alias('executed'))
+    )
+  )
