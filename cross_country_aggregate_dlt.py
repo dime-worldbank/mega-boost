@@ -13,12 +13,15 @@ def boost_gold():
         current_df = spark.table(f'boost_intermediate.{code}_boost_gold')
         if "is_transfer" not in current_df.columns:
             current_df = current_df.withColumn("is_transfer", F.lit(False))
-        if "func" not in current_df.columns:
-            current_df = current_df.withColumn("func", F.lit(None))
-        if "admin2" not in current_df.columns:
-            current_df = current_df.withColumn("admin2", F.lit(None))
+        for col_name in ["func", "func_sub",  "admin1", "admin2", "revised"]:
+            if col_name not in current_df.columns:
+                current_df = current_df.withColumn(col_name, F.lit(None))
+
+        # TODO: remove once all adm1_name are converted to admin1
+        if "adm1_name" not in current_df.columns:
+            current_df = current_df.withColumn("adm1_name", F.col("admin1"))
         
-        col_order = ['country_name', 'adm1_name', 'year', 'approved','revised', 'executed', 'is_transfer', 'asmin2', 'func']
+        col_order = ['country_name', 'year', 'adm1_name', 'admin1', 'admin2', 'func', 'is_transfer', 'approved', 'revised', 'executed']
         current_df = current_df.select(col_order)
             
         if unioned_df is None:
@@ -154,6 +157,15 @@ def edu_private_expenditure_by_country_year():
     return (spark.table('indicator.edu_private_spending')
         .join(cpi_factors, on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("edu_private_spending_current_lcu") / F.col("cpi_factor"))
+    )
+
+@dlt.table(name=f'health_private_expenditure_by_country_year')
+def health_private_expenditure_by_country_year():
+    cpi_factors = dlt.read('cpi_factor')
+    return (spark.table('indicator.health_expenditure')
+        .withColumn('oop_expenditure_current_lcu', F.col('che') * F.col('oop_percent_che') / 100)
+        .join(cpi_factors, on=["country_name", "year"], how="inner")
+        .withColumn("real_expenditure", F.col("oop_expenditure_current_lcu") / F.col("cpi_factor"))
     )
 
 @dlt.table(name='quality_boost_agg')

@@ -309,8 +309,8 @@ def col_subnat_boost_silver_from_raw():
 
 ## Combine BOOST Central & Regional ##
 
-@dlt.table(name='col_boost_gold_from_raw')
-def col_boost_gold_from_raw():
+@dlt.table(name='col_boost_gold')
+def col_boost_gold():
   return(dlt.read('col_central_boost_silver_from_raw')
     .select("*", col('admin1').alias('admin2'))
     .drop("admin1")
