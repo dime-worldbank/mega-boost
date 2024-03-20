@@ -43,7 +43,7 @@ def contains_any(column, words_to_check):
 
 @dlt.table(name=f'ken_boost_silver')
 def boost_silver():
-    cuture_keywords = ["sports", "culture", "heritage", "library", "arts"]
+    culture_keywords = ["sports", "culture", "heritage", "library", "arts"]
     housing_keywords_01 = [
         "housing development and human settlement",
     ]
@@ -67,8 +67,19 @@ def boost_silver():
             when(col("adm1_name") == 'Muranga', "Murang’A")
             .when(col("adm1_name") == "Transnzoia",  'Trans Nzoia')
             .otherwise(col("adm1_name"))
-        ).withColumn(
-            'admin2', trim(regexp_replace(col("National_Government_Votes_&_Counties_adm2"), '^[0-9\\s]*', ''))
+        ).withColumn( 'admin0',
+            when(col('Vote_Groups_adm1') == '3 Counties', 'Regional')
+            .otherwise('Central')
+        ).withColumn('admin1',
+            when(col('admin0')=='Central', 'Central')
+            .otherwise(trim(regexp_replace(col("National_Government_Votes_&_Counties_adm2"), '^[0-9\\s]*', '')))
+        ).withColumn('admin2',
+            trim(regexp_replace(col("National_Government_Votes_&_Counties_adm2"), '^[0-9\\s]*', ''))
+        ).withColumn('geo1', 
+            when(col('admin0') == 'Regional', col('admin1')) # if spent by Regional government then it is assumed to be spent in a region
+            .when((col('admin0') == 'Central') & lower(col("Counties_Geo2")).like("%county%"), 
+                initcap(trim(regexp_replace(col("Counties_Geo2"), "\d+", "")))) # central spending tagged with a region
+            .otherwise('Central Scope') # central spending not linked to a region
         ).withColumn('year', concat(lit('20'), substring(col('Year'), -2, 2)).cast('int')
         ).withColumn('func_sub',
             when(
@@ -80,11 +91,32 @@ def boost_silver():
             ).when(
                 col('Sector_prog1').startswith('06'), 
                 "judiciary" # important for this to be after public safety
+            ).when(
+                col('Programme_pro2').startswith('0401'), 'primary and secondary health'
+            ).when(
+                col('Programme_pro2').startswith('0402'), 'tertiary and quaternary health'
+            ).when(
+                (col('Sector_prog1').startswith('05') & (
+                    col('Programme_pro2').startswith('0501 Primary') |
+                    col('Programme_pro2').startswith('0502 Basic') |
+                    col('Sub-programme_prog3').startswith('050901'))
+                ), 'primary education'
+            ).when(
+                (col('Sector_prog1').startswith('05') & (
+                    col('Programme_pro2').startswith('0502 secondary') |
+                    col('Sub-programme_prog3').startswith('050902'))
+                ), 'secondary education'
+            ).when(
+                (col('Sector_prog1').startswith('05') & (
+                    col('Programme_pro2').startswith('0504') |
+                    col('Programme_pro2').startswith('0505') |
+                    col('Sub-programme_prog3').startswith('05093'))
+                ), 'tertiary education'
             )
         ).withColumn('func', 
             when(
                 (col('Sector_prog1').startswith('09') &
-                 contains_any(col('Programme_pro2'), cuture_keywords)),
+                 contains_any(col('Programme_pro2'), culture_keywords)),
                 'Recreation, culture and religion'
             ).when(
                 (col('Item_econ4').startswith('27101') | 
@@ -139,7 +171,10 @@ def boost_gold():
                 col('Initial_Budget_Printed_Estimate').alias('approved').cast(DoubleType()),
                 col('Final_Budget_Approved_Estimate').alias('revised'),
                 col('`Final_Expenditure_Total_Payment_Comm.`').alias('executed'),
+                'admin0',
+                'admin1',
                 'admin2',
+                'geo1',
                 'func'
                 )
     )

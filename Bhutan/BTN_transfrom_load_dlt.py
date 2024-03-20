@@ -1,6 +1,6 @@
 # Databricks notebook source
 import dlt
-from pyspark.sql.functions import substring, col, lit, when, element_at, split, upper, trim, lower, regexp_replace, regexp_extract, substring, expr
+from pyspark.sql.functions import substring, col, lit, when, initcap, element_at, split, upper, trim, lower, regexp_replace, regexp_extract, substring, expr, concat
 
 # Note DLT requires the path to not start with /dbfs
 TOP_DIR = "/mnt/DAP/data/BOOSTProcessed"
@@ -29,11 +29,11 @@ def boost_bronze():
         bronze_df = bronze_df.withColumnRenamed(old_col_name, new_col_name)
     return bronze_df
 
-
 @dlt.table(name=f'btn_boost_silver')
 def boost_silver():
     return (dlt.read(f'btn_boost_bronze')
             .filter(~(col('Econ2').startswith('32')))
+            # adm1_name
             .withColumn(
                 'adm1_name',
                 when(col("Admin2").startswith("4"), trim(regexp_replace(col("Admin2"), "\d+", "")))
@@ -42,16 +42,39 @@ def boost_silver():
                 # imputing that the rest belongs to central scope (various ministries etc)
                 .otherwise("Central Scope")
             ).withColumn(
-                'admin2', trim(regexp_replace(col("ADMIN2"), '^[0-9\\s]*', ''))
+                'admin0', 
+                when(lower(col('Admin1'))=='central', 'Central')
+                .when(lower(col('Admin1'))=='local', 'Regional')
+                .otherwise('Regional') # correcting the null values manually
+            ).withColumn(
+                'admin1', 
+                when(col('admin0')=='Central', 'Central')
+                # error with one district 'Mongar'
+                .when((col('Admin2').isNull()) & (col('Admin3').startswith("414")), "Mongar")
+                .when(col('admin0')=='Regional', initcap(regexp_replace(col("Admin2"), '^[0-9\\s]*', '')))
+            ).withColumn(
+                'admin2', 
+                when(col('admin1')=='Mongar', 'Mongar')
+                .otherwise(initcap(trim(regexp_replace(col("Admin2"), '^[0-9\\s]*', ''))))
             ).withColumn(
                 'func_sub',
                 when(col('prog1').startswith('5 '), 'judiciary')
                 .when(col('prog1').startswith('30'), 'public safety')
+                # agriculture
+                .when((col('prog1').startswith('43') | col('prog1').startswith('44') | col('prog1').startswith('45') | col('prog1').startswith('46') | col('prog1').startswith('48') | col ('prog1').startswith('83')), 'agriculture')
+                # transportation
+                .when(
+                    ((col('prog1').startswith('53') | col('prog1').startswith('26') | col('prog1').startswith('50') | col('prog1').startswith('51')) |
+                    ((col('airport')==1) & (~col('prog1').startswith('33')) & (~col('prog1').startswith('55'))) |
+                    (col('Roads')==True)), 'transport')
+
                 # education spending decomposed
                 .when(col('prog2').startswith('87'), 'primary education')
                 .when((col('prog2').startswith("88") | col('prog2').startswith("89") | col("prog2").startswith("90")), "secondary education")
                 .when((col("prog1").startswith("16") | col("prog1").startswith("15")),  "tertiary education")
-                # No breakdown in health expenditure into primary, secondary and tertiary       
+                # health spending breakdown       
+                .when(col('prog1').startswith('69'), 'primary and secondary health')
+                .when(col('prog1').startswith('68'), 'tertiary and quaternary health')
             ).withColumn(
                 'func',
                 when(((col('Econ3')=='Social benefits') | col('econ4').startswith('25.01')), 'Social protection')
@@ -79,18 +102,19 @@ def boost_silver():
                         (col('prog1').startswith('56') | col('prog1').startswith('91') | col('prog1').startswith('98')) & (col('Water&SanitationTag') == True)
                     )) ,'Housing and community amenities')
 
-                # No defence spending information
+                # No Defence spending information
                 .when((
-                    (col('prog1').startswith('53') | col('prog1').startswith('26') | col('prog1').startswith('50') | col('prog1').startswith('51')) |
-                    ((col('airport')==1) & (~col('prog1').startswith('33')) & (~col('prog1').startswith('55'))) |
-                    (col('Roads')==True) |
-                    (col('prog1').startswith('61') | col('prog1').startswith('65') | col('prog1').startswith('66')) |
-                    (col('prog1').startswith('43') | col('prog1').startswith('44') | col('prog1').startswith('45') | col('prog1').startswith('46') | col('prog1').startswith('48') | col ('prog1').startswith('83')) |
+                    (col('func_sub').isin('agriculture', 'transport')) |
+                    # energy spending
                     (col('activity').startswith('26') | col('prog1').startswith('53') | col('prog1').startswith('88') | col('prog1').startswith('89') | col('prog1').startswith('90'))                
                 ), 'Economic affairs')
                 .otherwise('General public services')
             )
             .withColumn('is_transfer', lit(False))
+            .withColumn('geo1', 
+                        when(col('admin0')=='Central', 'Central Scope')
+                        .when(col('admin0')=='Regional', concat(col('admin1'), " District, Bhutan"))
+                        )
         )
     
 @dlt.table(name=f'btn_boost_gold')
@@ -103,8 +127,12 @@ def boost_gold():
                     col('Budget').alias('approved'),
                     col('Executed').alias('executed'),
                     expr("CAST(NULL AS DOUBLE) as revised"),
+                    'admin0',
+                    'admin1',
                     'admin2',
+                    'geo1',
                     'is_transfer',
                     'func'
             )
     )
+

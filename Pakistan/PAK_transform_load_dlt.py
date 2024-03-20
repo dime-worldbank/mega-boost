@@ -40,18 +40,37 @@ def boost_silver():
             when(col("Admin0") == "Federal", "Central Scope")
             .otherwise(
                 when(col("Admin0") == "KP", "Khyber Pakhtunkhwa")
-                .otherwise(col("Admin0"))
-            )
+                .otherwise(col("Admin0")))
+        ).withColumn(
+            'admin0_tmp', 
+            when(col('Admin0')=='Federal', 'Central')
+            .otherwise('Regional')
+        ).withColumn(
+            'admin1_tmp', # since admin1 already exists in the raw data
+            when(col('admin0_tmp')=='Central', 'Central')
+            .when(col("Admin0") == "KP", 'Khyber Pakhtunkhwa')
+            .otherwise(col('Admin0'))
         ).withColumn(
             'admin2',
-            trim(expr("substring(admin1, instr(admin1, '-') + 1)"))
-            ).withColumn(
+            initcap(trim(expr("substring(admin1, instr(admin1, '-') + 1)")))
+        ).withColumn(
+            'geo1', 
+            when(col('admin0_tmp')=='Central', 'Central Scope') # since we don't have geo tagged spending information
+            .otherwise(col('admin1_tmp'))
+        ).withColumn(
+            'func_sub',
+            when(col('func2').startswith('031'), 'judiciary')
+            .when((col('func1').startswith('03') & (~col('func2').startswith('031'))), 'public order')
+            .when(col('func2').startswith('091'), 'primary education')
+            .when(col('func2').startswith('092'), 'secondary education')
+            .when(col('func2').startswith('093'), 'tertiary education')
+        ).withColumn(
             'func',
             when((col('func1') == '0') & col('admin1').startswith('H01'), 'Health')
             .when((col('func1') == '0') & col('admin1').startswith('E01'), 'Education')
             .when(col('func1').startswith('01'), 'General public services')
             .when(col('func1').startswith('02'), 'Defence')
-            .when(col('func1').startswith('03'), 'Public order and safety')
+            .when(col('func_sub').isin('judiciary', 'public order'), 'Public order and safety')
             .when(col('func1').startswith('04'), 'Economic affairs')
             .when(col('func1').startswith('05'), 'Environmental protection')
             .when(col('func1').startswith('06'), 'Housing and community amenities')
@@ -75,7 +94,10 @@ def boost_gold():
                     'approved',
                     expr("CAST(NULL AS DOUBLE) as revised"),
                     'executed',
+                    col('admin0_tmp').alias('admin0'),
+                    col('admin1_tmp').alias('admin1'),
                     'admin2',
+                    'geo1',
                     'is_transfer',
                     'func')
     )

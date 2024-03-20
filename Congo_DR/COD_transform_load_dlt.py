@@ -1,6 +1,6 @@
 # Databricks notebook source
 import dlt
-from pyspark.sql.functions import substring, col, lit, when, element_at, split, upper, trim, lower, regexp_replace
+from pyspark.sql.functions import substring, col, lit, when, element_at, split, upper, trim, lower, regexp_replace, initcap
 
 # Note DLT requires the path to not start with /dbfs
 TOP_DIR = "/mnt/DAP/data/BOOSTProcessed"
@@ -36,40 +36,50 @@ def boost_silver():
             when(trim(lower(col("Province"))) == "00 services centraux", 'Central Scope')
             .when((trim(lower(col("Province"))) == "19 multiprovince") | (trim(lower(col("Province"))) == "27 multi-province"), 'Other')
             .when(col("Province").isNotNull(),
-                lower(trim(regexp_replace(col("Province"), "\d+", "")))
-            )
+                lower(trim(regexp_replace(col("Province"), "\d+", ""))))
             .otherwise('Other') 
         ).withColumn(
-    'func_sub',
-        # education breakdown
-        # NOTE: post 2016 the code for primary education is not present. pre-primary is the only one tagged -- we assume it refers to primary as well following previous years codes
-        .when(
-            col('Sous_Fonction_').startswith('091'), 'primary education')
-        .when(
-            col('Sous_Fonction_').startswith('092'), 'secondary education') 
-        .when(
-            col('Sous_Fonction_').startswith('094'), 'tertiary education')
-        # public safety
-        .when(
-            col('Fonction2').startswith('03'), 'public safety'
-        )
-        # judiciary (SHOULD come after public safety)
-        .when(
-            col('Fonction2').startswith('033'), 'judiciary')
-        # No specific indicators for primary, secondary, tertiary or quaternary health
-    ).withColumn(
-            'func',
-        when(col('Grande_Fonction').startswith('01'), 'General public services')
-        .when(col('Grande_Fonction').startswith('02'), 'Defence')
-        .when(col('Grande_Fonction').startswith('03'), 'Public order and safety')
-        .when(col('Grande_Fonction').startswith('04'), 'Economic affairs')
-        .when(col('Grande_Fonction').startswith('05'), 'Environmental protection')
-        .when(col('Grande_Fonction').startswith('06'), 'Housing and community amenities')
-        .when(col('Grande_Fonction').startswith('07'), 'Health')
-        .when(col('Grande_Fonction').startswith('08'), 'Recreation, culture and religion')              
-        .when(col('Grande_Fonction').startswith('09'), 'Education')        
-        .when(col('Grande_Fonction').startswith('10'), 'Social protection')    
-    ).withColumn('is_transfer', lit(False))
+            'admin0', lit('Central')
+        ).withColumn(
+            'admin1', lit('Central')
+        ).withColumn(
+            'admin2', initcap(regexp_replace(col('Chapitre'), '^[0-9\\s]*', ''))
+        ).withColumn(
+            'geo1',
+            when(col("Province").startswith('00'), 'Central Scope')
+            .when((col("Province").startswith("19") | col("Province").startswith('27')), 'Central Scope')
+            .when(col("Province").isNotNull(),
+                initcap(trim(regexp_replace(col("Province"), "\d+", ""))))
+        ).withColumn(
+            'func_sub',
+                # education breakdown
+                # NOTE: post 2016 the code for primary education is not present. pre-primary is the only one tagged -- we assume it refers to primary as well following previous years codes
+                when(
+                    col('Sous_Fonction_').startswith('091'), 'primary education')
+                .when(
+                    col('Sous_Fonction_').startswith('092'), 'secondary education') 
+                .when(
+                    col('Sous_Fonction_').startswith('094'), 'tertiary education')
+                # public safety
+                .when(
+                    col('Fonction2').startswith('03'), 'public safety' )
+                # judiciary (SHOULD come after public safety)
+                .when(
+                    col('Fonction2').startswith('033'), 'judiciary')
+                # No specific indicators for primary, secondary, tertiary or quaternary health
+            ).withColumn(
+                    'func',
+                when(col('Grande_Fonction').startswith('01'), 'General public services')
+                .when(col('Grande_Fonction').startswith('02'), 'Defence')
+                .when(col('Grande_Fonction').startswith('03'), 'Public order and safety')
+                .when(col('Grande_Fonction').startswith('04'), 'Economic affairs')
+                .when(col('Grande_Fonction').startswith('05'), 'Environmental protection')
+                .when(col('Grande_Fonction').startswith('06'), 'Housing and community amenities')
+                .when(col('Grande_Fonction').startswith('07'), 'Health')
+                .when(col('Grande_Fonction').startswith('08'), 'Recreation, culture and religion')              
+                .when(col('Grande_Fonction').startswith('09'), 'Education')        
+                .when(col('Grande_Fonction').startswith('10'), 'Social protection')
+            ).withColumn('is_transfer', lit(False))
     )
 
 @dlt.table(name=f'cod_boost_gold')
@@ -84,6 +94,10 @@ def boost_gold():
                      # Its unclear from the notes how Montant Vote, Montant Dotation, Montant ENgage, Montant Liquide and Montant ODFC relate to approved and committed
                     col('Montant_Engagé').alias('revised'),
                     col('Montant_Payé').alias('executed'),
+                    'admin0',
+                    'admin1',
+                    'admin2',
+                    'geo1',
                     'is_transfer',
                     'func'
                     )

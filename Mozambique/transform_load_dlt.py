@@ -49,45 +49,50 @@ def boost_silver():
         .select("*", col('Adm51').alias('Adm5'))
         .drop('Adm51', 'UGB_third')
         .withColumn('adm1_name',
-                    when(
-                        col("Adm5En") == "Maputo (city)", "Cidade de Maputo"
-                    ).otherwise(
-                        when(
-                            col("Adm5En") == "Central", "Central Scope"
-                        ).otherwise(col("Adm5En"))
-                    ))
-        .withColumn('admin2',
+            when(col("Adm5En") == "Maputo (city)", "Cidade de Maputo")
+            .otherwise(
+                when(col("Adm5En") == "Central", "Central Scope")
+                .otherwise(col("Adm5En")))
+        ).withColumn('geo1',
+            when(col("Adm5En") == "Maputo (city)", "Cidade de Maputo")
+            .otherwise(
+                when(col("Adm5En") == "Central", "Central Scope")
+                .otherwise(col("Adm5En")))
+        ).withColumn( 'admin0',
+            when(col('Adm5').startswith('A'), 'Central')
+            .otherwise('Regional')
+        ).withColumn('admin1',
+            when(col("Adm5En") == "Maputo (city)", "Cidade de Maputo")
+            .otherwise(col("Adm5En"))
+        ).withColumn('admin2',
             trim(regexp_replace(col("Adm2"), '^[0-9\\s]*', ''))
-        )
-        .withColumn('func_sub',
-            when(
-                col("Func1").startswith('03') & (col('Func2') == '03311 Tribunais') , "judiciary"
-            ).when(
-                col("Func1").startswith('03'), "public safety" # important for this to be after judiciary
-            )
-        )
-        .withColumn('func',
-            when(
-                col('Func1').startswith("01"), "General public services"
-            ).when(
-                col('Func1').startswith("02"), "Defense"
-            ).when(
-                col("func_sub").isin("judiciary", "public safety") , "Public order and safety"
-            ).when(
-                col('Func1').startswith("04"), "Economic affairs"
-            ).when(
-                col('Func1').startswith("05"), "Environmental protection"
-            ).when(
-                col('Func1').startswith("06"), "Housing and community amenities"
-            ).when(
-                col('Func1').startswith("07"), "Health"
-            ).when(
-                col('Func1').startswith("08"), "Recreation, culture and religion"
-            ).when(
-                col('Func1').startswith("09"), "Education"
-            ).when(
-                col('Func1').startswith("10"), "Social protection"
-            )
+        ).withColumn('func_sub',
+            when(col("Func1").startswith('03') & (col('Func2') == '03311 Tribunais') , "judiciary")
+            .when(col("Func1").startswith('03'), "public safety" ) # important for this to be after judiciary
+            # education expenditure breakdown
+            .when((col('Func1').startswith('09') & (
+                col('Func2').startswith('09111') | col('Func2').startswith('09121') | col('Func2').startswith('09122') | col('Func2').startswith('09113')
+            )), 'primary education')
+            .when((col('Func1').startswith('09') & (
+                col('Func2').startswith('09211') | col('Func2').startswith('09212')
+            )), 'secondary education')
+            .when((col('Func1').startswith('09') & (
+                col('Func2').startswith('09411') | col('Func2').startswith('09412') | col('Func2').startswith('09419') | col('Func2').startswith('09431')
+            )), 'tertiary education')
+            # health expenditure breakdown
+            .when(col('Func2').startswith('07411'), 'primary and secondary health')
+            .when((col('Func2').startswith('07311') | col('Func2').startswith('07321')), 'tertiary and quaternary health')
+        ).withColumn('func',
+            when(col('Func1').startswith("01"), "General public services")
+            .when(col('Func1').startswith("02"), "Defense")
+            .when(col("func_sub").isin("judiciary", "public safety") , "Public order and safety")
+            .when(col('Func1').startswith("04"), "Economic affairs")
+            .when(col('Func1').startswith("05"), "Environmental protection")
+            .when(col('Func1').startswith("06"), "Housing and community amenities")
+            .when(col('Func1').startswith("07"), "Health")
+            .when(col('Func1').startswith("08"), "Recreation, culture and religion")
+            .when(col('Func1').startswith("09"), "Education")
+            .when(col('Func1').startswith("10"), "Social protection")
         )
     )
     
@@ -102,7 +107,10 @@ def boost_gold():
                 col('DotacaoInicial').alias('approved'),
                 col('DotacaoActualizada').alias('revised'),
                 col('Execution').alias('executed'),
+                'admin0',
+                'admin1', 
                 'admin2',
+                'geo1',
                 'is_transfer',
                 'func',
         )
