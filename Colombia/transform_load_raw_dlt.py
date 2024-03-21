@@ -1,7 +1,10 @@
 # Databricks notebook source
 import dlt
-from pyspark.sql.functions import substring, col, lit, when, element_at, split, upper, length, lead, expr, trim, lpad, concat, last
+from pyspark.sql.functions import substring, col, lit, when, element_at,\
+  split, upper, length, lead, expr, trim, lpad, concat, concat_ws, last,\
+  coalesce, size
 from pyspark.sql.window import Window
+from pyspark.sql.types import IntegerType
 
 # Note DLT requires the path to not start with /dbfs
 TOP_DIR = "/mnt/DAP/data/BOOSTProcessed"
@@ -17,7 +20,7 @@ CSV_READ_OPTIONS = {
     "escape": '"',
 }
 
-## Subnational ##
+## Subnational: 2021 onwards ##
 
 @dlt.expect_or_drop("year_not_null", "year IS NOT NULL")
 @dlt.table(name=f'col_subnat_recent_bronze')
@@ -125,7 +128,12 @@ def col_subnat_recent_silver():
     adm_lookup = spark.table('indicator_intermediate.col_subnational_adm2_adm1_lookup')
     with_geo = (with_econ
       .withColumn(
-        "nso_code", expr("substring(codigofut, length(codigofut)-4, 5)").cast('integer'))
+        "nso_code_padded", expr("substring(codigofut, length(codigofut)-4, 5)").cast('integer'))
+      .withColumn(
+        "nso_code", 
+        when(col("nso_code_padded")%1000 == 0, col("nso_code_padded")/1000)
+        .otherwise(col("nso_code_padded"))
+        .cast('integer'))
       .join(adm_lookup, on=["nso_code"], how="left")
     )
 
@@ -134,7 +142,7 @@ def col_subnat_recent_silver():
       'entitad_cod', lpad(col('seccionpresupuestal').cast('int'), 2, '0')
     ).withColumn(
       'func1',
-      when(col('entitad_cod').isin(['02', '21']), "Salud")
+      when(col('entitad_cod').isin(['02', '21']), "Health")
       .when(col('entitad_cod') == '24', "Pensions")
       .when(col('entitad_cod') == '22', "Education")
       .otherwise("General Services")
@@ -155,19 +163,151 @@ def col_subnat_recent_silver():
       )
     )
 
+# COMMAND ----------
+
+## Subnational: 2020 and before ##
+
+@dlt.expect_or_drop("year_not_null", "year IS NOT NULL")
+@dlt.table(name=f'col_subnat_2020_and_prior_funcionamiento_bronze')
+def col_subnat_2020_and_prior_funcionamiento_bronze():
+    return (spark.read
+      .format("csv")
+      .options(**CSV_READ_OPTIONS)
+      .option("inferSchema", "true")
+      .load(f'{COUNTRY_MICRODATA_DIR}/subnational_gastos_*_FUT_GastosFuncionamiento.csv')
+      .withColumn("econ1", lit("FUNCIONAMIENTO"))
+    )
+
+@dlt.expect_or_drop("year_not_null", "year IS NOT NULL")
+@dlt.table(name=f'col_subnat_2020_and_prior_inversion_bronze')
+def col_subnat_2020_and_prior_inversion_bronze():
+    return (spark.read
+      .format("csv")
+      .options(**CSV_READ_OPTIONS)
+      .option("inferSchema", "true")
+      .load(f'{COUNTRY_MICRODATA_DIR}/subnational_gastos_*_FUT_GastosInversion.csv')
+      .withColumn("econ1", lit("INVERSION"))
+    )
+
+@dlt.table(name='col_subnat_2020_and_prior_inversion_unidad_ejecutora_lookup')
+def col_subnat_2020_and_prior_inversion_unidad_ejecutora_lookup():
+    return (spark.read
+      .format("csv")
+      .options(**CSV_READ_OPTIONS)
+      .option("inferSchema", "true")
+      .load(f'{COUNTRY_MICRODATA_DIR}/2020_and_prior_inversion_unidad_ejecutora_lookup.csv')
+    )
+
+col_order = ['year', 'CodDANEDepartamento', 'CodDANEMunicipio',
+             'econ1', 'UnidadEjecutora', 'CodigoConcepto', 'Concepto', 'CodigoFuenteFinanciacion',
+             'PresupuestoInicial', 'PresupuestoDefinitivo', 'Compromisos', 'Obligaciones', 'Pagos']
+@dlt.table(name=f'col_subnat_2020_and_prior_bronze')
+def col_subnat_2020_and_prior_bronze():
+    execution_entity_lookup = dlt.read("col_subnat_2020_and_prior_inversion_unidad_ejecutora_lookup")
+    inversion = (dlt.read('col_subnat_2020_and_prior_inversion_bronze')
+        .withColumn("CodigoFuenteFinanciacion", col("CodigoFuentesDeFinanciacion"))
+        .withColumn("FuenteFinanciacion", col("FuentesdeFinanciacion"))
+        .withColumn("CodigoConcepto_group2_int", element_at(split('CodigoConcepto', '\\.'), 2).cast(IntegerType()))
+        .join(execution_entity_lookup, on=["CodigoConcepto_group2_int"], how="left")
+        .select(col_order)
+    )
+    return (dlt.read('col_subnat_2020_and_prior_funcionamiento_bronze')
+        .select(col_order)
+        .union(inversion)
+        .filter(col('year') >= 2019) # No detailed central data available prior, so look no further back for subnational
+        .filter(~(col("CodigoConcepto")=='VAL')) # exclude special budget code (summary?)
+        .withColumn('CodigoConcepto_groups', split('CodigoConcepto', '\\.'))
+    )
+
+@dlt.table(name='col_subnat_econ2_2020_and_prior')
+def col_subnat_econ2_2020_and_prior():
+    return (dlt.read('col_subnat_2020_and_prior_bronze')
+      .filter(size(col("CodigoConcepto_groups")) == 3) # CodigoConcepto that contains 2 dots
+      .select(
+        "year",
+        col("CodigoConcepto").alias("CodigoConcepto_frist3_group"),
+        col("Concepto").alias("econ2")
+      )
+      .distinct()
+    )
+
+@dlt.table(name='col_subnat_econ3_2020_and_prior')
+def col_subnat_econ3_2020_and_prior():
+    return (dlt.read('col_subnat_2020_and_prior_bronze')
+      .filter(size(col("CodigoConcepto_groups")) == 4) # CodigoConcepto that contains 3 dots
+      .select(
+        "year",
+        col("CodigoConcepto").alias("CodigoConcepto_frist4_group"),
+        col("Concepto").alias("econ3")
+      )
+      .distinct()
+    )
+
+@dlt.table(name=f'col_subnat_2020_and_prior_silver')
+def col_subnat_2020_and_prior_silver():
+    # Add adm1 and adm2 name columns
+    adm_lookup = spark.table('indicator_intermediate.col_subnational_adm2_adm1_lookup')
+    with_geo = (dlt.read('col_subnat_2020_and_prior_bronze')
+      .filter(col("CodigoFuenteFinanciacion").isNotNull()) # exclude unspecified source of funding
+      .withColumn("nso_code", coalesce(col("CodDANEMunicipio"), col("CodDANEDepartamento")).cast('integer'))
+      .join(adm_lookup, on=["nso_code"], how="left")
+    )
+
+    with_func = (with_geo
+      .withColumn(
+        'func1',
+        when(col('UnidadEjecutora').isin(['Education', 'Health']), col('UnidadEjecutora')) # INVERSION
+        .when(col('UnidadEjecutora').startswith('6'), "Education") # FUNCIONAMIENTO
+        .when(col('UnidadEjecutora').startswith('7'), "Health") # FUNCIONAMIENTO
+        .otherwise("General Services") # Catch all for both FUNCIONAMIENTO and INVERSION
+      )
+    )
+
+    with_econ = (with_func
+      .select('*',
+        concat_ws('.',
+          element_at(col("CodigoConcepto_groups"), 1),
+          element_at(col("CodigoConcepto_groups"), 2), 
+          element_at(col("CodigoConcepto_groups"), 3)).alias("CodigoConcepto_frist3_group"),
+        concat_ws('.',
+          col("CodigoConcepto_frist3_group"),
+          element_at(col("CodigoConcepto_groups"), 4)).alias("CodigoConcepto_frist4_group"),
+      )
+      .join(dlt.read('col_subnat_econ2_2020_and_prior'), on=["year", "CodigoConcepto_frist3_group"], how="left")
+      .join(dlt.read('col_subnat_econ3_2020_and_prior'), on=["year", "CodigoConcepto_frist4_group"], how="left")
+      .withColumn(
+        'econ4',
+        when(size(col("CodigoConcepto_groups")) > 4, col('Concepto'))
+      )
+    )
+    
+    return with_econ
+
+# COMMAND ----------
+
+## Combine earlier and recent Subnational ##
+
 @dlt.table(name='col_subnat_gold')
 def col_subnat_gold():
-  # TODO: add 2019,2020
-  return (dlt.read('col_subnat_recent_silver')
-    .filter(col('is_line_item') & (col('vigenciagasto')==1))
-    .withColumn('admin0', lit("Regional"))
+  return (dlt.read('col_subnat_2020_and_prior_silver')
+    .withColumn('econ5', lit(None))
     .select("year",
-            "admin0",
+            col("adm1_name").alias("admin1"),
+            col("adm2_name").alias("admin2"),
+            "func1",
+            "econ1", "econ2", "econ3", "econ4", "econ5",
+            col("Compromisos").alias("compromisos"),
+            col("Obligaciones").alias("obligaciones"),
+            col("Pagos").alias("pagos"))
+    .union(dlt.read('col_subnat_recent_silver')
+        .filter(col('is_line_item') & (col('vigenciagasto')==1))
+        .select("year",
             col("adm1_name").alias("admin1"),
             col("adm2_name").alias("admin2"),
             "func1",
             "econ1", "econ2", "econ3", "econ4", "econ5",
             "compromisos", "obligaciones", "pagos")
+    )
   )
 
 # COMMAND ----------
@@ -299,8 +439,7 @@ def col_central_boost_silver_from_raw():
 def col_subnat_boost_silver_from_raw():
     return (dlt.read('col_subnat_gold')
         .withColumn("func",
-            when(col("func1") == "Salud", lit("Health"))
-            .when(col("func1") == "Pensions", lit("Social protection"))
+            when(col("func1") == "Pensions", lit("Social protection"))
             .otherwise(col("func1"))
         )
     )
@@ -330,6 +469,7 @@ def col_boost_gold():
       .withColumn('country_name', lit(COUNTRY))
       .withColumn('revised', lit(None))
       .withColumn('func_sub', lit(None))
+      .withColumn('admin0', lit("Regional"))
       .select('country_name',
               'year',
               'admin0',
