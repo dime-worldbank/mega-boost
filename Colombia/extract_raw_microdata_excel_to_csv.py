@@ -106,8 +106,6 @@ for filename in earlier_filenames + recent_filenames:
 
 # COMMAND ----------
 
-dbutils.fs.ls(f'{RAW_INPUT_DIR}/{COUNTRY}/subnational/gastos/'.replace('/dbfs', ''))
-
-# COMMAND ----------
-
-dbutils.fs.ls(f'{microdata_csv_dir}'.replace('/dbfs', ''))
+# Copy the earlier subnational execution entity lookup auxiliary file into csv folder for DLT consumption
+dbutils.fs.cp(f'{RAW_INPUT_DIR}/{COUNTRY}/subnational/gastos/2020_and_prior_inversion_unidad_ejecutora_lookup.csv'.replace('/dbfs', ''),       
+              microdata_csv_dir.replace('/dbfs', ''))
