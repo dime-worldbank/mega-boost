@@ -148,8 +148,17 @@ def col_subnat_recent_silver():
       .otherwise("General Services")
     ))
 
+    # Interpolate missing Pagos values
+    with_pagos_interpolated = (with_func
+      .withColumn(
+        'pagos_interpolated',
+        when(col("obligaciones").isNotNull() & col("pagos").isNull(), col("obligaciones"))
+        .otherwise(col("pagos"))
+      )
+    )
+
     # Add a flag to indicate if a row is a line item or aggregate entry
-    return (with_func
+    return (with_pagos_interpolated
       .withColumn(
         "overlap_next_row_all_but_last_4", expr("substring(concepto_cod_next_row, 1, length(concepto_cod_next_row) - 4) = concepto_cod"))
       .withColumn(
@@ -306,7 +315,9 @@ def col_subnat_gold():
             col("adm2_name").alias("admin2"),
             "func1",
             "econ1", "econ2", "econ3", "econ4", "econ5",
-            "compromisos", "obligaciones", "pagos")
+            "compromisos",
+            "obligaciones",
+            col("pagos_interpolated").alias("pagos"))
     )
   )
 
