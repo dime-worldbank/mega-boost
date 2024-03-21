@@ -2,7 +2,7 @@
 import dlt
 from pyspark.sql.functions import substring, col, lit, when, element_at,\
   split, upper, length, lead, expr, trim, lpad, concat, concat_ws, last,\
-  coalesce, size
+  coalesce, size, count, sum
 from pyspark.sql.window import Window
 from pyspark.sql.types import IntegerType
 
@@ -204,7 +204,7 @@ def col_subnat_2020_and_prior_inversion_unidad_ejecutora_lookup():
       .format("csv")
       .options(**CSV_READ_OPTIONS)
       .option("inferSchema", "true")
-      .load(f'{COUNTRY_MICRODATA_DIR}/2020_and_prior_inversion_unidad_ejecutora_lookup.csv')
+      .load(f'{COUNTRY_MICRODATA_DIR}/subnational_2020_and_prior_inversion_unidad_ejecutora_lookup.csv')
     )
 
 col_order = ['year', 'CodDANEDepartamento', 'CodDANEMunicipio',
@@ -321,6 +321,28 @@ def col_subnat_gold():
     )
   )
 
+@dlt.expect_or_fail("row_count should match expected", "row_count = row_count_actual")
+@dlt.expect_or_fail("approved_total should match expected", "approved_total = approved_total_actual")
+@dlt.expect_or_fail("executed_total should match expected", "executed_total = executed_total_actual")
+@dlt.table(name='col_subnat_quality')
+def col_subnat_quality():
+    expected_agg = (spark.read
+      .format("csv")
+      .options(**CSV_READ_OPTIONS)
+      .option("inferSchema", "true")
+      .load(f'{COUNTRY_MICRODATA_DIR}/expected_subnational_by_year.csv')
+    )
+    subnat_agg = (dlt.read('col_subnat_gold')
+      .groupBy('year')
+      .agg(count('*').alias('row_count_actual'),
+           sum('compromisos').alias('approved_total_actual'),
+           sum('pagos').alias('executed_total_actual'))
+      .join(expected_agg, on=['year'], how='left')
+    )
+    #TODO: check all expected years are present (left join above would not catch the case all years are missing from col_subnat_gold)
+
+    return subnat_agg
+
 # COMMAND ----------
 
 ## Central ##
@@ -380,6 +402,8 @@ def col_central_gold():
         .select('year', 'func1', 'admin1', 'econ1', 'econ2', 'econ3',
                 'ApropiacionDefinitiva', 'Compromiso', 'Obligacion', 'Pago')
     )
+
+# TODO: add central quality checks – idea: against official summary items
 
 # COMMAND ----------
 
