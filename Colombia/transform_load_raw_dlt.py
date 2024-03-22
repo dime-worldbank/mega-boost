@@ -305,8 +305,8 @@ def col_subnat_gold():
             col("adm2_name").alias("admin2"),
             "func1",
             "econ1", "econ2", "econ3", "econ4", "econ5",
-            col("Compromisos").alias("compromisos"),
-            col("Obligaciones").alias("obligaciones"),
+            col("PresupuestoInicial").alias("compromisos"),
+            col("PresupuestoDefinitivo").alias("obligaciones"),
             col("Pagos").alias("pagos"))
     .union(dlt.read('col_subnat_recent_silver')
         .filter(col('is_line_item') & (col('vigenciagasto')==1))
