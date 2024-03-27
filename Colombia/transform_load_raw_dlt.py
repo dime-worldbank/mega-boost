@@ -2,7 +2,7 @@
 import dlt
 from pyspark.sql.functions import substring, col, lit, when, element_at,\
   split, upper, length, lead, expr, trim, lpad, concat, concat_ws, last,\
-  coalesce, size, count, sum
+  coalesce, size, count, sum, lower
 from pyspark.sql.window import Window
 from pyspark.sql.types import IntegerType
 
@@ -157,8 +157,22 @@ def col_subnat_recent_silver():
       )
     )
 
+    with_admin0 = (with_pagos_interpolated
+      .withColumn('nombreentidad_lower', lower(col('nombreentidad')))
+      .withColumn(
+        'admin0',
+        when(col('year') == 2021, # Special handling for 2021 subnational
+          when(col('nombreentidad_lower').contains("hospital"), 'Hospital')
+          .when(col('nombreentidad_lower').contains("universidad"), 'Universidad')
+          .when(col('nombreentidad_lower').contains("departament"), 'Departamento')
+          .when(col('codigofut').startswith('21') & (~col('nombreentidad_lower').contains("corporaci")), 'Municipalidad')
+          .otherwise(lit('Other')))
+        .otherwise("Regional")
+      )
+    )
+
     # Add a flag to indicate if a row is a line item or aggregate entry
-    return (with_pagos_interpolated
+    return (with_admin0
       .withColumn(
         "overlap_next_row_all_but_last_4", expr("substring(concepto_cod_next_row, 1, length(concepto_cod_next_row) - 4) = concepto_cod"))
       .withColumn(
@@ -309,7 +323,7 @@ def col_subnat_gold():
             col("PresupuestoDefinitivo").alias("obligaciones"),
             col("Pagos").alias("pagos"))
     .union(dlt.read('col_subnat_recent_silver')
-        .filter(col('is_line_item') & (col('vigenciagasto')==1))
+        .filter(col('is_line_item') & (col('vigenciagasto')==1) & ~(col('admin0')=='Other'))
         .select("year",
             col("adm1_name").alias("admin1"),
             col("adm2_name").alias("admin2"),

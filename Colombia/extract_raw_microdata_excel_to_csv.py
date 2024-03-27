@@ -66,7 +66,7 @@ earlier_filenames = glob(f'{RAW_INPUT_DIR}/{COUNTRY}/subnational/gastos/*_FUT_*.
 recent_filenames = glob(f'{RAW_INPUT_DIR}/{COUNTRY}/subnational/gastos/*_EJECUCION_*.xlsx')
 
 EJECUCION_REQUIRED_COLS = [
-    'codigofut', # geo code
+    'codigofut', 'nombreentidad', # geo/entity code & name
     'concepto_cod', 'nombreconcepto', # budget code
     'seccionpresupuestal', 'nombreseccion', # budget section
     'vigenciagasto', # validity? needed for partitioning/grouping before ordering by budget code
