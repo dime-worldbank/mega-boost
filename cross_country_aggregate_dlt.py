@@ -21,7 +21,9 @@ def boost_gold():
         if "adm1_name" not in current_df.columns:
             current_df = current_df.withColumn("adm1_name", F.col("admin1"))
         
-        col_order = ['country_name', 'year', 'adm1_name', 'admin0', 'admin1', 'admin2', 'geo1', 'func', 'is_transfer', 'approved', 'revised', 'executed']
+        col_order = ['country_name', 'year', 'adm1_name', 'admin0', 'admin1', 'admin2', 'geo1',
+                     'func', 'func_sub', 'is_transfer',
+                     'approved', 'revised', 'executed']
         current_df = current_df.select(col_order)
             
         if unioned_df is None:
