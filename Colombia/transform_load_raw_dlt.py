@@ -145,7 +145,7 @@ def col_subnat_recent_silver():
       when(col('entitad_cod').isin(['02', '21']), "Health")
       .when(col('entitad_cod') == '24', "Pensions")
       .when(col('entitad_cod') == '22', "Education")
-      .otherwise("General Services")
+      .otherwise("General public services")
     ))
 
     # Interpolate missing Pagos values
@@ -282,7 +282,7 @@ def col_subnat_2020_and_prior_silver():
         when(col('UnidadEjecutora').isin(['Education', 'Health']), col('UnidadEjecutora')) # INVERSION
         .when(col('UnidadEjecutora').startswith('6'), "Education") # FUNCIONAMIENTO
         .when(col('UnidadEjecutora').startswith('7'), "Health") # FUNCIONAMIENTO
-        .otherwise("General Services") # Catch all for both FUNCIONAMIENTO and INVERSION
+        .otherwise("General public services") # Catch all for both FUNCIONAMIENTO and INVERSION
       )
     )
 
