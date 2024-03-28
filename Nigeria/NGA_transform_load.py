@@ -26,9 +26,24 @@ def nga_boost_bronze():
       .load(f'{COUNTRY_MICRODATA_DIR}/central.csv')
     )
 
+@dlt.table(name=f'nga_region_lookup')
+def nga_region_lookup():
+    return (spark.read
+      .format("csv")
+      .options(**CSV_READ_OPTIONS)
+      .option("inferSchema", "true")
+      .load(f'{INPUT_DIR}/../Auxiliary/NigeriaRegionLookup.csv')
+    )
+
+# currently NGA only has central data which is all geo tagged
+@dlt.expect_or_fail("geo1_not_null", "geo1 IS NOT NULL")
 @dlt.table(name=f'nga_boost_silver')
 def nga_boost_silver():
   return (dlt.read('nga_boost_bronze')
+    .select('*',
+        substring('Region', 1, 2).alias("region_code_first2")
+    )
+    .join(dlt.read('nga_region_lookup'), on=["region_code_first2"], how="left")
     .withColumn('Year', col('Year').cast('int'))
     .withColumn(
         'is_transfer', col('Econ2').startswith('2207')
@@ -38,9 +53,9 @@ def nga_boost_silver():
         'admin2', trim(regexp_replace(col("adm2"), '^[0-9\\s]*', ''))
     ).withColumn('func_sub',
         when(
-            col('Func1').startswith('703'), 'Public safety'
+            col("Func2").startswith('7033') , "judiciary" # Come before public safety tagging as it is a subcategory
         ).when(
-            col("Func2").startswith('7033') , "judiciary" # should come after the public order and safety tag
+            col('Func1').startswith('703'), 'public safety'
         )
     ).withColumn('func',
         when(
@@ -127,14 +142,18 @@ def nga_boost_silver():
 @dlt.table(name='nga_boost_gold')
 def nga_boost_gold():
   return(dlt.read('nga_boost_silver')
-    .withColumn('country_name', lit(COUNTRY)) # Add revised column
+    .withColumn('country_name', lit(COUNTRY))
+    .withColumn('admin0', lit("Central"))
+    .withColumn('admin1', lit("Central Scope"))
     .select('country_name',
-            'adm1_name',
             col('Year').alias('year'),
-            col('Approved').alias('approved'),
-            expr("CAST(NULL AS DOUBLE) as revised"),
-            col('Executed').alias('executed'),
+            'admin0',
+            'admin1',
             'admin2',
+            'geo1',    
             'func',
-            'func_sub')    
+            'func_sub',
+            col('Approved').alias('approved'),
+            col('Executed').alias('executed'),
+    )    
   )
