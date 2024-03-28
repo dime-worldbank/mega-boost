@@ -64,10 +64,8 @@ def boost_silver():
                 .when((col('prog1').startswith('43') | col('prog1').startswith('44') | col('prog1').startswith('45') | col('prog1').startswith('46') | col('prog1').startswith('48') | col ('prog1').startswith('83')), 'agriculture')
                 # transportation
                 .when(
-                    ((col('prog1').startswith('53') | col('prog1').startswith('26') | col('prog1').startswith('50') | col('prog1').startswith('51')) |
-                    ((col('airport')==1) & (~col('prog1').startswith('33')) & (~col('prog1').startswith('55'))) |
+                    (((col('airport')==1) & (~col('prog1').startswith('33')) & (~col('prog1').startswith('55'))) |
                     (col('Roads')==True)), 'transport')
-
                 # education spending decomposed
                 .when(col('prog2').startswith('87'), 'primary education')
                 .when((col('prog2').startswith("88") | col('prog2').startswith("89") | col("prog2").startswith("90")), "secondary education")
@@ -105,15 +103,16 @@ def boost_silver():
                 # No Defence spending information
                 .when((
                     (col('func_sub').isin('agriculture', 'transport')) |
+                    (col('prog1').startswith('53') | col('prog1').startswith('26') | col('prog1').startswith('50') | col('prog1').startswith('51')) |
                     # energy spending
-                    (col('activity').startswith('26') | col('prog1').startswith('53') | col('prog1').startswith('88') | col('prog1').startswith('89') | col('prog1').startswith('90'))                
+                    (col('activity').startswith('26') | col('prog1').startswith('52') | col('prog1').startswith('88') | col('prog1').startswith('89') | col('prog1').startswith('90'))                
                 ), 'Economic affairs')
                 .otherwise('General public services')
             )
             .withColumn('is_transfer', lit(False))
             .withColumn('geo1', 
                         when(col('admin0')=='Central', 'Central Scope')
-                        .when(col('admin0')=='Regional', concat(col('admin1'), " District, Bhutan"))
+                        #.when(col('admin0')=='Regional', concat(col('admin1'), " District, Bhutan"))
                         )
         )
     
@@ -132,7 +131,21 @@ def boost_gold():
                     'admin2',
                     'geo1',
                     'is_transfer',
-                    'func'
+                    'func',
+                    'func_sub'
             )
     )
 
+
+
+# COMMAND ----------
+
+
+
+# COMMAND ----------
+
+
+
+# COMMAND ----------
+
+    
