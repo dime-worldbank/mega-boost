@@ -505,11 +505,13 @@ def col_boost_gold():
     .withColumn('country_name', lit(COUNTRY))
     .withColumn('admin0', lit('Central'))
     .withColumn('admin1', lit('Central Scope'))
+    .withColumn('geo1', lit('Central Scope')) # Col central spending is not geo tagged
     .select('country_name',
             'year',
             'admin0',
             'admin1',
             'admin2',
+            'geo1',
             'func',
             'func_sub',
             col('ApropiacionDefinitiva').alias('approved'),
@@ -519,11 +521,13 @@ def col_boost_gold():
       .withColumn('revised', lit(None))
       .withColumn('func_sub', lit(None))
       .withColumn('admin0', lit("Regional"))
+      .withColumn('geo1', col('admin1'))
       .select('country_name',
               'year',
               'admin0',
               'admin1',
               'admin2',
+              'geo1',
               'func',
               'func_sub',
               col('compromisos').alias('approved'),
