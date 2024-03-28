@@ -136,5 +136,6 @@ def nga_boost_gold():
             col('Executed').alias('executed'),
             'admin2',
             'is_transfer',
-            'func')    
+            'func',
+            'func_sub')    
   )

@@ -175,6 +175,7 @@ def boost_gold():
                 'admin1',
                 'admin2',
                 'geo1',
-                'func'
+                'func',
+                'func_sub'
                 )
     )

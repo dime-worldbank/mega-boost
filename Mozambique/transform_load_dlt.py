@@ -113,5 +113,6 @@ def boost_gold():
                 'geo1',
                 'is_transfer',
                 'func',
+                'func_sub'
         )
     )

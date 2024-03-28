@@ -99,5 +99,6 @@ def boost_gold():
                     'admin2',
                     'geo1',
                     'is_transfer',
-                    'func')
+                    'func',
+                    'func_sub')
     )
