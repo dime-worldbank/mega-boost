@@ -106,7 +106,7 @@ def boost_silver():
         .when(col('FUNCTION1').startswith('09'), 'Education')
         .when(col('FUNCTION1').startswith('10'), 'Social protection')
         .otherwise('General public services')
-    ).withColumn('is_transfer', lit(False))
+    )
     
     return silver_df
 
@@ -130,7 +130,6 @@ def boost_gold():
                        'admin1',
                        'admin2',
                        'geo1',
-                       'is_transfer',
                        'func'
                        )
               )

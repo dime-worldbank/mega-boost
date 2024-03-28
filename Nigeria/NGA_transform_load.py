@@ -135,7 +135,6 @@ def nga_boost_gold():
             expr("CAST(NULL AS DOUBLE) as revised"),
             col('Executed').alias('executed'),
             'admin2',
-            'is_transfer',
             'func',
             'func_sub')    
   )

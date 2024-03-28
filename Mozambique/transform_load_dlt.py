@@ -100,7 +100,6 @@ def boost_silver():
 def boost_gold():
     return (dlt.read(f'moz_boost_silver')
         .withColumn('country_name', lit(COUNTRY))
-        .withColumn('is_transfer', lit(False))
         .select('country_name',
                 'adm1_name',
                 col('Year').alias('year'),
@@ -111,7 +110,6 @@ def boost_gold():
                 'admin1', 
                 'admin2',
                 'geo1',
-                'is_transfer',
                 'func',
                 'func_sub'
         )

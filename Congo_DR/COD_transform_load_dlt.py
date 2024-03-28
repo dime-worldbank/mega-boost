@@ -79,7 +79,7 @@ def boost_silver():
                 .when(col('Grande_Fonction').startswith('08'), 'Recreation, culture and religion')              
                 .when(col('Grande_Fonction').startswith('09'), 'Education')        
                 .when(col('Grande_Fonction').startswith('10'), 'Social protection')
-            ).withColumn('is_transfer', lit(False))
+            )
     )
 
 @dlt.table(name=f'cod_boost_gold')
@@ -98,7 +98,6 @@ def boost_gold():
                     'admin1',
                     'admin2',
                     'geo1',
-                    'is_transfer',
                     'func',
                     'func_sub'
                     )

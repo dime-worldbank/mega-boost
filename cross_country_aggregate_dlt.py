@@ -11,8 +11,6 @@ def boost_gold():
     unioned_df = None
     for code in country_codes:
         current_df = spark.table(f'boost_intermediate.{code}_boost_gold')
-        if "is_transfer" not in current_df.columns:
-            current_df = current_df.withColumn("is_transfer", F.lit(False))
         for col_name in ["func", "func_sub", "admin0", "admin1", "admin2", "geo1", "revised"]:
             if col_name not in current_df.columns:
                 current_df = current_df.withColumn(col_name, F.lit(None))
@@ -21,8 +19,9 @@ def boost_gold():
         if "adm1_name" not in current_df.columns:
             current_df = current_df.withColumn("adm1_name", F.col("admin1"))
         
-        col_order = ['country_name', 'year', 'adm1_name', 'admin0', 'admin1', 'admin2', 'geo1',
-                     'func', 'func_sub', 'is_transfer',
+        col_order = ['country_name', 'year',
+                     'adm1_name', 'admin0', 'admin1', 'admin2', 'geo1',
+                     'func', 'func_sub',
                      'approved', 'revised', 'executed']
         current_df = current_df.select(col_order)
             
@@ -60,7 +59,6 @@ def expenditure_by_country_year():
     cpi_factors = dlt.read('cpi_factor')
 
     return (boost_gold
-        .filter(~F.col('is_transfer'))
         .groupBy("country_name", "year").agg(
             F.sum("executed").alias("expenditure"),
             F.sum(
@@ -89,7 +87,6 @@ def expenditure_by_country_adm1_year():
         )
     
     return (dlt.read(f'boost_gold')
-        .filter(~F.col('is_transfer'))
         .groupBy("country_name", "adm1_name", "year").agg(F.sum("executed").alias("expenditure"))
         .join(cpi_factors, on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
@@ -140,7 +137,6 @@ def expenditure_by_country_func_year():
     cpi_factors = dlt.read('cpi_factor')
     
     transfers = (boost_gold
-        .filter(F.col('is_transfer'))
         .groupBy("country_name", "year")
         .agg(F.sum("executed").alias("expenditure_transfered"))
         .withColumn('func', F.lit("General public services"))

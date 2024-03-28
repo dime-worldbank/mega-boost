@@ -68,7 +68,7 @@ def boost_silver():
             .when(substring(col("ADMIN1"), 1, 2).isin('19 10 20'.split()), 'Recreation, culture and religion')
             .when(col("func_sub").isin('agriculture', 'transport', 'telecom') , "Economic affairs")
             .otherwise('General public services')
-        ).withColumn('is_transfer', lit(False))
+        )
 
 @dlt.table(name=f'tun_boost_gold')
 def boost_gold():
@@ -85,7 +85,6 @@ def boost_gold():
                     'admin1',
                     'admin2',
                     'geo1',
-                    'is_transfer',
                     'func'
                     )
     )

@@ -109,7 +109,6 @@ def boost_silver():
                 ), 'Economic affairs')
                 .otherwise('General public services')
             )
-            .withColumn('is_transfer', lit(False))
             .withColumn('geo1', 
                         when(col('admin0')=='Central', 'Central Scope')
                         #.when(col('admin0')=='Regional', concat(col('admin1'), " District, Bhutan"))
@@ -130,7 +129,6 @@ def boost_gold():
                     'admin1',
                     'admin2',
                     'geo1',
-                    'is_transfer',
                     'func',
                     'func_sub'
             )
