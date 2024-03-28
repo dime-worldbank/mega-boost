@@ -15,9 +15,9 @@ def boost_gold():
             if col_name not in current_df.columns:
                 current_df = current_df.withColumn(col_name, F.lit(None))
 
-        # TODO: remove once all adm1_name are converted to admin1
-        if "adm1_name" not in current_df.columns:
-            current_df = current_df.withColumn("adm1_name", F.col("admin1"))
+        # Keep adm1_name for easy join with subnational population table
+        # Alias geo1 instead of admin1 because considering outcome we care about how much was spent on (not by) a region
+        current_df = current_df.withColumn("adm1_name", F.col("geo1"))
         
         col_order = ['country_name', 'year',
                      'adm1_name', 'admin0', 'admin1', 'admin2', 'geo1',
@@ -62,7 +62,7 @@ def expenditure_by_country_year():
         .groupBy("country_name", "year").agg(
             F.sum("executed").alias("expenditure"),
             F.sum(
-                F.when(boost_gold["adm1_name"] != "Central Scope", boost_gold["executed"])
+                F.when(boost_gold["admin1"] != "Central Scope", boost_gold["executed"])
             ).alias("decentralized_expenditure")
         )
         .withColumn("expenditure_decentralization",
@@ -73,23 +73,32 @@ def expenditure_by_country_year():
         .join(year_ranges, on=['country_name'], how='left')
     )
 
-@dlt.table(name=f'expenditure_by_country_adm1_year')
-def expenditure_by_country_adm1_year():
-    cpi_factors = dlt.read('cpi_factor')
-    pop = (spark.table('indicator.subnational_population')
-        .select("country_name", "adm1_name", "year", "population")
-    )
-
-    year_ranges = (dlt.read('boost_gold')
-        .groupBy("country_name", "adm1_name")
+@dlt.table(name=f'expenditure_by_country_geo1_func_year')
+def expenditure_by_country_geo1_func_year():
+    boost_gold = dlt.read('boost_gold')
+    year_ranges = (boost_gold
+        .groupBy("country_name")
         .agg(F.min("year").alias("earliest_year"), 
              F.max("year").alias("latest_year"))
+    )
+    cpi_factors = dlt.read('cpi_factor')
+
+    subnat_pop = spark.table('indicator.subnational_population')
+    pop = (subnat_pop.groupBy("country_name", "year")
+        .agg(F.sum("population").alias("population"))
+        .withColumn("adm1_name", F.lit("Central Scope"))
+        .union(
+            subnat_pop
+            .select("country_name", "year", "population", "adm1_name")
         )
+    )
     
-    return (dlt.read(f'boost_gold')
-        .groupBy("country_name", "adm1_name", "year").agg(F.sum("executed").alias("expenditure"))
+    return (boost_gold
+        .groupBy("country_name", "adm1_name", "func", "year")
+        .agg(F.sum("executed").alias("expenditure"))
         .join(cpi_factors, on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
+        .join(year_ranges, on=['country_name'], how='left')
         .join(pop, on=["country_name", "adm1_name", "year"], how="inner")
         .withColumn("per_capita_expenditure", F.col("expenditure") / F.col("population"))
         .withColumn("per_capita_real_expenditure", F.col("real_expenditure") / F.col("population"))
@@ -123,32 +132,35 @@ def expenditure_by_country_adm1_year():
             ).otherwise(
                 F.col("adm1_name")
             ))
-        .join(year_ranges, on=['country_name', "adm1_name"], how='left')
+    )
+
+
+@dlt.table(name=f'expenditure_by_country_geo1_year')
+def expenditure_by_country_geo1_year():
+    return (dlt.read(f'expenditure_by_country_geo1_func_year')
+        .groupBy("country_name", "adm1_name", "adm1_name_for_map", "year")
+        .agg(
+            F.sum("expenditure").alias("expenditure"),
+            F.sum("real_expenditure").alias("real_expenditure"),
+            F.sum("per_capita_expenditure").alias("per_capita_expenditure"),
+            F.sum("per_capita_real_expenditure").alias("per_capita_real_expenditure"),
+            F.min("earliest_year").alias("earliest_year"), 
+            F.max("latest_year").alias("latest_year")
+        )
     )
 
 @dlt.table(name=f'expenditure_by_country_func_year')
 def expenditure_by_country_func_year():
-    boost_gold = dlt.read('boost_gold')
-    year_ranges = (boost_gold
-        .groupBy("country_name")
-        .agg(F.min("year").alias("earliest_year"),
-             F.max("year").alias("latest_year"))
-    )
-    cpi_factors = dlt.read('cpi_factor')
-    
-    transfers = (boost_gold
-        .groupBy("country_name", "year")
-        .agg(F.sum("executed").alias("expenditure_transfered"))
-        .withColumn('func', F.lit("General public services"))
-    )
-    return (boost_gold
+    return (dlt.read(f'expenditure_by_country_geo1_func_year')
         .groupBy("country_name", "func", "year")
-        .agg(F.sum("executed").alias("expenditure_raw"))
-        .join(transfers, on=["country_name", "func", "year"], how="left")
-        .withColumn('expenditure', F.col("expenditure_raw")-F.coalesce(F.col("expenditure_transfered"), F.lit(0)))
-        .join(cpi_factors, on=["country_name", "year"], how="inner")
-        .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
-        .join(year_ranges, on=['country_name'], how='left')
+        .agg(
+            F.sum("expenditure").alias("expenditure"),
+            F.sum("real_expenditure").alias("real_expenditure"),
+            F.sum("per_capita_expenditure").alias("per_capita_expenditure"),
+            F.sum("per_capita_real_expenditure").alias("per_capita_real_expenditure"),
+            F.min("earliest_year").alias("earliest_year"), 
+            F.max("latest_year").alias("latest_year")
+        )
     )
 
 @dlt.table(name=f'edu_private_expenditure_by_country_year')
@@ -179,7 +191,7 @@ def quality_exp_by_country_year():
     assert boost_countries.count() == len(country_codes),\
         f'expect all BOOST countries ({country_codes_upper}) to be present in indicator.country table ({boost_countries.select("country_code").collect()})'
 
-    return (dlt.read('expenditure_by_country_adm1_year')
+    return (dlt.read('expenditure_by_country_geo1_year')
         .groupBy('country_name')
         .agg(F.count('*').alias('row_count'))
         .join(boost_countries, on=['country_name'], how="right")
