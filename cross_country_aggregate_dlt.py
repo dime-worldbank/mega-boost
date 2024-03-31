@@ -11,7 +11,7 @@ def boost_gold():
     unioned_df = None
     for code in country_codes:
         current_df = spark.table(f'boost_intermediate.{code}_boost_gold')
-        for col_name in ["func", "func_sub", "admin0", "admin1", "admin2", "geo1", "revised"]:
+        for col_name in ["func", "func_sub", "econ", "econ_sub", "admin0", "admin1", "admin2", "geo1", "revised"]:
             if col_name not in current_df.columns:
                 current_df = current_df.withColumn(col_name, F.lit(None))
 
@@ -21,7 +21,7 @@ def boost_gold():
         
         col_order = ['country_name', 'year',
                      'adm1_name', 'admin0', 'admin1', 'admin2', 'geo1',
-                     'func', 'func_sub',
+                     'func', 'func_sub', 'econ', 'econ_sub',
                      'approved', 'revised', 'executed']
         current_df = current_df.select(col_order)
             
@@ -129,6 +129,8 @@ def expenditure_by_country_geo1_func_year():
                 F.lit("Tana River County")
             ).when(
                     F.col('country_name')=='Bhutan', F.concat(F.col("adm1_name"), F.lit(" District, Bhutan"))
+            ).when(
+                    F.col('country_name')=='Tunisia', F.concat(F.col("adm1_name"), F.lit(" governorate, Tunisia"))
             ).otherwise(
                 F.col("adm1_name")
             ))
