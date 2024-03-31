@@ -105,14 +105,30 @@ def boost_silver():
                     (col('func_sub').isin('agriculture', 'transport')) |
                     (col('prog1').startswith('53') | col('prog1').startswith('26') | col('prog1').startswith('50') | col('prog1').startswith('51')) |
                     # energy spending
-                    (col('activity').startswith('26') | col('prog1').startswith('52') | col('prog1').startswith('88') | col('prog1').startswith('89') | col('prog1').startswith('90'))                
+                    ((col('activity') == '26 SUBSIDY TO BHUTAN POWER CORPORATION') | col('prog1').startswith('52') | col('prog1').startswith('88') | col('prog1').startswith('89') | col('prog1').startswith('90'))                
                 ), 'Economic affairs')
                 .otherwise('General public services')
-            )
-            .withColumn('geo1', 
+            ).withColumn('geo1', 
                         when(col('admin0')=='Central', 'Central Scope')
                         #.when(col('admin0')=='Regional', concat(col('admin1'), " District, Bhutan"))
-                        )
+            ).withColumn('econ_sub',
+                        when(col('Econ3') == 'Social benefits', 'social assistance')
+                        .when(col('econ4').startswith('25.01'), 'pensions')
+                        .when(col('Econ3') == 'Wages', 'basic wages')
+                        .when(col('Econ3') == 'Allowances', 'allowances')
+                        .when((col('source') == 'foreign') & (col('Econ1')=='Capital'), 'capital expenditure (foreign spending)')
+                        .when((col('econ4').startswith('12') | col('econ4').startswith('13')), 'basic services')
+                        .when(col('econ4').startswith('15'), 'recurrent maintenance')
+                        .when((col('econ4').startswith('22.02') | (col('activity') == '26 SUBSIDY TO BHUTAN POWER CORPORATION')), 'subsidies to production')
+            ).withColumn('econ', 
+                        when(col('source')=='foreign', 'Foreign funded expenditures')
+                        .when(col('Econ2').startswith('21'), 'Wage bill')
+                        .when(col('Econ1') == 'Capital', 'Capital expenditure')
+                        .when(col('Econ2').startswith('22'), 'Goods and services')
+                        .when((col('econ4').startswith('22.02') | (col('activity')=='26 SUBSIDY TO BHUTAN POWER CORPORATION')), 'Subsidies')
+                        .when(col('econ_sub').isin('Social assistance', 'Pensions'), 'Social benefits')
+                        .otherwise('Other expenses')  
+            )
         )
     
 @dlt.table(name=f'btn_boost_gold')
@@ -130,20 +146,10 @@ def boost_gold():
                     'admin2',
                     'geo1',
                     'func',
-                    'func_sub'
+                    'func_sub',
+                    'econ',
+                    'econ_sub'
             )
     )
 
 
-
-# COMMAND ----------
-
-
-
-# COMMAND ----------
-
-
-
-# COMMAND ----------
-
-    

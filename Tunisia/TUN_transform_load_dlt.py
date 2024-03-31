@@ -38,11 +38,11 @@ def boost_silver():
                 .when(col("GEO1").rlike('^[1-8]'), trim(regexp_replace(col("GEO1"), '^[1-8]+\\s*', '')))
                 )
         ).withColumn(
-        'admin0', lit('Central')
+        'admin0_tmp', lit('Central')
         ).withColumn(
-        'admin1', lit('Central')
+        'admin1_tmp', lit('Central')
         ).withColumn(
-        'admin2', trim(regexp_replace(col("ADMIN2"), '^[0-9\\s]*', ''))
+        'admin2_tmp', trim(regexp_replace(col("ADMIN2"), '^[0-9\\s]*', ''))
         ).withColumn(
         'geo1', 
             when(col("GEO1").isNull(), "Central Scope")
@@ -68,6 +68,21 @@ def boost_silver():
             .when(substring(col("ADMIN1"), 1, 2).isin('19 10 20'.split()), 'Recreation, culture and religion')
             .when(col("func_sub").isin('agriculture', 'transport', 'telecom') , "Economic affairs")
             .otherwise('General public services')
+        ).withColumn(
+        'econ_sub',
+            when(col('Econ2').startswith('01'), 'basic wages')
+            .when(((col('Maintenance') == 1) & col('Econ1').startswith('Titre 2')), 'capital maintenance')
+            .when(((col('Maintenance') == 1) & col('Econ1').startswith('Titre 1')), 'recurrent maintenance')
+            .when(col('subsidies')==1, 'subsidies to production')
+            .when((col('ADMIN1').startswith('05') | (col('prog')!='2 Securite Sociale')), 'social assistance')
+        ).withColumn(
+        'econ',
+            when(col('Econ2').startswith('09'), 'Foreign funded expenditure')
+            .when(col('Econ2').startswith('01'), 'Wage bill')
+            .when(((col('Econ1').startswith('Titre 2')) & (~(col('Econ2').startswith('10')))), 'Capital expenditure')
+            .when(col('Econ2').startswith('02'), 'Goods and services')
+            .when(col('subsidies')==1, 'Subsidies')
+            .otherwise('Other expenses')
         )
 
 @dlt.table(name=f'tun_boost_gold')
@@ -81,10 +96,13 @@ def boost_gold():
                     col('OUVERT').alias('approved'),
                     col('ORDONNANCE').alias('revised'),
                     col('PAYE').alias('executed'),
-                    'admin0',
-                    'admin1',
-                    'admin2',
+                    col('admin0_tmp').alias('admin0'),
+                    col('admin1_tmp').alias('admin1'),
+                    col('admin2_tmp').alias('admin2'),
                     'geo1',
-                    'func'
+                    'func',
+                    'func_sub',
+                    'econ',
+                    'econ_sub'
                     )
     )

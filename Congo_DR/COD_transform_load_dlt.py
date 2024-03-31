@@ -32,6 +32,7 @@ def boost_bronze():
 @dlt.table(name=f'cod_boost_silver')
 def boost_silver():
     return (dlt.read(f'cod_boost_bronze')
+        .filter(~(col('Titre') == "1 DETTE PUBLIQUE EN CAPITAL"))
         .withColumn('adm1_name', 
             when(trim(lower(col("Province"))) == "00 services centraux", 'Central Scope')
             .when((trim(lower(col("Province"))) == "19 multiprovince") | (trim(lower(col("Province"))) == "27 multi-province"), 'Other')
@@ -79,13 +80,37 @@ def boost_silver():
                 .when(col('Grande_Fonction').startswith('08'), 'Recreation, culture and religion')              
                 .when(col('Grande_Fonction').startswith('09'), 'Education')        
                 .when(col('Grande_Fonction').startswith('10'), 'Social protection')
+            ).withColumn(
+                    'econ_sub',
+                when(((~col('Article').startswith('12')) & (col('Titre').startswith('3')) & (~col('Sous_Article').startswith('34'))), 'basic wages')
+                .when(((~col('Article').startswith('12')) & (col('Titre').startswith('3')) & (col('Sous_Article').startswith('34'))), 'allowances')
+                .when(((~col('Article').startswith('12')) &
+                       ((col('Titre').startswith('7') | (col('Titre').startswith('8')))) &
+                       (col('Source').isin('Budget General_Externe', 'Externe'))), 'capital expenditure (foreign spending)')
+                .when((col('Sous_Article').startswith('55') | col('Sous_Article').startswith('57')), 'recurrent maintenance')
+                .when(col('Sous_Article').startswith('6150'), 'subsidies to production')
+                .when((col('Grande_Fonction').startswith('10') &
+                        col('Titre').startswith('6') &
+                        (~col('Article').startswith('68')) &
+                        (~col('Sous_Article').startswith('6350'))),  'social assistance')
+                .when(col('Article').startswith('68'), 'pensions')
+                
+            ).withColumn(
+                    'econ',
+                when(((~col('Article').startswith('12')) & col('Source').isin('Budget General_Externe', 'Externe')), 'Foreign funded expenditure')
+                .when(((~col('Article').startswith('12')) & col('Titre').startswith('3')), 'Wage bill')
+                .when(((~col('Article').startswith('12')) & ((col('Titre').startswith('7') | (col('Titre').startswith('8'))))), 'Capital expenditure')
+                .when(((~col('Article').startswith('12')) & (col('Titre').startswith('4') | col('Titre').startswith('5'))), 'Goods and services')
+                .when((col('Sous_Article').startswith('6110') | col('Sous_Article').startswith('6150')), 'Subsidies')
+                .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
+                .when(((col('Article').startswith('61')) & (~col('Sous_Article').startswith('6110')) & (~col('Sous_Article').startswith('6150'))), 'Other grants and transfers')
+                .otherwise('Other expenses')
             )
     )
 
 @dlt.table(name=f'cod_boost_gold')
 def boost_gold():
     return (dlt.read(f'cod_boost_silver')
-            .filter(~(col('Titre') == "1 DETTE PUBLIQUE EN CAPITAL"))
             .withColumn('country_name', lit('Congo, Dem. Rep.')) 
             .select('country_name',
                     'adm1_name',
@@ -99,6 +124,8 @@ def boost_gold():
                     'admin2',
                     'geo1',
                     'func',
-                    'func_sub'
+                    'func_sub',
+                    'econ',
+                    'econ_sub'
                     )
     )
