@@ -136,6 +136,28 @@ def expenditure_by_country_geo1_func_year():
             ))
     )
 
+@dlt.table(name=f'expenditure_and_outcome_by_country_geo1_func_year')
+def expenditure_and_outcome_by_country_geo1_func_year():
+    outcome_df = spark.table('indicator.global_data_lab_hd_index')
+    exp_window = Window.partitionBy("country_name", "year", "func").orderBy(F.col("per_capita_real_expenditure").desc())
+    outcome_window = Window.partitionBy("country_name", "year", "func").orderBy(F.col("outcome_index").desc())
+
+    return (dlt.read('expenditure_by_country_geo1_func_year')
+        .join(outcome_df, on=["country_name", "adm1_name", "year"], how="inner")
+        .withColumn('outcome_index', 
+            F.when(
+                F.col('func') == 'Education', F.col('education_index')
+            ).when(
+                F.col('func') == 'Health', F.col('health_index')
+            )
+        ).filter(
+            F.col('outcome_index').isNotNull()
+        ).withColumn("rank_per_capita_real_exp",
+            F.rank().over(exp_window)
+        ).withColumn("rank_outcome_index",
+            F.rank().over(outcome_window)
+        )
+    )
 
 @dlt.table(name=f'expenditure_by_country_geo1_year')
 def expenditure_by_country_geo1_year():
