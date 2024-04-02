@@ -93,6 +93,25 @@ def boost_silver():
             .when(col('Func1').startswith("08"), "Recreation, culture and religion")
             .when(col('Func1').startswith("09"), "Education")
             .when(col('Func1').startswith("10"), "Social protection")
+        ).withColumn( 'econ_sub',
+            # wage bill breakdowm missing
+            when((col('Econ1').startswith('2') & (~col('Fund1').startswith('1'))), 'capital expenditure (foreign spending)')
+            .when((col('Econ5').startswith('121001') | col('Econ5').startswith('122013') | col('Econ5').startswith('122004') | col('Econ5').startswith('121010')), 'basic services')
+            .when((col('Econ5').startswith('121014') | col('Econ5').startswith('122015')), 'employment contracts')
+            .when((col('Econ5').startswith('121002') | col('Econ5').startswith('122003') | col('Econ5').startswith('122005') | col('Econ5').startswith('122006') | col('Econ5').startswith('122007')), 'recurrent maintenance')
+            .when(col('Econ2').startswith('15'), 'subsidies to production') # same as the value for subsidies
+            .when(((col('Func1').startswith('10')) & (
+                ~(col('Econ4').startswith('1431') | col('Econ4').startswith('1432'))
+                )), 'social assistance')
+            .when((col('Econ4').startswith('1431') | col('Econ4').startswith('1432')), 'pensions')
+        ).withColumn( 'econ',
+            when(col('Econ1').startswith('2'), 'Capital Expenditure')
+            .when(col('Econ2').startswith('11'), 'Wage bill')
+            .when(col('Econ2').startswith('12'), 'Goods and services')
+            .when(col('Econ2').startswith('15'), 'Subsidies')
+            .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
+            .when(~col('Fund1').startswith('1'), 'Foreign funded expenditure')
+            .otherwise('Other expenses')
         )
     )
     
@@ -111,6 +130,8 @@ def boost_gold():
                 'admin2',
                 'geo1',
                 'func',
-                'func_sub'
+                'func_sub',
+                'econ',
+                'econ_sub'
         )
     )
