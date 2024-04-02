@@ -51,7 +51,7 @@ def boost_silver():
             .when(col("Admin0") == "KP", 'Khyber Pakhtunkhwa')
             .otherwise(col('Admin0'))
         ).withColumn(
-            'admin2',
+            'admin2_tmp',
             initcap(trim(expr("substring(admin1, instr(admin1, '-') + 1)")))
         ).withColumn(
             'geo1', 
@@ -79,6 +79,24 @@ def boost_silver():
             .when(col('func1').startswith('09'), 'Education')
             .when(col('func1').startswith('10'), 'Social protection')
             .otherwise(lit("Other")) # TODO: func1 (blank) is currently marked as 'Other'
+        ).withColumn(
+            'econ_sub',
+            when(col('econ2').startswith('A011'), 'basic wages')
+            .when(col('econ2').startswith('A012'), 'allowances')
+            .when(((col('econ2').startswith('A033')) | (col('econ2').startswith('A034'))), 'basic services')
+            .when(col('econ1').startswith('A13'), 'recurrent maintenance')
+            .when(col('econ2').startswith('A051'), 'subsidies to production')
+            .when((col('func1').startswith('10') & col('econ1').startswith('A05')), 'social assistance')
+            .when(col('econ1').startswith('A04'), 'pensions')
+        ).withColumn(
+            'econ',
+            when(col('econ1').startswith('A01'), 'Wage bill')
+            .when(((col('capital')=='y') & (~col('econ1').startswith('A01')) & (~col('econ2').startswith('A051'))), 'Capital expenditure') 
+            .when(((col('econ1').startswith('A03')) & (~col('econ2').startswith('A051')) & ((col('capital') != 'y') | col('capital').isNull())), 'Goods and services')
+            .when(col('econ2').startswith('A051'), 'Subsidies')
+            .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
+            .when((col('econ1').startswith('A05')) & (~col('func1').startswith('10')) & (~col('econ2').startswith('A051')), 'Grants and transfers')
+            .otherwise('Other expenses')
         ).withColumn('is_transfer', lit(False))
     )
 
@@ -96,9 +114,16 @@ def boost_gold():
                     'executed',
                     col('admin0_tmp').alias('admin0'),
                     col('admin1_tmp').alias('admin1'),
-                    'admin2',
+                    col('admin2_tmp').alias('admin2'),
                     'geo1',
                     'is_transfer',
                     'func',
-                    'func_sub')
+                    'func_sub',
+                    'econ',
+                    'econ_sub'
+        )
     )
+
+# COMMAND ----------
+
+
