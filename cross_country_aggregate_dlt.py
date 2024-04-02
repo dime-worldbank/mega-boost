@@ -62,7 +62,7 @@ def expenditure_by_country_year():
         .groupBy("country_name", "year").agg(
             F.sum("executed").alias("expenditure"),
             F.sum(
-                F.when(boost_gold["admin1"] != "Central Scope", boost_gold["executed"])
+                F.when(boost_gold["admin0"] == "Regional", boost_gold["executed"])
             ).alias("decentralized_expenditure")
         )
         .withColumn("expenditure_decentralization",
@@ -173,19 +173,38 @@ def expenditure_by_country_geo1_year():
         )
     )
 
+# This is intentionally not aggregating from expenditure_by_country_geo1_func_year
+# because we need decentralized exp which uses admin0
 @dlt.table(name=f'expenditure_by_country_func_year')
 def expenditure_by_country_func_year():
-    return (dlt.read(f'expenditure_by_country_geo1_func_year')
-        .groupBy("country_name", "func", "year")
-        .agg(
-            F.sum("expenditure").alias("expenditure"),
-            F.sum("real_expenditure").alias("real_expenditure"),
-            F.sum("per_capita_expenditure").alias("per_capita_expenditure"),
-            F.sum("per_capita_real_expenditure").alias("per_capita_real_expenditure"),
-            F.min("earliest_year").alias("earliest_year"), 
-            F.max("latest_year").alias("latest_year")
+    boost_gold = dlt.read('boost_gold')
+    cpi_factors = dlt.read('cpi_factor')
+
+    with_decentralized = (boost_gold
+        .groupBy("country_name", "year", "func").agg(
+            F.sum("executed").alias("expenditure"),
+            F.sum(
+                F.when(boost_gold["admin0"] == "Regional", boost_gold["executed"])
+            ).alias("decentralized_expenditure"),
+            F.sum(
+                F.when(boost_gold["admin0"] == "Central", boost_gold["executed"])
+            ).alias("central_expenditure")
         )
+        .withColumn("expenditure_decentralization",
+            F.col("decentralized_expenditure") / F.col("expenditure")
+        )
+        .join(cpi_factors, on=["country_name", "year"], how="inner")
+        .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
+        .filter(F.col("real_expenditure").isNotNull())
     )
+
+    year_ranges = (with_decentralized
+        .groupBy("country_name", "func")
+        .agg(F.min("year").alias("earliest_year"), 
+             F.max("year").alias("latest_year"))
+    )
+
+    return with_decentralized.join(year_ranges, on=['country_name', 'func'], how='inner')
 
 @dlt.table(name=f'edu_private_expenditure_by_country_year')
 def edu_private_expenditure_by_country_year():
