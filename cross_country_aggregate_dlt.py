@@ -133,7 +133,14 @@ def expenditure_by_country_geo1_func_year():
                     F.col('country_name')=='Tunisia', F.concat(F.col("adm1_name"), F.lit(" governorate, Tunisia"))
             ).otherwise(
                 F.col("adm1_name")
-            ))
+            )
+        ).withColumn('spent_in_region',
+            F.when(
+                F.col('adm1_name') == 'Central Scope', 'Unspecified'
+            ).otherwise(
+                F.lit('Subnational')
+            )
+        )
     )
 
 @dlt.table(name=f'expenditure_and_outcome_by_country_geo1_func_year')
@@ -143,8 +150,9 @@ def expenditure_and_outcome_by_country_geo1_func_year():
     outcome_window = Window.partitionBy("country_name", "year", "func").orderBy(F.col("outcome_index").desc())
 
     return (dlt.read('expenditure_by_country_geo1_func_year')
-        .join(outcome_df, on=["country_name", "adm1_name", "year"], how="inner")
-        .withColumn('outcome_index', 
+        .join(
+            outcome_df, on=["country_name", "adm1_name", "year"], how="inner"
+        ).withColumn('outcome_index', 
             F.when(
                 F.col('func') == 'Education', F.col('education_index')
             ).when(
