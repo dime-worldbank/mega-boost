@@ -112,32 +112,96 @@ def nga_boost_silver():
             ), 'Health'
         ).when(
             col('Func1').startswith('709') & ~col('Year').isin(2015, 2016), 'Education'
-    ).when(
-            (            
-                col('Func1').startswith('701') & 
-                    (
-                        ~(
-                            col('Econ4').startswith('22010102') |
-                            col('Econ4').startswith('21030102') |
-                            col('Econ4').startswith('22010104') |
-                            col('Econ4').startswith('22021059')
-                        )
-                    ) 
-            ), 'General public services'
+        ).when(
+                (            
+                    col('Func1').startswith('701') & 
+                        (
+                            ~(
+                                col('Econ4').startswith('22010102') |
+                                col('Econ4').startswith('21030102') |
+                                col('Econ4').startswith('22010104') |
+                                col('Econ4').startswith('22021059')
+                            )
+                        ) 
+                ), 'General public services'
+            ).when(
+                (
+                    col('Program').startswith('ERGP22112823') |
+                    col('adm3').startswith('161002') |
+                    col('Econ4').startswith('22040109') |
+                    col('Econ4').startswith('22021007') |
+                    col('Econ4').startswith('22010102') |
+                    col('Econ4').startswith('21030102') |
+                    col('Econ4').startswith('22010104') |
+                    col('Econ4').startswith('22021059')
+                ), 'Social protection'
+            )
+    ).withColumn('econ_sub',
+        when(
+            (col('Econ2').startswith('2101')), 'basic wages' # redundant condition in excel with two conditions on Econ2
+        ).when(
+            ((~col('Econ2').startswith('2207')) & (col('Econ3').startswith('210201'))), 'allowances'
+        ).when(
+            ((~col('Econ2').startswith('2207')) & (col('Econ4').startswith('21020202'))), 'social benefits'
+        ).when(
+            ((~col('Econ2').startswith('2207')) & (col('Econ1').startswith('23')) & (col('Econ3').startswith('220402'))), 'capital expenditure (foreign spending)' # no entries in the excel sheet for this entry
+        ).when(
+            col('Econ2').startswith('2303'), 'capital maintenance'
+        ).when(
+            ((~col('Econ2').startswith('2207')) & (col('Econ3').startswith('220202'))), 'basic services'
+        ).when(
+            ((~col('Econ2').startswith('2207')) & (col('Econ3').startswith('220207'))), 'employment contracts'
+        ).when(
+            ((~col('Econ2').startswith('2207')) & (col('Econ3').startswith('220204'))), 'recurrent maintenance'
+        ).when(
+            ((~col('Econ2').startswith('2207')) & (col('Econ2').startswith('2205'))), 'subsidies to production'
         ).when(
             (
-                col('Program').startswith('ERGP22112823') |
-                col('adm3').startswith('161002') |
-                col('Econ4').startswith('22040109') |
-                col('Econ4').startswith('22021007') |
-                col('Econ4').startswith('22010102') |
-                col('Econ4').startswith('21030102') |
-                col('Econ4').startswith('22010104') |
-                col('Econ4').startswith('22021059')
-            ), 'Social protection'
+                ((~col('Econ2').startswith('2207')) & ((col('Econ4').startswith('22040109'))|(col('Econ4').startswith('22021007')))) |
+                ((~col('Econ2').startswith('2207')) & (col('Program').startswith('ERGP22112823'))) |
+                ((~col('Econ2').startswith('2207')) & (col('adm3').startswith('161002')))
+            ), 'social assistance'
+        ).when(
+            (
+                (~col('Econ2').startswith('2207')) &
+                (
+                    (col('Econ4').startswith('22010102')) |
+                    (col('Econ4').startswith('21030102')) |
+                    (col('Econ4').startswith('22010104')) |
+                    (col('Econ4').startswith('22021059'))
+                )
+            ), 'pensions'
         )
+    ).withColumn( 'econ',
+        when(
+            ((~col('Econ2').startswith('2207')) & (col('Econ3').startswith('220402'))), 'Foreign funded expenditure'
+        ).when(
+            ((col('Econ1').startswith('21')) & (~col('Econ2').startswith('2103')) & (~col('Econ4').startswith('21030102'))), 'Wage bill'
+        ).when(
+            (
+                (~col('Econ2').startswith('2207')) & 
+                (col('Econ1').startswith('23')) &
+                (~col('Econ4').startswith('22040109')) &
+                (~col('Econ4').startswith('22021007')) &
+                (col('Program').startswith('ERGP22112823'))
+            ), 'Capital expenditure'
+        ).when(
+            (
+                (~col('Econ2').startswith('2207')) &
+                (col('Econ1').startswith('22')) &
+                (~col('Econ2').startswith('2201')) &
+                (~col('Econ2').startswith('2205')) &
+                (~col('Econ4').startswith('22021059')) &
+                (~col('Program').startswith('ERGP22112823')) &
+                (~col('Econ4').startswith('22040109')) &
+                (~col('Econ4').startswith('22021007'))
+            ), 'Goods and services'
+        ).when(
+            col('Econ2').startswith('2205'), 'Subsidies'
+        ).otherwise('Other expenses') # there is a comment about 'Other grants and transfers' but no formula
     )
-  )
+)
+
 
 @dlt.table(name='nga_boost_gold')
 def nga_boost_gold():
@@ -150,10 +214,12 @@ def nga_boost_gold():
             'admin0',
             'admin1',
             'admin2',
-            'geo1',    
+            'geo1',
+            col('Approved').alias('approved'),
+            col('Executed').alias('executed'),    
             'func',
             'func_sub',
-            col('Approved').alias('approved'),
-            col('Executed').alias('executed'),
+            'econ_sub',
+            'econ'
     )    
   )
