@@ -158,6 +158,54 @@ def boost_silver():
                 'Economic affairs' # This needs to be after Environment and housing to catch the rest of Sector_prog1 startin with 10
             ) 
             # Sector_prog1 = 00 Default - Non Programmatic are not tagged
+        ).withColumn('econ_sub',
+            when(
+                ((col('Class').startswith('0')) & (col('Item_econ4').startswith('21103'))), 'allowances'
+            ).when(
+                col('Item_econ4').startswith('21201'), 'pensions'
+            ).when(
+                (col('Chapter_econ2').startswith('31') & (~col('SOF2').startswith('00'))), 'capital expenditure (foreign spending)'
+            ).when(
+                ((~col('Class').startswith('2')) & (col('Chapter_econ2').startswith('22')) & (
+                    (col('Sub-Item_econ5').startswith('2211201')) | 
+                    (col('Sub-Item_econ5').startswith('2210201')) |
+                    (col('Sub-Item_econ5').startswith('2210102')) |
+                    (col('Sub-Item_econ5').startswith('2210101')) |
+                    (col('Sub-Item_econ5').startswith('2211015'))
+                )), 'basic services'
+            ).when(
+                col('Sub-Item_econ5').startswith('2211310'), 'employment contracts'
+            ).when(
+                col('Item_econ4').startswith('22202'), 'recurrent maintenance'
+            ).when(
+                ((~col('Class').startswith('2')) & (col('Chapter_econ2').startswith('25'))), 'subsidies to production' 
+            ).when(
+                ((~col('Class').startswith('2')) & (~col('Class').startswith('4')) & (~col('Item_econ4').startswith('27101')) & (col('Sector_prog1').startswith('09'))), 'social assistance'
+            ).when(
+                ((~col('Class').startswith('2')) & (col('Item_econ4').startswith('27101'))), 'pensions' 
+            )
+        ).withColumn('econ',
+            when(
+                ((~col('Class').startswith('2')) & (~col('SOF2').startswith('00'))), 'Foreign funded expenditures'
+            ).when(
+                (
+                    ((~col('Class').startswith('2')) & (col('Chapter_econ2').startswith('21'))) | 
+                    ((col('Item_econ4').startswith('22103') | col('Item_econ4').startswith('22104')  | col('Item_econ4').startswith('22107')) & (col('Class').startswith('0'))) |
+                    ((col('Item_econ4').startswith('22103') | col('Item_econ4').startswith('22104')  | col('Item_econ4').startswith('22107')) & (col('Class').startswith('1')))                   
+                ), 'Wage bill'
+            ).when(
+                col('Chapter_econ2').startswith('31'), 'Capital expenditure'
+            ).when(
+                ((~col('Class').startswith('2')) & (col('Chapter_econ2').startswith('22'))), 'Goods and services'
+            ).when(
+                ((~col('Class').startswith('2')) & (col('Chapter_econ2').startswith('25'))), 'Subsidies' 
+            ).when(
+                col("econ_sub").isin("social assistance", "pensions"), 'Social benefits'
+            ).otherwise('Other expenses')
+        ).withColumn('econ_sub', # defined as the difference of wage bill and allowances
+            when(
+                ((col('econ') == 'Wage bill') & (col('econ_sub') != 'allowances')), 'basic wages'
+            ).otherwise(col('econ_sub'))
         )
     )
     
@@ -176,6 +224,8 @@ def boost_gold():
                 'admin2',
                 'geo1',
                 'func',
-                'func_sub'
+                'func_sub',
+                'econ',
+                'econ_sub'
                 )
     )
