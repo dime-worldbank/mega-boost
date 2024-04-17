@@ -44,6 +44,12 @@ CREATE OR REFRESH LIVE TABLE data_availability
         GROUP BY 1
     ),
 
+    edu_pov as (
+        SELECT country_name, min(year) as learn_pov_earliest_year, max(year) as learn_pov_latest_year
+        FROM indicator.learning_poverty_rate
+        GROUP BY 1
+    ),
+
     health_cov as (
         SELECT country_name, min(year) as uni_health_coverage_earliest_year, max(year) as uni_health_coverage_latest_year
         FROM indicator.universal_health_coverage_index_gho
@@ -77,6 +83,7 @@ CREATE OR REFRESH LIVE TABLE data_availability
         p11.pefa2011_years, p16.pefa2016_years,
         epe.edu_priv_spending_earliest_year, epe.edu_priv_spending_latest_year,
         yl.youth_lit_rate_earliest_year, yl.youth_lit_rate_latest_year,
+        lp.learn_pov_earliest_year, lp.learn_pov_latest_year,
         hpe.health_ooo_spending_earliest_year, hpe.health_ooo_spending_latest_year,
         hc.uni_health_coverage_earliest_year, hc.uni_health_coverage_latest_year,
         shd.subnat_edu_health_index_earliest_year, shd.subnat_edu_health_index_latest_year, shd.subnat_edu_health_index_num_subnat_regions,
@@ -87,6 +94,7 @@ CREATE OR REFRESH LIVE TABLE data_availability
     LEFT JOIN pefa2011 p11 on t.country_name = p11.country_name
     LEFT JOIN subnat_hd shd on t.country_name = shd.country_name
     LEFT JOIN youth_lit yl on t.country_name = yl.country_name
+    LEFT JOIN edu_pov lp on t.country_name = lp.country_name
     LEFT JOIN health_cov hc on t.country_name = hc.country_name
     LEFT JOIN subnat_pov sp on t.country_name = sp.country_name
     LEFT JOIN edu_priv_exp epe on t.country_name = epe.country_name
