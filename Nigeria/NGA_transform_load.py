@@ -44,13 +44,14 @@ def nga_boost_silver():
     .join(dlt.read('nga_region_lookup'), on=["region_code_first2"], how="left")
     .withColumn('Year', col('Year').cast('int'))
     .withColumn('is_transfer', col('Econ2').startswith('2207'))
+    .withColumn('is_foreign', ((~col('is_transfer')) & (col('Econ3').startswith('220402'))))
     .withColumn('admin2', trim(regexp_replace(col("adm2"), '^[0-9\\s]*', '')))
     .withColumn('func_sub',
         when(col("Func2").startswith('7033') , "judiciary") # Comes before public safety tagging as it is a subcategory
-        .when(col('Func1').startswith('703'), 'public safety')
+        .when(col('Func1').startswith('703'), 'public safety'))
         # No breakdown of spending into primary, secondary for health
         # No breakdown of spending into primary, secondary education
-    ).withColumn('func',
+    .withColumn('func',
         # Public order and safety
         when((col("func_sub").isin("judiciary", "public safety")), "Public order and safety")
         # Environmental protection
@@ -88,8 +89,8 @@ def nga_boost_silver():
         # social protection 
         # (No data)
         # general public services
-        .otherwise('General public services')
-    ).withColumn('econ_sub',
+        .otherwise('General public services'))
+    .withColumn('econ_sub',
         when((col('Econ2').startswith('2101')), 'basic wages') # redundant condition in excel with two conditions on Econ2
         .when(((~col('is_transfer')) & (col('Econ3').startswith('210201'))), 'allowances')
         .when(((~col('is_transfer')) & (col('Econ4').startswith('21020202'))), 'social benefits')
@@ -111,9 +112,7 @@ def nga_boost_silver():
                 (col('Econ4').startswith('22010102') |
                 col('Econ4').startswith('21030102') |
                 col('Econ4').startswith('22010104') |
-                col('Econ4').startswith('22021059'))), 'pensions')
-    ).withColumn('source',
-                 when(((~col('is_transfer')) & (col('Econ3').startswith('220402'))), 'foriegn'))
+                col('Econ4').startswith('22021059'))), 'pensions'))
     .withColumn('econ',
         # wage bill
         when(((col('Econ1').startswith('21')) & (~col('Econ2').startswith('2103')) & (~col('Econ4').startswith('21030102'))), 'Wage bill')
@@ -135,8 +134,7 @@ def nga_boost_silver():
         # subsidies
         .when(col('Econ2').startswith('2205'), 'Subsidies')
         .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
-        .otherwise('Other expenses') # No formula available for 'Other grants and services'
-    )
+        .otherwise('Other expenses')) # No formula available for 'Other grants and services'    
 )
     
 @dlt.table(name='nga_boost_gold')
@@ -154,10 +152,11 @@ def nga_boost_gold():
             'geo1',
             col('Approved').alias('approved'),
             col('Executed').alias('executed'),    
+            'is_foreign',
+            'is_transfer'
             'func',
             'func_sub',
             'econ_sub',
             'econ',
-            'source'
     )    
   )
