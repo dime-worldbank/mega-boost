@@ -1,6 +1,6 @@
 # Databricks notebook source
 import dlt
-from pyspark.sql.functions import substring, col, lit, when, initcap, element_at, split, upper, trim, lower, regexp_replace, regexp_extract, substring, expr, concat
+from pyspark.sql.functions import substring, col, lit, when, initcap, element_at, split, upper, trim, lower, regexp_replace, regexp_extract, substring, expr, concat, coalesce
 
 # Note DLT requires the path to not start with /dbfs
 TOP_DIR = "/mnt/DAP/data/BOOSTProcessed"
@@ -32,7 +32,6 @@ def boost_bronze():
 @dlt.table(name=f'btn_boost_silver')
 def boost_silver():
     return (dlt.read(f'btn_boost_bronze')
-            .filter(~(col('Econ2').startswith('32')))
             # adm1_name
             .withColumn(
                 'adm1_name',
@@ -56,6 +55,9 @@ def boost_silver():
                 'admin2', 
                 when(col('admin1')=='Mongar', 'Mongar')
                 .otherwise(initcap(trim(regexp_replace(col("Admin2"), '^[0-9\\s]*', ''))))
+            ).withColumn('geo1', when(col('admin0')=='Central', 'Central Scope')
+            ).withColumn(
+                'is_foreign', col('source')=='foreign'
             ).withColumn(
                 'func_sub',
                 when(col('prog1').startswith('5 '), 'judiciary')
@@ -75,8 +77,8 @@ def boost_silver():
                 .when(col('prog1').startswith('68'), 'tertiary and quaternary health')
             ).withColumn(
                 'func',
-                when(((col('Econ3')=='Social benefits') | col('econ4').startswith('25.01')), 'Social protection')
-                .when(col("func_sub").isin("judiciary", "public safety") , "Public order and safety")
+                when(col("func_sub").isin("judiciary", "public safety") , "Public order and safety")
+                .when(((col('Econ3')=='Social benefits') | col('econ4').startswith('25.01')), 'Social protection')
                 # No classification into defence
                 .when((
                     col('prog1').startswith('16') |
@@ -99,34 +101,28 @@ def boost_silver():
                     ) | (
                         (col('prog1').startswith('56') | col('prog1').startswith('91') | col('prog1').startswith('98')) & (col('Water&SanitationTag') == True)
                     )) ,'Housing and community amenities')
-
                 # No Defence spending information
                 .when((
                     (col('func_sub').isin('agriculture', 'transport')) |
                     (col('prog1').startswith('53') | col('prog1').startswith('26') | col('prog1').startswith('50') | col('prog1').startswith('51')) |
-                    # energy spending
                     ((col('activity') == '26 SUBSIDY TO BHUTAN POWER CORPORATION') | col('prog1').startswith('52') | col('prog1').startswith('88') | col('prog1').startswith('89') | col('prog1').startswith('90'))                
                 ), 'Economic affairs')
                 .otherwise('General public services')
-            ).withColumn('geo1', 
-                        when(col('admin0')=='Central', 'Central Scope')
-                        #.when(col('admin0')=='Regional', concat(col('admin1'), " District, Bhutan"))
             ).withColumn('econ_sub',
-                        when(col('Econ3') == 'Social benefits', 'social assistance')
+                        when(coalesce(col('Econ3'), lit('')) == 'Social benefits', 'social assistance')
                         .when(col('econ4').startswith('25.01'), 'pensions')
-                        .when(col('Econ3') == 'Wages', 'basic wages')
-                        .when(col('Econ3') == 'Allowances', 'allowances')
-                        .when((col('source') == 'foreign') & (col('Econ1')=='Capital'), 'capital expenditure (foreign spending)')
+                        .when(coalesce(col('Econ3'), lit('')) == 'Wages', 'basic wages')
+                        .when(coalesce(col('Econ3'), lit('')) == 'Allowances', 'allowances')
+                        .when((coalesce(col('source'), lit('')) == 'foreign') & (coalesce(col('Econ1'), lit(''))=='Capital'), 'capital expenditure (foreign spending)')
                         .when((col('econ4').startswith('12') | col('econ4').startswith('13')), 'basic services')
                         .when(col('econ4').startswith('15'), 'recurrent maintenance')
-                        .when((col('econ4').startswith('22.02') | (col('activity') == '26 SUBSIDY TO BHUTAN POWER CORPORATION')), 'subsidies to production')
+                        .when((col('econ4').startswith('22.02') | (coalesce(col('activity'), lit('')) == '26 SUBSIDY TO BHUTAN POWER CORPORATION')), 'subsidies to production')
             ).withColumn('econ', 
-                        when(col('source')=='foreign', 'Foreign funded expenditures')
-                        .when(col('Econ2').startswith('21'), 'Wage bill')
-                        .when(col('Econ1') == 'Capital', 'Capital expenditure')
+                        when(col('Econ2').startswith('21'), 'Wage bill')
+                        .when(coalesce(col('Econ1'), lit('')) == 'Capital', 'Capital expenditure')
                         .when(col('Econ2').startswith('22'), 'Goods and services')
-                        .when((col('econ4').startswith('22.02') | (col('activity')=='26 SUBSIDY TO BHUTAN POWER CORPORATION')), 'Subsidies')
-                        .when(col('econ_sub').isin('Social assistance', 'Pensions'), 'Social benefits')
+                        .when((col('econ4').startswith('22.02') | (coalesce(col('activity'), lit(''))=='26 SUBSIDY TO BHUTAN POWER CORPORATION')), 'Subsidies')
+                        .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
                         .otherwise('Other expenses')  
             )
         )
@@ -135,6 +131,7 @@ def boost_silver():
 def boost_gold():
     return (dlt.read(f'btn_boost_silver')
             .withColumn('country_name', lit('Bhutan')) 
+            .filter(~(col('Econ2').startswith('32')))
             .select('country_name',
                     'adm1_name',
                     'year',
@@ -145,6 +142,7 @@ def boost_gold():
                     'admin1',
                     'admin2',
                     'geo1',
+                    'is_foreign',
                     'func',
                     'func_sub',
                     'econ',
