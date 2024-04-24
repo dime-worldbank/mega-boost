@@ -35,8 +35,7 @@ def boost_bronze():
 def boost_silver():
     return (dlt.read(f'cod_boost_bronze')
         .withColumn('is_interest', col('Titre') == "1 DETTE PUBLIQUE EN CAPITAL")
-        .withColumn('source', 
-            when(col('Source').isin('Budget General_Externe', 'Externe'), 'foreign'))
+        .withColumn('is_foreign', (col('Source').isin('Budget General_Externe', 'Externe') & (~col('is_interest'))))
         .withColumn('adm1_name', 
             when(trim(lower(col("Province"))) == "00 services centraux", 'Central Scope')
             .when((trim(lower(col("Province"))) == "19 multiprovince") | (trim(lower(col("Province"))) == "27 multi-province"), 'Other')
@@ -75,27 +74,27 @@ def boost_silver():
             .when(col('Grande_Fonction').startswith('10'), 'Social protection'))
         .withColumn('econ_sub',
             # basic wages
-            when((col('Exercice')<2016) & 
+            when((col('Exercice')<2016) & (~col('is_interest')) &
                 ((~coalesce(col('Article'), lit('')).startswith('12')) &
                  (col('Titre').startswith('3')) &
                  (~coalesce(col('Sous_Article'), lit('')).startswith('34'))), 'basic wages')
             .when((col('Exercice')>=2016) & 
-                  ((~coalesce(col('Article'), lit('')).startswith('12')) &
-                   (col('Titre').startswith('3')) &
-                   (col('Sous_Article').startswith('3661'))), 'basic wages')
+                 ((~coalesce(col('Article'), lit('')).startswith('12')) &
+                 (col('Titre').startswith('3')) &
+                 (col('Sous_Article').startswith('3661'))), 'basic wages')
             # allowances
-            .when((col('Exercice')<2016) &
-                  ((~coalesce(col('Article'), lit('')).startswith('12')) &
-                   (col('Titre').startswith('3')) &
-                   (col('Sous_Article').startswith('34'))), 'allowances')
-            .when((col('Exercice')>=2016) &
-                  ((~coalesce(col('Article'), lit('')).startswith('12')) &
-                   (col('Titre').startswith('3')) &
-                   (~coalesce(col('Sous_Article'), lit('')).startswith('3661'))), 'allowances')
+            .when((col('Exercice')<2016) & (~col('is_interest')) &
+                 ((~coalesce(col('Article'), lit('')).startswith('12')) &
+                 (col('Titre').startswith('3')) &
+                 (col('Sous_Article').startswith('34'))), 'allowances')
+            .when((col('Exercice')>=2016) & (~col('is_interest')) &
+                 ((~coalesce(col('Article'), lit('')).startswith('12')) &
+                 (col('Titre').startswith('3')) &
+                 (~coalesce(col('Sous_Article'), lit('')).startswith('3661'))), 'allowances')
             # capital expenditure (foreign spending)
-            .when(((~coalesce(col('Article'), lit('')).startswith('12')) &
-                    ((col('Titre').startswith('7') | (col('Titre').startswith('8')))) &
-                    (col('Source').isin('Budget General_Externe', 'Externe'))), 'capital expenditure (foreign spending)')
+            .when(((~coalesce(col('Article'), lit('')).startswith('12')) & (~col('is_interest')) &
+                 ((col('Titre').startswith('7') | (col('Titre').startswith('8')))) &
+                 col('is_foreign')), 'capital expenditure (foreign spending)')
             # capital maintenance
             .when((col('Exercice')>=2016) & (col('Sous_Article').startswith('8233')), 'capital maintenance') # only post 2015
             # basic services                
@@ -103,40 +102,42 @@ def boost_silver():
             # recurrent maintenance
             .when((col('Exercice')<2016) & (col('Sous_Article').startswith('55') | col('Sous_Article').startswith('57')), 'recurrent maintenance')
             .when((col('Exercice')>=2016) &
-                  (col('Nature_Economique').startswith('5615') | col('Nature_Economique').startswith('5617')), 'recurrent maintenance')
+                 (col('Nature_Economique').startswith('5615') | col('Nature_Economique').startswith('5617')), 'recurrent maintenance')
             # subsidies to production
             .when((col('Exercice')<2016) & (col('Sous_Article').startswith('6150')), 'subsidies to production')
             .when((col('Exercice')>=2016) & (col('Nature_Economique').startswith('66413')), 'subsidies to production')
             # social assistance
             .when((col('Exercice')<2016) & 
-                  (col('Grande_Fonction').startswith('10') &
-                   col('Titre').startswith('6') &
-                   (~coalesce(col('Article'), lit('')).startswith('68')) &
-                   (~coalesce(col('Sous_Article'), lit('')).startswith('6350'))),  'social assistance')
+                 (col('Grande_Fonction').startswith('10') &
+                 col('Titre').startswith('6') &
+                 (~coalesce(col('Article'), lit('')).startswith('68')) &
+                 (~coalesce(col('Sous_Article'), lit('')).startswith('6350'))),  'social assistance')
             .when((col('Exercice')>=2016) &
-                  (col('Grande_Fonction').startswith('10') &
-                   col('Titre').startswith('6') &
-                   (~coalesce(col('Nature_Economique'), lit('')).startswith('66441'))),  'social assistance')
+                 (col('Grande_Fonction').startswith('10') &
+                 col('Titre').startswith('6') &
+                 (~coalesce(col('Nature_Economique'), lit('')).startswith('66441'))),  'social assistance')
             # pensions
             .when(((col('Exercice')<2016) & col('Article').startswith('68')), 'pensions')
             .when(((col('Exercice')>=2016) & col('Nature_Economique').startswith('66441')), 'pensions'))
         .withColumn('econ',
             when((col('Exercice')>=2016) & (col('Sous_Article').startswith('6641')), 'Subsidies')
             # Wage bill
-            .when(((~coalesce(col('Article'), lit('')).startswith('12')) & col('Titre').startswith('3')), 'Wage bill')
+            .when((~col('is_interest')) & ((~coalesce(col('Article'), lit('')).startswith('12')) & col('Titre').startswith('3')), 'Wage bill')
             # Capital expenditure
-            .when(((~coalesce(col('Article'), lit('')).startswith('12')) & ((col('Titre').startswith('7') | (col('Titre').startswith('8'))))), 'Capital expenditure')
+            .when(((~coalesce(col('Article'), lit('')).startswith('12')) & (~col('is_interest')) &
+                 ((col('Titre').startswith('7') | (col('Titre').startswith('8'))))), 'Capital expenditure')
             # Goods and services
-            .when(((~coalesce(col('Article'), lit('')).startswith('12')) & (col('Titre').startswith('4') | col('Titre').startswith('5'))), 'Goods and services')
+            .when((~col('is_interest')) & 
+                  ((~coalesce(col('Article'), lit('')).startswith('12')) & (col('Titre').startswith('4') | col('Titre').startswith('5'))), 'Goods and services')
             # social benefits
             .when(coalesce(col('econ_sub'), lit('')).isin('social assistance', 'pensions'), 'Social benefits')
             # subsidies
             .when((col('Exercice')<2016) & (coalesce(col('Sous_Article'), lit('')).startswith('6110') | coalesce(col('Sous_Article'), lit('')).startswith('6150')), 'Subsidies')
             # grants and transfers
             .when((col('Exercice')<2016) & 
-                  ((coalesce(col('Article'), lit('')).startswith('61')) &
-                   (~coalesce(col('Sous_Article'), lit('')).startswith('6110')) &
-                   (~coalesce(col('Sous_Article'), lit('')).startswith('6150'))), 'Other grants and transfers')
+                 ((coalesce(col('Article'), lit('')).startswith('61')) &
+                 (~coalesce(col('Sous_Article'), lit('')).startswith('6110')) &
+                 (~coalesce(col('Sous_Article'), lit('')).startswith('6150'))), 'Other grants and transfers')
             .when((col('Exercice')>=2016) & (coalesce(col('Sous_Article'), lit('')).startswith('6642')), 'Other grants and transfers')
             # other expenses
             .otherwise('Other expenses')
@@ -158,9 +159,10 @@ def boost_gold():
                     'admin1',
                     'admin2',
                     'geo1',
+                    'is_interest',
+                    'is_foreign',
                     'func',
                     'func_sub',
                     'econ',
                     'econ_sub'
-                    )
-    )
+                    ))   )
