@@ -32,16 +32,18 @@ def get_cci_metadata(prune=False):
         country_info['updated_at'] = os.path.getmtime(filename)
         country_row = country_info.iloc[0]
 
-        # convert country code to country name
+        # map country code to country name
         if len(country_row.country) == 3 and country_row.country.upper() == country_row.country:
             country_found = countries[countries.country_code == country_row.country]
             if country_found.empty:
                 print(f"Unable to look up country code {country_row.country} from {filename}. Skipping")
                 continue
+            country_info['country_code'] = country_row.country
             country_name = country_found.iloc[0].country_name
             country_info['country'] = country_name
         else:
-            country_name = country_row.country
+            print(f"Expect a 3-letter country code in the 'Country' column from {filename}, but found {country_row.country}. Skipping")
+            continue
 
         country_in_meta_df = meta_df[meta_df.country == country_name]
         if not country_in_meta_df.empty:
@@ -69,7 +71,7 @@ else:
     existing_metadata_df['updated_at'] = existing_metadata_df['updated_at'] - 1e+09
 
 metadata_df = get_cci_metadata()
-merged_metadata_df = pd.merge(metadata_df, existing_metadata_df, on=['country'], how='left', suffixes=('', '_old'))
+merged_metadata_df = pd.merge(metadata_df, existing_metadata_df, on=['country_code'], how='left', suffixes=('', '_old'))
 merged_metadata_df
 
 # COMMAND ----------
@@ -88,7 +90,7 @@ def process_country(meta_row):
         print(f"{filename_stem}.xlsx is non boost. Skipping")
         return
     
-    csv_dir = f"{WORKSPACE_DIR}/cci_csv/{meta_row.country}"
+    csv_dir = f"{WORKSPACE_DIR}/cci_csv/{meta_row.country_code}"
     Path(csv_dir).mkdir(parents=True, exist_ok=True)
     
     for sheet_name in ['Approved', 'Executed']:
@@ -116,4 +118,4 @@ to_process_df.progress_apply(process_country, axis=1)
 # COMMAND ----------
 
 sdf = spark.createDataFrame(metadata_df)
-sdf.write.mode("overwrite").saveAsTable("boost_intermediate.boost_country_meta")
+sdf.write.mode("overwrite").saveAsTable(metadata_table_name)

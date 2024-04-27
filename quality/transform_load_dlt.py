@@ -19,11 +19,12 @@ CSV_READ_OPTIONS = {
 
 @dlt.table(name=f'quality_cci_bronze')
 def quality_cci_bronze():
-    ref_csv = f"{CCI_CSV_DIR}/Colombia/Approved.csv"
+    ref_csv = f"{CCI_CSV_DIR}/COL/Approved.csv"
     ref_header = spark.read.text(ref_csv).first()[0]
     header_columns = ref_header.split(",")
     schema = StructType([StructField(header_columns[0], StringType())] +
                         [StructField(col, StringType()) for col in header_columns[1:]])
+    countries = spark.table('indicator.country').select('country_code', 'country_name')
     
     return (spark.read
       .format("csv")
@@ -32,7 +33,8 @@ def quality_cci_bronze():
       .load(f'{CCI_CSV_DIR}/*/')
       .withColumn("path_splitted", F.split(F.input_file_name(), "/"))
       .withColumn("approved_or_executed", F.regexp_replace(F.element_at(F.col("path_splitted"), -1), "\.csv", ""))
-      .withColumn("country_name", F.regexp_replace(F.element_at(F.col("path_splitted"), -2), "%20", " "))
+      .withColumn("country_code", F.element_at(F.col("path_splitted"), -2))
+      .join(countries, on=["country_code"], how="left")
     )
 
 # COMMAND ----------
