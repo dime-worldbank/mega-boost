@@ -99,6 +99,5 @@ CREATE OR REFRESH LIVE TABLE data_availability
     LEFT JOIN subnat_pov sp on t.country_name = sp.country_name
     LEFT JOIN edu_hh_exp ehe on t.country_name = ehe.country_name
     LEFT JOIN health_priv_exp hpe on t.country_name = hpe.country_name
-    WHERE t.country_name not in ('Gambia, the', 'Turkey', 'Bahamas, the', 'Czech Republic', 'Kyrgyz republic', 'Russian federation', 'slovak Republic')
     ORDER BY t.country_name
   )
