@@ -93,7 +93,7 @@ def nga_boost_silver():
     .withColumn('econ_sub',
         when((col('Econ2').startswith('2101')), 'basic wages') # redundant condition in excel with two conditions on Econ2
         .when(((~col('is_transfer')) & (col('Econ3').startswith('210201'))), 'allowances')
-        .when(((~col('is_transfer')) & (col('Econ4').startswith('21020202'))), 'social benefits')
+        .when(((~col('is_transfer')) & (col('Econ4').startswith('21020202'))), 'social benefits (pension contributions)')
         .when((
             (~col('is_transfer')) &
             (col('Econ1').startswith('23')) &
@@ -153,7 +153,7 @@ def nga_boost_gold():
             col('Approved').alias('approved'),
             col('Executed').alias('executed'),    
             'is_foreign',
-            'is_transfer'
+            'is_transfer',
             'func',
             'func_sub',
             'econ_sub',
