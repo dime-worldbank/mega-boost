@@ -57,6 +57,7 @@ def boost_silver():
             'geo1', 
             when(col('admin0_tmp')=='Central', 'Central Scope') # since we don't have geo tagged spending information
             .otherwise(col('admin1_tmp'))
+        ).withColumn('is_interest', (col('econ1').startswith("A08") | col('econ1').startswith("A10") | col('econ1').startswith('A99'))
         ).withColumn(
             'func_sub',
             when(col('func2').startswith('031'), 'judiciary')
@@ -64,14 +65,15 @@ def boost_silver():
             .when(col('func2').startswith('091'), 'primary education')
             .when(col('func2').startswith('092'), 'secondary education')
             .when(col('func2').startswith('093'), 'tertiary education')
+            .when(col('econ1').startswith('A07'), 'interest on debt')
         ).withColumn(
             'func',
             when((col('func1') == '0') & col('admin1').startswith('H01'), 'Health')
             .when((col('func1') == '0') & col('admin1').startswith('E01'), 'Education')
-            .when(col('func1').startswith('01'), 'General public services')
-            .when(col('func1').startswith('02'), 'Defence')
-            .when(col('func_sub').isin('judiciary', 'public order'), 'Public order and safety')
             .when(col('func1').startswith('04'), 'Economic affairs')
+            .when(col('func1').startswith('01'), 'General public services')
+            .when(col('func1').startswith('02'), 'Defense')
+            .when(col('func_sub').isin('judiciary', 'public order'), 'Public order and safety')
             .when(col('func1').startswith('05'), 'Environmental protection')
             .when(col('func1').startswith('06'), 'Housing and community amenities')
             .when(col('func1').startswith('07'), 'Health')
@@ -90,21 +92,20 @@ def boost_silver():
             .when(col('econ1').startswith('A04'), 'pensions')
         ).withColumn(
             'econ',
-            when(col('econ1').startswith('A01'), 'Wage bill')
+            when(col('econ2').startswith('A051'), 'Subsidies')
+            .when(col('econ1').startswith('A01'), 'Wage bill')
             .when(((col('capital')=='y') & (~col('econ1').startswith('A01')) & (~col('econ2').startswith('A051'))), 'Capital expenditure') 
             .when(((col('econ1').startswith('A03')) & (~col('econ2').startswith('A051')) & ((col('capital') != 'y') | col('capital').isNull())), 'Goods and services')
-            .when(col('econ2').startswith('A051'), 'Subsidies')
             .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
             .when((col('econ1').startswith('A05')) & (~col('func1').startswith('10')) & (~col('econ2').startswith('A051')), 'Grants and transfers')
-            .otherwise('Other expenses')
+            .otherwise('Other expenses') 
         ).withColumn('is_transfer', lit(False))
     )
 
 @dlt.table(name=f'pak_boost_gold')
 def boost_gold():
     return (dlt.read(f'pak_boost_silver')
-            .filter(~((col('econ1')== "A08 Loans and Advances")|
-                    (col('econ1')=="A10 Principal Repayments of Loans")))
+            .filter(~col('is_interest')) # TODO: confirm if intrest payments are to be excluded
             .withColumn('country_name', lit(COUNTRY))
             .select('country_name',
                     'adm1_name',
@@ -117,13 +118,10 @@ def boost_gold():
                     col('admin2_tmp').alias('admin2'),
                     'geo1',
                     'is_transfer',
+                    'is_interest',
                     'func',
                     'func_sub',
                     'econ',
                     'econ_sub'
         )
     )
-
-# COMMAND ----------
-
-
