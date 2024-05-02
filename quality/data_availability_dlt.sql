@@ -65,6 +65,13 @@ CREATE OR REFRESH LIVE TABLE data_availability
         GROUP BY 1
     ),
 
+    edu_priv_exp as (
+        SELECT country_name, min(year) as edu_priv_spending_earliest_year, max(year) as edu_priv_spending_latest_year
+        FROM indicator.edu_private_spending
+        WHERE edu_private_spending_share_gdp is not null
+        GROUP BY 1
+    ),
+
     edu_hh_exp as (
         SELECT country_name, min(year) as edu_household_spending_earliest_year, max(year) as edu_household_spending_latest_year
         FROM indicator.edu_household_spending
@@ -81,7 +88,8 @@ CREATE OR REFRESH LIVE TABLE data_availability
 
     SELECT t.country_name, t.boost_earliest_year, t.boost_latest_year, f.boost_num_func_cofog,
         p11.pefa2011_years, p16.pefa2016_years,
-        ehe.edu_household_spending_earliest_year, ehe.edu_household_spending_latest_year,
+        epe.edu_priv_spending_earliest_year as edu_priv_exp_oecd_earliest_year, epe.edu_priv_spending_latest_year as edu_priv_exp_oecd_latest_year,
+        ehe.edu_household_spending_earliest_year as edu_household_exp_icp_earliest_year, ehe.edu_household_spending_latest_year as edu_household_exp_icp_latest_year,
         yl.youth_lit_rate_earliest_year, yl.youth_lit_rate_latest_year,
         lp.learn_pov_earliest_year, lp.learn_pov_latest_year,
         hpe.health_ooo_spending_earliest_year, hpe.health_ooo_spending_latest_year,
@@ -97,6 +105,7 @@ CREATE OR REFRESH LIVE TABLE data_availability
     LEFT JOIN edu_pov lp on t.country_name = lp.country_name
     LEFT JOIN health_cov hc on t.country_name = hc.country_name
     LEFT JOIN subnat_pov sp on t.country_name = sp.country_name
+    LEFT JOIN edu_priv_exp epe on t.country_name = epe.country_name
     LEFT JOIN edu_hh_exp ehe on t.country_name = ehe.country_name
     LEFT JOIN health_priv_exp hpe on t.country_name = hpe.country_name
     ORDER BY t.country_name
