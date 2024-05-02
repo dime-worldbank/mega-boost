@@ -24,7 +24,3 @@ for sheet in tqdm(disaggregated_data_sheets):
 # COMMAND ----------
 
 df
-
-# COMMAND ----------
-
-
