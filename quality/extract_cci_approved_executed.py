@@ -104,10 +104,10 @@ def process_country(meta_row):
                 last_year_col_index = col_index - 1
                 break
   
-        category_col = df.columns[first_year_col_index-1]
+        category_code_col = df.columns[first_year_col_index-2]
         last_year_col = df.columns[last_year_col_index]
-        data = df.loc[:, category_col:last_year_col]
-        data.columns = ['category'] + list(range(2006, 2006+len(data.columns)-1))
+        data = df.loc[:, category_code_col:last_year_col]
+        data.columns = ['category_code', 'category'] + list(range(2006, 2006+len(data.columns)-2))
         print(f'{meta_row.country} {sheet_name} {data.columns}')
         csv_filename = f"{csv_dir}/{sheet_name}.csv"
         data.to_csv(csv_filename, index=False)

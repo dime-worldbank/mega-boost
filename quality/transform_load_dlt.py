@@ -61,20 +61,66 @@ def quality_functional_silver():
     bronze = dlt.read('quality_cci_bronze')
     year_cols = list(col_name for col_name in bronze.columns if col_name.isnumeric())
     return (bronze
-        .filter(F.col('category').contains('COFOG'))
-        .withColumn("func_tmp", F.regexp_replace(F.col("category"), "\\(.*\\)", ""))
+        .filter(F.col('category_code').startswith('EXP_FUNC_'))
         .withColumn('func',
             F.when(
-                F.col("func_tmp").contains("Economic relations") , "Economic affairs"
+                F.col("category_code") == 'EXP_FUNC_GEN_PUB_SER_EXE' , "General public services"
             ).when(
-                F.col("func_tmp").contains("Housing") , "Housing and community amenities"
+                F.col("category_code") == 'EXP_FUNC_DEF_EXE' , "Defence"
             ).when(
-                F.col("func_tmp").contains("Environment") , "Environmental protection"
-            ).otherwise(
-                F.trim(udf_capitalize(F.col("func_tmp")))
+                F.col("category_code") == 'EXP_FUNC_PUB_ORD_SAF_EXE' , "Public order and safety"
+            ).when(
+                F.col("category_code") == 'EXP_FUNC_ECO_REL_EXE' , "Economic affairs"
+            ).when(
+                F.col("category_code") == 'EXP_FUNC_ENV_PRO_EXE' , "Environmental protection"
+            ).when(
+                F.col("category_code") == 'EXP_FUNC_HOU_EXE' , "Housing and community amenities"
+            ).when(
+                F.col("category_code") == 'EXP_FUNC_HEA_EXE' , "Health"
+            ).when(
+                F.col("category_code") == 'EXP_FUNC_REV_CUS_EXC_EXE' , "Recreation, culture and religion"
+            ).when(
+                F.col("category_code") == 'EXP_FUNC_EDU_EXE' , "Education"
+            ).when(
+                F.col("category_code") == 'EXP_FUNC_SOC_PRO_EXE' , "Social protection"
             )
         )
+        .filter(F.col('func').isNotNull())
         .melt(ids=["country_name", "approved_or_executed", "func"], 
+            values=year_cols, 
+            variableColumnName="year", 
+            valueColumnName="amount"
+        )
+        .filter(F.col('amount').isNotNull())
+    )
+
+# COMMAND ----------
+
+@dlt.table(name=f'quality_economic_silver')
+def quality_economic_silver():
+    bronze = dlt.read('quality_cci_bronze')
+    year_cols = list(col_name for col_name in bronze.columns if col_name.isnumeric())
+    return (bronze
+        .filter(F.col('category_code').startswith('EXP_ECON_'))
+        .withColumn('econ',
+            F.when(
+                F.col("category_code") == 'EXP_ECON_WAG_BIL_EXE' , "Wage bill"
+            ).when(
+                F.col("category_code") == 'EXP_ECON_CAP_EXP_EXE' , "Capital expenditure"
+            ).when(
+                F.col("category_code") == 'EXP_ECON_USE_GOO_SER_EXE' , "Goods and services"
+            ).when(
+                F.col("category_code") == 'EXP_ECON_SUB_EXE' , "Subsidies"
+            ).when(
+                F.col("category_code") == 'EXP_ECON_SOC_BEN_EXE' , "Social benefits"
+            ).when(
+                F.col("category_code") == 'EXP_ECON_OTH_GRA_EXE' , "Other grants and transfers"
+            ).when(
+                F.col("category_code") == 'EXP_ECON_OTH_EXP_EXE' , "Other expenses"
+            )
+        )
+        .filter(F.col('econ').isNotNull())
+        .melt(ids=["country_name", "approved_or_executed", "econ"], 
             values=year_cols, 
             variableColumnName="year", 
             valueColumnName="amount"
