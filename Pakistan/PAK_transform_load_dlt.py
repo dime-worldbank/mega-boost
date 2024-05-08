@@ -72,7 +72,7 @@ def boost_silver():
             .when((col('func1') == '0') & col('admin1').startswith('E01'), 'Education')
             .when(col('func1').startswith('04'), 'Economic affairs')
             .when(col('func1').startswith('01'), 'General public services')
-            .when(col('func1').startswith('02'), 'Defense')
+            .when(col('func1').startswith('02'), 'Defence')
             .when(col('func_sub').isin('judiciary', 'public order'), 'Public order and safety')
             .when(col('func1').startswith('05'), 'Environmental protection')
             .when(col('func1').startswith('06'), 'Housing and community amenities')
@@ -80,7 +80,6 @@ def boost_silver():
             .when(col('func1').startswith('08'), 'Recreation, culture and religion')
             .when(col('func1').startswith('09'), 'Education')
             .when(col('func1').startswith('10'), 'Social protection')
-            .otherwise(lit("Other")) # TODO: func1 (blank) is currently marked as 'Other'
         ).withColumn(
             'econ_sub',
             when(col('econ2').startswith('A011'), 'basic wages')

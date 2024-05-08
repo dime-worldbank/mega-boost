@@ -129,7 +129,7 @@ def boost_silver():
                 'General public services')
             .when(
                 col('Sector_prog1').startswith('08'),
-                'Defense') # Note: Defence has no allocated amount in the executed sheet
+                'Defence') # Note: Defence has no allocated amount in the executed sheet
             .when(
                 col("func_sub").isin("judiciary", "public safety"),
                 "Public order and safety")

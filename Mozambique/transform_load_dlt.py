@@ -85,7 +85,7 @@ def boost_silver():
             .when((col('Func2').startswith('07311') | col('Func2').startswith('07321')), 'tertiary and quaternary health')
         ).withColumn('func',
             when(col('Func1').startswith("01"), "General public services")
-            .when(col('Func1').startswith("02"), "Defense")
+            .when(col('Func1').startswith("02"), "Defence")
             .when(col("func_sub").isin("judiciary", "public safety") , "Public order and safety")
             .when(col('Func1').startswith("04"), "Economic affairs")
             .when(col('Func1').startswith("05"), "Environmental protection")

@@ -60,7 +60,7 @@ def boost_silver():
             .when(((coalesce(col('Roads'), lit('')) ==1) | (coalesce(col('railroads'), lit('')) == 1) | (coalesce(col('Air'), lit('')) == 1) | (coalesce(col('WSS'), lit(''))==1)), 'transport')
         ).withColumn(
         'func',
-            when((col('ADMIN1').startswith('09') | col('ADMIN1').startswith('06')), 'Defense')
+            when((col('ADMIN1').startswith('09') | col('ADMIN1').startswith('06')), 'Defence')
             .when(col("func_sub").isin('public safety', 'judiciary') , "Public order and safety")
             .when(col('ADMIN2').startswith('21'), 'Environmental protection')
             .when(col('ADMIN2').startswith('27') | col('ADMIN2').startswith('34'), 'Health')

@@ -446,7 +446,7 @@ def col_central_boost_silver_from_raw():
       when(
         col("func_sub").isin("judiciary", "public safety") , "Public order and safety"
       ).when(
-        col("func1") == "DEFENSA Y POLICÍA", "Defense" # important for this to be after "Public order and safety" to exclude those line items
+        col("func1") == "DEFENSA Y POLICÍA", "Defence" # important for this to be after "Public order and safety" to exclude those line items
       ).when(
         col("func1").isin(
           "AGRICULTURA Y DESARROLLO RURAL", 

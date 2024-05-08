@@ -62,13 +62,13 @@ def nga_boost_silver():
         .when(col("Func1").startswith('704'), "Economic affairs")
         # Recreation and culture
         .when(col("Func1").startswith('708'), "Recreation, culture and religion")
-        # Defense
+        # Defence
         .when(((~col('is_transfer')) &col('Func1').startswith('702') & 
                 (~(col('Econ4').startswith('22010102') |
                    col('Econ4').startswith('22010104') |
                    col('Econ4').startswith('21030102') |
                    col('Econ4').startswith('22021059')))
-            ), 'Defense')
+            ), 'Defence')
         # Education
         .when((col('Func1').startswith('709') &
                 (~(col('Econ4').startswith('22010102') |
