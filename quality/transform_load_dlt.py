@@ -153,7 +153,7 @@ def quality_total_subnat_silver():
     bronze = dlt.read('quality_cci_bronze')
     year_cols = list(col_name for col_name in bronze.columns if col_name.isnumeric())
     return (bronze
-        .filter(F.lower(F.col('category')) == 'Subnational: Total spending'.lower())
+        .filter(F.lower(F.col('category_code')) == 'EXP_ECON_SBN_TOT_SPE_EXE'.lower())
         .melt(ids=["country_name", "approved_or_executed"], 
             values=year_cols, 
             variableColumnName="year", 
