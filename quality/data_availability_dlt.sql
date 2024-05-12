@@ -1,4 +1,5 @@
 -- Databricks notebook source
+
 CREATE OR REFRESH LIVE TABLE data_availability
   USING DELTA
   AS (
@@ -84,7 +85,14 @@ CREATE OR REFRESH LIVE TABLE data_availability
         FROM indicator.health_expenditure
         WHERE oop_per_capita_usd is not null
         GROUP BY 1
-    )
+    ),
+
+    subnat_pres as (
+        SELECT country_name, min(year) as subnat_pres_earliest_year, max(year) as subnat_pres_latest_year
+        FROM boost_intermediate.quality_total_subnat_silver
+        WHERE amount is not null
+        GROUP BY 1
+    ) 
 
     SELECT t.country_name, t.boost_earliest_year, t.boost_latest_year, f.boost_num_func_cofog,
         p11.pefa2011_years, p16.pefa2016_years,
@@ -95,7 +103,7 @@ CREATE OR REFRESH LIVE TABLE data_availability
         hpe.health_ooo_spending_earliest_year, hpe.health_ooo_spending_latest_year,
         hc.uni_health_coverage_earliest_year, hc.uni_health_coverage_latest_year,
         shd.subnat_edu_health_index_earliest_year, shd.subnat_edu_health_index_latest_year, shd.subnat_edu_health_index_num_subnat_regions,
-        sp.subnat_poverty_earliest_year, sp.subnat_poverty_latest_year, sp.subnat_poverty_num_subnat_regions
+        sp.subnat_poverty_earliest_year, sp.subnat_poverty_latest_year, sp.subnat_poverty_num_subnat_regions, subpr.subnat_pres_earliest_year, subpr.subnat_pres_latest_year
     FROM time_coverage t
     LEFT JOIN func_coverage f on t.country_name = f.country_name
     LEFT JOIN pefa2016 p16 on t.country_name = p16.country_name
@@ -108,5 +116,6 @@ CREATE OR REFRESH LIVE TABLE data_availability
     LEFT JOIN edu_priv_exp epe on t.country_name = epe.country_name
     LEFT JOIN edu_hh_exp ehe on t.country_name = ehe.country_name
     LEFT JOIN health_priv_exp hpe on t.country_name = hpe.country_name
+    LEFT JOIN subnat_pres subpr on t.country_name = subpr.country_name
     ORDER BY t.country_name
   )
