@@ -431,6 +431,9 @@ def col_central_boost_silver_from_raw():
     .withColumn('pension',
       upper(col("func1")).like('%PENSIONES%') | upper(col("econ3")).like('%(DE PENSIONES)%')
     )
+    .withColumn('subsidy',
+      upper(col("econ3")).like('%SUBSIDIO%')
+    )
     .withColumn('func_sub',
       when(
         col("func1").isin("RAMA JUDICIAL", "JUSTICIA Y DEL DERECHO") , "judiciary"
@@ -477,6 +480,32 @@ def col_central_boost_silver_from_raw():
       ).otherwise(
         lit("General public services")
       )
+    ).withColumn('econ_sub',
+      when(
+        (col("pension") & (col("econ2") == "Transferencias")), "pensions"
+      ).when(
+        col("econ3").startswith("03-03-04-052"), "social assistance"
+      )
+    ).withColumn('econ',
+      when(
+        col("econ1") == 'Inversion', "Capital expenditures"
+      ).when(
+        col("econ_sub").isin(
+          "pensions",
+          "social assistance"
+        ), "Social benefits"
+      ).when(
+        col("econ2") == 'Gastos de Personal' , "Wage bill"
+      ).when(
+        (col("econ2").isin(
+          "Adquisición de Bienes y Servicios",
+          "Gastos de Comercialización y Producción"
+        ) & ~col("pension")), "Goods and services"
+      ).when(
+        (col("subsidy") & ~col("pension")), "Subsidies"
+      ).otherwise( # Colombia has no "Other grants and transfers"
+        lit("Other expenses")
+      )
     )
   )
 
@@ -490,6 +519,17 @@ def col_subnat_boost_silver_from_raw():
         .withColumn("func",
             when(col("func1") == "Pensions", lit("Social protection"))
             .otherwise(col("func1"))
+        )
+        .withColumn("econ",
+            when(
+                col("econ2") == 'GASTOS DE PERSONAL', 'Wage bill'
+            ).when(
+                col("econ2") == 'ADQUISICION DE BIENES Y SERVICIOS', 'Goods and services'
+            ).when(
+                col("econ2") == 'TRANSFERENCIAS DE CAPITAL', 'Capital expenditures'
+            ).otherwise(
+                lit("Other expenses")
+            )
         )
     )
 
@@ -514,12 +554,15 @@ def col_boost_gold():
             'geo1',
             'func',
             'func_sub',
+            'econ',
+            'econ_sub',
             col('ApropiacionDefinitiva').alias('approved'),
             col('Pago').alias('executed'))
     .union(dlt.read('col_subnat_boost_silver_from_raw')
       .withColumn('country_name', lit(COUNTRY))
       .withColumn('revised', lit(None))
       .withColumn('func_sub', lit(None))
+      .withColumn('econ_sub', lit(None))
       .withColumn('admin0', lit("Regional"))
       .withColumn('geo1', col('admin1'))
       .select('country_name',
@@ -530,6 +573,8 @@ def col_boost_gold():
               'geo1',
               'func',
               'func_sub',
+              'econ',
+              'econ_sub',
               col('compromisos').alias('approved'),
               col('pagos').alias('executed'))
     )
