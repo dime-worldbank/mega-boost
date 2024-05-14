@@ -84,10 +84,17 @@ CREATE OR REFRESH LIVE TABLE data_availability
         FROM indicator.health_expenditure
         WHERE oop_per_capita_usd is not null
         GROUP BY 1
-    )
+    ),
+
+    boost_subnat as (
+        SELECT country_name, min(year) as boost_subnat_earliest_year, max(year) as boost_subnat_latest_year
+        FROM boost_intermediate.quality_total_subnat_silver
+        WHERE amount is not null
+        GROUP BY 1
+    ) 
 
     SELECT t.country_name, t.boost_earliest_year, t.boost_latest_year, f.boost_num_func_cofog,
-        p11.pefa2011_years, p16.pefa2016_years,
+        bsub.boost_subnat_earliest_year, bsub.boost_subnat_latest_year, p11.pefa2011_years, p16.pefa2016_years,
         epe.edu_priv_spending_earliest_year as edu_priv_exp_oecd_earliest_year, epe.edu_priv_spending_latest_year as edu_priv_exp_oecd_latest_year,
         ehe.edu_household_spending_earliest_year as edu_household_exp_icp_earliest_year, ehe.edu_household_spending_latest_year as edu_household_exp_icp_latest_year,
         yl.youth_lit_rate_earliest_year, yl.youth_lit_rate_latest_year,
@@ -108,5 +115,6 @@ CREATE OR REFRESH LIVE TABLE data_availability
     LEFT JOIN edu_priv_exp epe on t.country_name = epe.country_name
     LEFT JOIN edu_hh_exp ehe on t.country_name = ehe.country_name
     LEFT JOIN health_priv_exp hpe on t.country_name = hpe.country_name
+    LEFT JOIN boost_subnat bsub on t.country_name = bsub.country_name
     ORDER BY t.country_name
   )
