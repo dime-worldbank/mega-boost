@@ -106,7 +106,7 @@ def quality_economic_silver():
             F.when(
                 F.col("category_code") == 'EXP_ECON_WAG_BIL_EXE' , "Wage bill"
             ).when(
-                F.col("category_code") == 'EXP_ECON_CAP_EXP_EXE' , "Capital expenditure"
+                F.col("category_code") == 'EXP_ECON_CAP_EXP_EXE' , "Capital expenditures"
             ).when(
                 F.col("category_code") == 'EXP_ECON_USE_GOO_SER_EXE' , "Goods and services"
             ).when(

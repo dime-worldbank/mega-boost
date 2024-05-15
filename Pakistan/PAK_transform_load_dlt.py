@@ -91,7 +91,7 @@ def boost_silver():
             'econ',
             when(col('econ2').startswith('A051'), 'Subsidies')
             .when(col('econ1').startswith('A01'), 'Wage bill')
-            .when(((col('capital')=='y') & (~col('econ1').startswith('A01')) & (~col('econ2').startswith('A051'))), 'Capital expenditure') 
+            .when(((col('capital')=='y') & (~col('econ1').startswith('A01')) & (~col('econ2').startswith('A051'))), 'Capital expenditures') 
             .when(((col('econ1').startswith('A03')) & (~col('econ2').startswith('A051')) & ((col('capital') != 'y') | col('capital').isNull())), 'Goods and services')
             .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
             .when((col('econ1').startswith('A05')) & (~col('func1').startswith('10')) & (~col('econ2').startswith('A051')), 'Grants and transfers')

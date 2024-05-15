@@ -121,7 +121,7 @@ def nga_boost_silver():
                (col('Econ1').startswith('23')) &
                (~col('Econ4').startswith('22040109')) &
                (~col('Econ4').startswith('22021007')) &
-               (~col('Program').startswith('ERGP22112823'))), 'Capital expenditure')
+               (~col('Program').startswith('ERGP22112823'))), 'Capital expenditures')
         # goods and services
         .when(((~col('is_transfer')) &
                (col('Econ1').startswith('22')) &

@@ -117,7 +117,7 @@ def boost_silver():
                    ((~(col('Econ4').startswith('1431')) | col('Econ4').startswith('1432')))), 'social assistance')
 
         ).withColumn( 'econ',
-            when(col('Econ1').startswith('2'), 'Capital Expenditure')
+            when(col('Econ1').startswith('2'), 'Capital expenditures')
             .when(col('Econ2').startswith('11'), 'Wage bill')
             .when(col('Econ2').startswith('12'), 'Goods and services')
             .when(col('Econ2').startswith('15'), 'Subsidies')

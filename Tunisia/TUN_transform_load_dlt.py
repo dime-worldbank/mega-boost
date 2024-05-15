@@ -82,7 +82,7 @@ def boost_silver():
         ).withColumn(
         'econ',
             when(col('ECON2').startswith('01'), 'Wage bill')
-            .when((col('ECON1').startswith('Titre 2') & (~(coalesce(col('ECON2'), lit('')).startswith('10')))), 'Capital expenditure')
+            .when((col('ECON1').startswith('Titre 2') & (~(coalesce(col('ECON2'), lit('')).startswith('10')))), 'Capital expenditures')
             .when(col('ECON2').startswith('02'), 'Goods and services')
             .when(coalesce(col('subsidies'), lit(0))==1, 'Subsidies')
             .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')

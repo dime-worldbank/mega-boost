@@ -125,7 +125,7 @@ def boost_silver():
             .when((~col('is_interest')) & ((~coalesce(col('Article'), lit('')).startswith('12')) & col('Titre').startswith('3')), 'Wage bill')
             # Capital expenditure
             .when(((~coalesce(col('Article'), lit('')).startswith('12')) & (~col('is_interest')) &
-                 ((col('Titre').startswith('7') | (col('Titre').startswith('8'))))), 'Capital expenditure')
+                 ((col('Titre').startswith('7') | (col('Titre').startswith('8'))))), 'Capital expenditures')
             # Goods and services
             .when((~col('is_interest')) & 
                   ((~coalesce(col('Article'), lit('')).startswith('12')) & (col('Titre').startswith('4') | col('Titre').startswith('5'))), 'Goods and services')

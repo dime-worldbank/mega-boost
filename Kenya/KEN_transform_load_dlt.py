@@ -194,7 +194,7 @@ def boost_silver():
                     ((col('Item_econ4').startswith('22103') | col('Item_econ4').startswith('22104')  | col('Item_econ4').startswith('22107')) & (col('Class').startswith('1')))                   
                 ), 'Wage bill')
             # cap ex
-            .when(col('Chapter_econ2').startswith('31'), 'Capital expenditure')
+            .when(col('Chapter_econ2').startswith('31'), 'Capital expenditures')
             # Goods and services
             .when(((~col('Class').startswith('2')) & (col('Chapter_econ2').startswith('22'))), 'Goods and services')
             # subsidies           

@@ -91,7 +91,7 @@ def boost_bronze_cen():
                 .when((col('ECON1').startswith('200') & (~col('is_transfer')) &
                     (~col('ECON4').startswith('100')) &
                     (~col('ECON4').startswith('200')) &
-                    (~col('ECON4').startswith('300'))), 'Capital expenditure')
+                    (~col('ECON4').startswith('300'))), 'Capital expenditures')
                 # goods and services
                 .when(((~col('is_transfer')) & (col('ECON4').startswith('200') | col('ECON4').startswith('300'))), 'Goods and services')
                 # subsidies 

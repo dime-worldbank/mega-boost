@@ -119,7 +119,7 @@ def boost_silver():
                         .when((col('econ4').startswith('22.02') | (coalesce(col('activity'), lit('')) == '26 SUBSIDY TO BHUTAN POWER CORPORATION')), 'subsidies to production')
             ).withColumn('econ', 
                         when(col('Econ2').startswith('21'), 'Wage bill')
-                        .when(coalesce(col('Econ1'), lit('')) == 'Capital', 'Capital expenditure')
+                        .when(coalesce(col('Econ1'), lit('')) == 'Capital', 'Capital expenditures')
                         .when(col('Econ2').startswith('22'), 'Goods and services')
                         .when((col('econ4').startswith('22.02') | (coalesce(col('activity'), lit(''))=='26 SUBSIDY TO BHUTAN POWER CORPORATION')), 'Subsidies')
                         .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')

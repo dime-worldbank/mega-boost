@@ -164,7 +164,7 @@ def boost_silver():
             (col('ECON1').startswith('6')) |
             (col('ECON1').startswith('7') & (col('ECON2').startswith('21') | col('ECON2').startswith('23') | col('ECON2').startswith('23'))) | 
             (col("ECON1").startswith('7') & col('ECON4').startswith('62997')))
-            ), 'Capital expenditure')
+            ), 'Capital expenditures')
         # Goods and services
         .when(((col('YEAR')>=2017) & (col('ECON1').startswith('3'))), 'Goods and services')
         .when(((col('YEAR')<2017) & 
