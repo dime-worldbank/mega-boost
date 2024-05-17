@@ -103,7 +103,7 @@ def boost_bronze_cen():
                 col('YEAR').alias('year'),
                 col('APPROVED').alias('approved'),
                 col('MODIFIED').alias('revised'),
-                col('PAID').alias('executed'),
+                col('COMMITTED').alias('executed'), # change to PAID
                 col('geo1_tmp').alias('geo1'),
                 'is_transfer', 'is_foreign', 'adm1_name', 'admin0', 'admin1', 'admin2', 'func_sub', 'func', 'econ', 'econ_sub', 'sheet'
             )
