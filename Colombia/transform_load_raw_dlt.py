@@ -137,19 +137,8 @@ def col_subnat_recent_silver():
       .join(adm_lookup, on=["nso_code"], how="left")
     )
 
-    # Add func1 column
-    with_func = (with_geo.withColumn(
-      'entitad_cod', lpad(col('seccionpresupuestal').cast('int'), 2, '0')
-    ).withColumn(
-      'func1',
-      when(col('entitad_cod').isin(['02', '21']), "Health")
-      .when(col('entitad_cod') == '24', "Pensions")
-      .when(col('entitad_cod') == '22', "Education")
-      .otherwise("General public services")
-    ))
-
     # Interpolate missing Pagos values
-    with_pagos_interpolated = (with_func
+    with_pagos_interpolated = (with_geo
       .withColumn(
         'pagos_interpolated',
         when(col("obligaciones").isNotNull() & col("pagos").isNull(), col("obligaciones"))
@@ -171,8 +160,19 @@ def col_subnat_recent_silver():
       )
     )
 
+    # Add func1 column
+    with_func = (with_admin0.withColumn(
+      'entitad_cod', lpad(col('seccionpresupuestal').cast('int'), 2, '0')
+    ).withColumn(
+      'func1',
+      when((col('entitad_cod').isin(['02', '21']) | (col('admin0') == 'Hospital')), "Health")
+      .when(col('entitad_cod') == '24', "Pensions")
+      .when(col('entitad_cod') == '22', "Education")
+      .otherwise("General public services")
+    ))
+
     # Add a flag to indicate if a row is a line item or aggregate entry
-    return (with_admin0
+    return (with_func
       .withColumn(
         "overlap_next_row_all_but_last_4", expr("substring(concepto_cod_next_row, 1, length(concepto_cod_next_row) - 4) = concepto_cod"))
       .withColumn(
@@ -233,6 +233,11 @@ def col_subnat_2020_and_prior_bronze():
         .withColumn("CodigoConcepto_group2_int", element_at(split('CodigoConcepto', '\\.'), 2).cast(IntegerType()))
         .join(execution_entity_lookup, on=["CodigoConcepto_group2_int"], how="left")
         .select(col_order)
+        .withColumn("CodigoConcepto", # special 1-dot cases without sub groups, align them with other econ2 patterns
+          when(col("CodigoConcepto") == '1.8', '1.8.0')
+          .when(col("CodigoConcepto") == '1.10', '1.10.0')
+          .otherwise(col("CodigoConcepto"))
+        )
     )
     return (dlt.read('col_subnat_2020_and_prior_funcionamiento_bronze')
         .select(col_order)
@@ -399,8 +404,13 @@ def col_central_silver():
             "econ3_next_row",
             lead(col("econ3")).over(windowSpec))
         .withColumn(
-            "econ2",
+            "econ2_tmp",
             when(col("econ3").isNull() & col("econ3_next_row").isNotNull(), col("EntidadDetalle"))
+        )
+        .withColumn(
+            "econ2",
+            when(col("econ2_tmp") == 'Adquisiciones de Bienes y Servicios', 'Adquisición de Bienes y Servicios')
+            .otherwise(col("econ2_tmp"))
         )
     )
     
@@ -524,7 +534,7 @@ def col_subnat_boost_silver_from_raw():
             when(
                 col("econ2") == 'GASTOS DE PERSONAL', 'Wage bill'
             ).when(
-                col("econ2") == 'ADQUISICION DE BIENES Y SERVICIOS', 'Goods and services'
+                col("econ2").isin('ADQUISICIÓN DE BIENES', 'ADQUISICIÓN DE SERVICIOS', 'ADQUISICION DE BIENES Y SERVICIOS'), 'Goods and services'
             ).when(
                 col("econ2") == 'TRANSFERENCIAS DE CAPITAL', 'Capital expenditures'
             ).otherwise(
