@@ -32,6 +32,10 @@ def boost_bronze():
 @dlt.table(name=f'btn_boost_silver')
 def boost_silver():
     return (dlt.read(f'btn_boost_bronze')
+            .withColumn('Econ1',coalesce(col('Econ1'), lit('')))
+            .withColumn('Econ3',coalesce(col('Econ3'), lit('')))
+            .withColumn('source',coalesce(col('source'), lit('')))
+            .withColumn('activity',coalesce(col('activity'), lit('')))
             # adm1_name
             .withColumn(
                 'adm1_name',
@@ -109,20 +113,26 @@ def boost_silver():
                 ), 'Economic affairs')
                 .otherwise('General public services')
             ).withColumn('econ_sub',
-                        when(coalesce(col('Econ3'), lit('')) == 'Social benefits', 'social assistance')
+                        when(col('Econ3') == 'Social benefits', 'social assistance')
                         .when(col('econ4').startswith('25.01'), 'pensions')
-                        .when(coalesce(col('Econ3'), lit('')) == 'Wages', 'basic wages')
-                        .when(coalesce(col('Econ3'), lit('')) == 'Allowances', 'allowances')
-                        .when((coalesce(col('source'), lit('')) == 'foreign') & (coalesce(col('Econ1'), lit(''))=='Capital'), 'capital expenditure (foreign spending)')
-                        .when((col('econ4').startswith('12') | col('econ4').startswith('13')), 'basic services')
+                        .when(col('Econ3') == 'Wages', 'basic wages')
+                        .when(col('Econ3') == 'Allowances', 'allowances')
+                        .when((col('source') == 'foreign') & (col('Econ1')=='Capital'), 'capital expenditure (foreign spending)')
+                        .when(col('econ4').startswith('12') | col('econ4').startswith('13'), 'basic services')
                         .when(col('econ4').startswith('15'), 'recurrent maintenance')
-                        .when((col('econ4').startswith('22.02') | (coalesce(col('activity'), lit('')) == '26 SUBSIDY TO BHUTAN POWER CORPORATION')), 'subsidies to production')
+                        .when((coalesce(col('activity'), lit('')) == '26 SUBSIDY TO BHUTAN POWER CORPORATION'), 'subsidies to production')
             ).withColumn('econ', 
+                        # wage bill
                         when(col('Econ2').startswith('21'), 'Wage bill')
-                        .when(coalesce(col('Econ1'), lit('')) == 'Capital', 'Capital expenditures')
+                        # capital expenditure
+                        .when(((col('Econ1') == 'Capital') | (col('activity')=='26 SUBSIDY TO BHUTAN POWER CORPORATION')), 'Capital expenditures')
+                        # goods and services
                         .when(col('Econ2').startswith('22'), 'Goods and services')
-                        .when((col('econ4').startswith('22.02') | (coalesce(col('activity'), lit(''))=='26 SUBSIDY TO BHUTAN POWER CORPORATION')), 'Subsidies')
+                        # subsidies
+                        .when(col('econ4').startswith('22.02'), 'Subsidies')
+                        # social benefits
                         .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
+                        # other expenses
                         .otherwise('Other expenses')  
             )
         )
@@ -149,5 +159,4 @@ def boost_gold():
                     'econ_sub'
             )
     )
-
 
