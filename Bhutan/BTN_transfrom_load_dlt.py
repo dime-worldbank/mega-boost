@@ -125,7 +125,7 @@ def boost_silver():
                         # wage bill
                         when(col('Econ2').startswith('21'), 'Wage bill')
                         # capital expenditure
-                        .when(((col('Econ1') == 'Capital') | (col('activity')=='26 SUBSIDY TO BHUTAN POWER CORPORATION')), 'Capital expenditures')
+                        .when(col('Econ1') == 'Capital', 'Capital expenditures')
                         # goods and services
                         .when(col('Econ2').startswith('22'), 'Goods and services')
                         # subsidies
