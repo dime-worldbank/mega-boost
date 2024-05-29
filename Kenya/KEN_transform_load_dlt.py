@@ -125,19 +125,13 @@ def boost_silver():
                 'Social protection') # This needs to be after 'Recreation, culture and religion' as Sector_prog1 09 includes both
                 # This also needs to be before almost everything else that rely on Sector_prog1 because it uses econ4 which can be cross sector
             .when(
-                col('Sector_prog1').startswith('07'),
-                'General public services')
-            .when(
                 col('Sector_prog1').startswith('08'),
                 'Defence') # Note: Defence has no allocated amount in the executed sheet
             .when(
                 col("func_sub").isin("judiciary", "public safety"),
                 "Public order and safety")
             .when(
-                col('Programme_pro2').isin([
-                    '1002 Environment Management and Protection',
-                    '1007 Environment Management and Protection'
-                ]),
+                ~col('environment').isNull(),
                 'Environmental protection')
             .when(
                 (((col('Sector_prog1').startswith('01') &
@@ -157,6 +151,7 @@ def boost_silver():
                 col('Sector_prog1').startswith('03') | 
                 col('Sector_prog1').startswith('10')),
                 'Economic affairs') # This needs to be after Environment and housing to catch the rest of Sector_prog1 startin with 10 
+            .otherwise('General public services')
             # Sector_prog1 = 00 Default - Non Programmatic are not tagged
         ).withColumn('econ_sub',
             # basic wages computed after computing econ categories
