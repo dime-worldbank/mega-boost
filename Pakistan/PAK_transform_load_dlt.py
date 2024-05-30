@@ -89,12 +89,20 @@ def boost_silver():
             .when(col('econ1').startswith('A04'), 'pensions')
         ).withColumn(
             'econ',
+            # subsidies
             when(col('econ2').startswith('A051'), 'Subsidies')
+            # wage bill
             .when(col('econ1').startswith('A01'), 'Wage bill')
+            # cap ex
             .when(((col('capital')=='y') & (~col('econ1').startswith('A01')) & (~col('econ2').startswith('A051'))), 'Capital expenditures') 
+            # goods and services
             .when(((col('econ1').startswith('A03')) & (~col('econ2').startswith('A051')) & ((col('capital') != 'y') | col('capital').isNull())), 'Goods and services')
+            # social benefits
             .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
+            # other grants and transfers
             .when((col('econ1').startswith('A05')) & (~col('func1').startswith('10')) & (~col('econ2').startswith('A051')), 'Grants and transfers')
+            # interest on debt
+            .when(col('econ1').startswith('A07 '), 'Interest on debt') 
             .otherwise('Other expenses') 
         ).withColumn('is_transfer', lit(False))
     )
