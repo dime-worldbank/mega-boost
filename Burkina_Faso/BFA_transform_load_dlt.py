@@ -25,7 +25,7 @@ def boost_bronze_1():
                  .option("inferSchema", "true")
                  .load(f'{COUNTRY_MICRODATA_DIR}/BOOST.csv'))
 
-    bronze1_selected_columns = ['YEAR','ADMIN1', 'GEO1', 'ECON1', 'ECON2', 'ECON3', 'ECON4', 'FUNCTION1','FUNCTION2', 'SOURCE_FIN1', 'SECTOR2', 'rep_cap', 'APPROVED', 'MODIFIED', 'PAID'] 
+    bronze1_selected_columns = ['YEAR','ADMIN1', 'GEO1', 'ECON1', 'ECON2', 'FUNCTION1','FUNCTION2', 'SECTOR2',  'APPROVED', 'MODIFIED', 'PAID'] 
     bronze1_dlt = bronze_df.select(*bronze1_selected_columns)
     bronze1_filtered_dlt = bronze1_dlt.na.drop("all")
     bronze1_filtered_dlt = bronze1_filtered_dlt.filter(col("YEAR") < 2017)
@@ -41,7 +41,7 @@ def boost_bronze_2():
                  .option("inferSchema", "true")
                  .load(f'{COUNTRY_MICRODATA_DIR}/BOOST_.csv'))
 
-    bronze2_selected_columns = ["YEAR", 'ADMIN1', "GEO1", "ECON1", "ECON2", "ECON3", "FUNCTION1", 'FUNCTION2', 'ZONEFINA', 'PROG1', 'PROG3', 'rep_cap', "APPROVED", "REVISED", "PAID"] 
+    bronze2_selected_columns = ["YEAR", 'ADMIN1', "GEO1", "ECON1", "ECON2", "FUNCTION1", 'FUNCTION2', "APPROVED_1", "REVISED", "PAID"] 
     bronze2_dlt = bronze_df.select(*bronze2_selected_columns)
     bronze2_filtered_dlt = bronze2_dlt.na.drop("all")
     return bronze2_filtered_dlt
@@ -51,23 +51,13 @@ def boost_bronze_combined():
     bronze1 = dlt.read(f'bfa_boost_bronze_1')
     bronze2 = dlt.read(f'bfa_boost_bronze_2')
     # Rename specific columns in bronze1 and bronze2
-    bronze1 = bronze1.withColumnRenamed(
-        "MODIFIED", "REVISED"
-        ).withColumn('PROG1', lit(None)
-        ).withColumn('PROG3', lit(None)
-        ).withColumn("PAID", 
-            when(col("PAID").isNull(), 0)
-            .otherwise(col("PAID"))
-        )
-        
-    bronze2 = bronze2.withColumn(
-        'SECTOR2', lit(None)
-        ).withColumn('ECON4', lit(None)
-        ).withColumnRenamed("ZONEFINA", "SOURCE_FIN1")
+    bronze1 = bronze1.withColumnRenamed("MODIFIED", "REVISED")
+    bronze2 = bronze2.withColumnRenamed("APPROVED_1", "APPROVED")
+    bronze2 = bronze2.withColumn('SECTOR2', lit(None))
 
     # Concatenate the two DataFrames
-    bronze = bronze2.unionByName(bronze1)
-    return bronze
+    combined_bronze = bronze1.union(bronze2)
+    return combined_bronze
 
 @dlt.table(name=f'bfa_boost_silver')
 def boost_silver():
@@ -82,6 +72,7 @@ def boost_silver():
         .when(col('adm1_name_tmp') == 'Region Etrangere', 'Other')
         .when(col('adm1_name_tmp') == 'Est', 'Est Region Burkina Faso')
         .when(col('adm1_name_tmp') == 'Centre Sud', 'Centre Sud Region Burkina Faso')
+        .when(col('adm1_name_tmp') == 'Centre', 'Centre Region Burkina Faso')
         .otherwise(col('adm1_name_tmp'))
     ).withColumn(
         'admin0', lit('Central')
@@ -116,101 +107,6 @@ def boost_silver():
         .when(col('FUNCTION1').startswith('09'), 'Education')
         .when(col('FUNCTION1').startswith('10'), 'Social protection')
         .otherwise('General public services')
-    ).withColumn(
-        'econ_sub',
-        when(((col('YEAR')<2017) & (
-            ((~col('SOURCE_FIN1').startswith('1')) & (col('ECON1').startswith('5')) & (~col('ECON2').startswith('66'))) |
-            (col('ECON1').startswith('6')) |
-            (col('ECON1').startswith('7') & (col('ECON2').startswith('21') | col('ECON2').startswith('22') | col('ECON2').startswith('23'))) |
-            (col('ECON1').startswith('7') & (col('ECON4').startswith('62997')) )
-            )
-        ), 'capital expenditure (foreign spending)')
-        .when(((col('YEAR')>=2017) & (col('ECON1').startswith('5')) & (col('SOURCE_FIN1')!= 'Financement Etat')), 'capital expenditure (foreign spending)')
-        .when(col('rep_cap').startswith('y'), 'capital maintenance')
-        .when(((col('YEAR')<2017) & (col('ECON3').startswith('625') | col('ECON3').startswith('627'))), 'basic services')
-        .when(((col('YEAR')>=2017) & (col('ECON3').startswith('605') | col('ECON3').startswith('612'))), 'basic services')
-        .when(((col('YEAR')<2017) & (col('ECON3').startswith('623'))), 'employment contracts')
-        .when(((col('YEAR')>=2017) & (col('ECON3').startswith('622'))), 'employment contracts')
-        .when(((col('YEAR')<2017) & (col('ECON3').startswith('622'))), 'recurrent maintenance')
-        .when(((col('YEAR')>=2017) & (col('ECON3').startswith('614'))), 'recurrent maintenance')
-        .when(col('ECON2').startswith('63'), 'subsidies to production' ) # same as 'Subsidies' in econ
-        .when(((col('YEAR')<2017) & (col('FUNCTION1').startswith('10'))), 'social assistance')
-        .when(((col('YEAR')>=2017) & ((col('FUNCTION1').startswith('10')) | (col('PROG3').startswith('1330313') | col('PROG3').startswith('1330303')))), 'social assistance') # no formulae for pensions and other social benefits
-    ).withColumn(
-        'econ',
-        # foreign funded expenditure
-        when((col('YEAR')<2017) & (~col('SOURCE_FIN1').startswith('1')), 'Foreign funded expenditure')
-        .when((col('Year')>=2017) & (col('SOURCE_FIN1') != 'Financement Exterieur'), 'Foreign funded expenditure')
-        # Wage bill
-        .when((col('YEAR')<2017) & ((col('ECON1').startswith('2')) | (
-            col('ECON4').startswith('63111') |
-            col('ECON4').startswith('63112') |
-            col('ECON4').startswith('63113') |
-            col('ECON4').startswith('63114') |
-            col('ECON4').startswith('63131') |
-            col('ECON4').startswith('63221') |
-            col('ECON4').startswith('63411') |
-            col('ECON4').startswith('64312') |
-            col('ECON4').startswith('63911') |
-            col('ECON4').startswith('63912') |
-            col('ECON4').startswith('63919') |
-            col('ECON4').startswith('63971') |
-            col('ECON4').startswith('64221') |
-            col('ECON4').startswith('64231'))), 'Wage bill')
-        .when(((col('ECON2') == '66 CHARGES DE PERSONNEL') & (col('YEAR')>=2017)), 'Wage bill')
-        # capital expenditure
-        .when(((col('YEAR')<2017) & 
-            ((col('ECON1').startswith('5') & (~(col('ECON2')=='66 CHARGES DE PERSONNEL'))) |
-            (col('ECON1').startswith('6')) |
-            (col('ECON1').startswith('7') & (col('ECON2').startswith('21') | col('ECON2').startswith('23') | col('ECON2').startswith('23'))) | 
-            (col("ECON1").startswith('7') & col('ECON4').startswith('62997')))
-            ), 'Capital expenditures')
-        # Goods and services
-        .when(((col('YEAR')>=2017) & (col('ECON1').startswith('3'))), 'Goods and services')
-        .when(((col('YEAR')<2017) & 
-               (                   
-                    (
-                        col('ECON1').startswith('3') & (col('ECON2').startswith('62') | col('ECON2').startswith('24'))
-                    ) |
-                    (
-                        col('ECON2').startswith('64') & 
-                        (
-                            col('ECON4').startswith('64112') |
-                            col('ECON4').startswith('64132') |
-                            col('ECON4').startswith('64222') |
-                            col('ECON4').startswith('64232') |
-                            col('ECON4').startswith('64521')
-                        )
-                    ) |
-                    (
-                        (col('ECON2').startswith('63')) &
-                        (
-                            col('ECON4').startswith('63119') |
-                            col('ECON4').startswith('63120') |
-                            col('ECON4').startswith('63122') |
-                            col('ECON4').startswith('63123') |
-                            col('ECON4').startswith('63125') |
-                            col('ECON4').startswith('63132') |
-                            col('ECON4').startswith('63133') |
-                            col('ECON4').startswith('63141') |
-                            col('ECON4').startswith('6322') |
-                            col('ECON4').startswith('63922') |
-                            col('ECON4').startswith('63923') |
-                            col('ECON4').startswith('63925') |
-                            col('ECON4').startswith('63929') |
-                            col('ECON4').startswith('63972') 
-                        )
-                    ) |
-                    (
-                        col('ECON1').startswith('7') & (col('ECON2').startswith('62') | col('ECON2').startswith('24'))
-                    )
-                )
-            ), 'Goods and services')
-        # subsidies
-        .when(col('ECON2').startswith('63'), 'Subsidies')
-        # Social benefits
-        .when(col('econ_sub').isin('social assistance', 'pensions', 'other social benefits'), 'Social benefits')
-        .otherwise('Other expenses')
     )
     
     return silver_df
@@ -235,9 +131,7 @@ def boost_gold():
                        'admin1',
                        'admin2',
                        'geo1',
-                       'func',
-                       'econ_sub',
-                       'econ'
+                       'func'
                        )
               )
     return gold_df
