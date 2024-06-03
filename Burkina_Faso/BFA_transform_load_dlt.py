@@ -82,6 +82,7 @@ def boost_silver():
         .when(col('adm1_name_tmp') == 'Region Etrangere', 'Other')
         .when(col('adm1_name_tmp') == 'Est', 'Est Region Burkina Faso')
         .when(col('adm1_name_tmp') == 'Centre Sud', 'Centre Sud Region Burkina Faso')
+        .when(col('adm1_name_tmp') == 'Centre', 'Centre Region Burkina Faso')
         .otherwise(col('adm1_name_tmp'))
     ).withColumn(
         'admin0', lit('Central')
@@ -95,6 +96,7 @@ def boost_silver():
         .when(col('adm1_name_tmp') == 'Region Etrangere', 'Other')
         .when(col('adm1_name_tmp') == 'Est', 'Est Region Burkina Faso')
         .when(col('adm1_name_tmp') == 'Centre Sud', 'Centre Sud Region Burkina Faso')
+        .when(col('adm1_name_tmp') == 'Centre', 'Centre Region Burkina Faso')
         .otherwise(col('adm1_name_tmp'))
     ).withColumn(
         'func_sub',
