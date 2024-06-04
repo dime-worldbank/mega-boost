@@ -1,7 +1,7 @@
 # Databricks notebook source
 import dlt
 import unicodedata
-from pyspark.sql.functions import substring, col, lit, when, element_at, split, upper, trim, lower, regexp_replace, initcap, coalesce, udf
+from pyspark.sql.functions import substring, col, lit, when, element_at, split, upper, trim, lower, regexp_replace, initcap, coalesce
 from pyspark.sql.types import StringType
 
 # Note DLT requires the path to not start with /dbfs
@@ -16,8 +16,6 @@ CSV_READ_OPTIONS = {
     "quote": '"',
     "escape": '"',
 }
-capitalize_words_with_hyphen_udf = udf(lambda x: '-'.join(' '.join(word.capitalize() for word in sub_str.split()) for sub_str in x.split('-')), StringType())
-
 @dlt.expect_or_drop("year_not_null", "Exercice IS NOT NULL")
 @dlt.table(name=f'cod_boost_bronze')
 def boost_bronze():
@@ -47,7 +45,8 @@ def boost_silver():
             .when(col("Province").isNotNull(),
                 lower(trim(regexp_replace(col("Province"), "\d+", ""))))
             .otherwise('Other'))
-        .withColumn('adm1_name', capitalize_words_with_hyphen_udf(col('adm1_name')))
+        .withColumn('adm1_name', 
+            initcap(regexp_replace(col('adm1_name'), '-', ' ')))
         .withColumn('admin0', lit('Central'))
         .withColumn('admin1', lit('Central'))
         .withColumn('admin2', initcap(regexp_replace(col('Chapitre'), '^[0-9\\s]*', '')))
