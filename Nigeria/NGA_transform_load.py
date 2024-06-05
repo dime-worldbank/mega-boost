@@ -1,6 +1,6 @@
 # Databricks notebook source
 import dlt
-from pyspark.sql.functions import substring, col, lit, when, element_at, split, upper, expr, trim, regexp_replace
+from pyspark.sql.functions import substring, col, lit, when, element_at, split, upper, expr, trim, regexp_replace, coalesce
 
 # Note DLT requires the path to not start with /dbfs
 TOP_DIR = "/mnt/DAP/data/BOOSTProcessed"
@@ -42,6 +42,8 @@ def nga_boost_silver():
   return (dlt.read('nga_boost_bronze')
     .select('*', substring('Region', 1, 2).alias("region_code_first2"))
     .join(dlt.read('nga_region_lookup'), on=["region_code_first2"], how="left")
+    .withColumn('Func1',coalesce(col('Func1'), lit('')))
+    .withColumn('Econ2',coalesce(col('Econ2'), lit('')))
     .withColumn('Year', col('Year').cast('int'))
     .withColumn('is_transfer', col('Econ2').startswith('2207'))
     .withColumn('is_foreign', ((~col('is_transfer')) & (col('Econ3').startswith('220402'))))
@@ -53,7 +55,7 @@ def nga_boost_silver():
         # No breakdown of spending into primary, secondary education
     .withColumn('func',
         # Public order and safety
-        when((col("func_sub").isin("judiciary", "public safety")), "Public order and safety")
+        when((~col("is_transfer")) & (col('Func1').startswith('703')), "Public order and safety") # not defined as sum of judiciary expenses and public safety expenses
         # Environmental protection
         .when(col("Func1").startswith('705'), "Environmental protection")
         # Housing and community amenities
@@ -86,12 +88,15 @@ def nga_boost_silver():
                    col('Econ4').startswith('22021059'))) &
                 (col('Year').isin(2015))), 'Health')
         .when(((col('Year')>2015) & (~col('is_transfer')) & (col('Func1').startswith('707'))), 'Health')
-        # social protection 
-        # (No data)
+        # social protection (No data)
         # general public services
         .otherwise('General public services'))
     .withColumn('econ_sub',
-        when((col('Econ2').startswith('2101')), 'basic wages') # redundant condition in excel with two conditions on Econ2
+        when((~col('is_transfer')) & (
+            ((~col('adm3').startswith('161002')) & (col('Econ4').startswith('22040109') | col('Econ4').startswith('22021007'))) |
+            (col('Program').startswith('ERGP22112823')) |
+            col('adm3').startswith('161002')), 'social assistance')
+        .when((col('Econ2').startswith('2101')), 'basic wages') # redundant condition in excel with two conditions on Econ2
         .when(((~col('is_transfer')) & (col('Econ3').startswith('210201'))), 'allowances')
         .when(((~col('is_transfer')) & (col('Econ4').startswith('21020202'))), 'social benefits (pension contributions)')
         .when((
@@ -103,11 +108,6 @@ def nga_boost_silver():
         .when(((~col('is_transfer')) & (col('Econ3').startswith('220207'))), 'employment contracts')
         .when(((~col('is_transfer')) & (col('Econ3').startswith('220204'))), 'recurrent maintenance')
         .when(((~col('is_transfer')) & (col('Econ2').startswith('2205'))), 'subsidies to production')
-        .when((~col('is_transfer')) & (
-            (col('Econ4').startswith('22040109') | col('Econ4').startswith('22021007')) |
-            (col('Program').startswith('ERGP22112823')) |
-            (col('adm3').startswith('161002'))
-            ), 'social assistance')
         .when(((~col('is_transfer')) &
                 (col('Econ4').startswith('22010102') |
                 col('Econ4').startswith('21030102') |
@@ -133,10 +133,12 @@ def nga_boost_silver():
                (~col('Econ4').startswith('22021007'))), 'Goods and services')
         # subsidies
         .when(col('Econ2').startswith('2205'), 'Subsidies')
+        # social benefits
         .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
+        # no items for interest on debt
         .otherwise('Other expenses')) # No formula available for 'Other grants and services'    
 )
-    
+
 @dlt.table(name='nga_boost_gold')
 def nga_boost_gold():
   return(dlt.read('nga_boost_silver')
