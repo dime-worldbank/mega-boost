@@ -154,9 +154,12 @@ def boost_silver():
             .otherwise('General public services')
             # Sector_prog1 = 00 Default - Non Programmatic are not tagged
         ).withColumn('econ_sub',
+            # social assistance
+            when(
+                ((~col('Class').startswith('2')) & (~col('Class').startswith('4')) & (~col('Item_econ4').startswith('27101')) & (col('Sector_prog1').startswith('09'))), 'social assistance')
             # basic wages computed after computing econ categories
             # social benefits (pension contributions)
-            when((col('Item_econ4').startswith('21201')), 'social benefits (pension contributions)')
+            .when((col('Item_econ4').startswith('21201')), 'social benefits (pension contributions)')
             # employment contracts
             .when((col('Sub-Item_econ5').startswith('2211310')| col('Sub-Item_econ5').startswith('2110201')), 'employment contracts')
             # allowances
@@ -178,9 +181,6 @@ def boost_silver():
             .when(((~col('Class').startswith('2')) & (col('Chapter_econ2').startswith('25'))), 'subsidies to production')
             #pensions
             .when(((~col('Class').startswith('2')) & (col('Item_econ4').startswith('27101'))), 'pensions')
-            # social assistance
-            .when(
-                ((~col('Class').startswith('2')) & (~col('Class').startswith('4')) & (~col('Item_econ4').startswith('27101')) & (col('Sector_prog1').startswith('09'))), 'social assistance')
         ).withColumn('econ',
             # wage bill
             when((
@@ -197,12 +197,10 @@ def boost_silver():
             # social benefits
             .when(col("econ_sub").isin("social assistance", "pensions"), 'Social benefits')
             # other grants and transfers category not available
+            # interest on debt
+            .when(((~col('Class').startswith('2')) & (col('Chapter_econ2').startswith('24'))), 'Interest on debt')
             # other expenses
             .otherwise('Other expenses')
-        ).withColumn('econ_sub', # defined as the difference of wage bill and allowances
-            when(((col('econ') == 'Wage bill') & (~col('econ_sub').isin( 'allowances', 'social benefits (pension contributions)'))), 'basic wages')
-            .when((col('econ') == 'Wage bill') & (col('econ_sub').isNull()), 'basic wages')
-            .otherwise(col('econ_sub'))
         )
     )
     
