@@ -38,7 +38,7 @@ def boost_silver():
         .withColumn('Sous_Article',coalesce(col('Sous_Article'), lit('')))
         .withColumn('Nature_Economique',coalesce(col('Nature_Economique'), lit('')))
         .withColumn('is_interest', col('Titre') == "1 DETTE PUBLIQUE EN CAPITAL") # this is not interest need to rename it
-        .withColumn('is_foreign', (col('Source').isin('Budget General_Externe', 'Externe') & (~col('is_interest'))))
+        .withColumn('is_foreign', (col('Source').isin('Budget General_Externe', 'Externe') & (col('Article')!='12 Dette Exterieure')))
         .withColumn('adm1_name', 
             when(trim(lower(col("Province"))) == "00 services centraux", 'Central Scope')
             .when((trim(lower(col("Province"))) == "19 multiprovince") | (trim(lower(col("Province"))) == "27 multi-province"), 'Other')
@@ -113,35 +113,41 @@ def boost_silver():
             .when((col('Exercice')<2016) & 
                  (col('Grande_Fonction').startswith('10') &
                  col('Titre').startswith('6') &
-                 (~coalesce(col('Article'), lit('')).startswith('68')) &
-                 (~coalesce(col('Sous_Article'), lit('')).startswith('6350'))),  'social assistance')
+                 (~col('Article').startswith('68')) &
+                 (~col('Sous_Article').startswith('6350')) &
+                 (~col('Sous_Article').startswith('6110')) &
+                 (~col('Sous_Article').startswith('6150'))),  'social assistance')
             .when((col('Exercice')>=2016) &
                  col('Grande_Fonction').startswith('10') &
                  col('Titre').startswith('6') & (~col('Nature_Economique').startswith('66441')), 'social assistance')
              # pensions
             .when(((col('Exercice')<2016) & col('Article').startswith('68')), 'pensions')
-            .when(((col('Exercice')>=2016) & col('Nature_Economique').startswith('66441')), 'pensions')
-        )
+            .when(((col('Exercice')>=2016) & col('Nature_Economique').startswith('66441')), 'pensions'))
         .withColumn('econ',
-            when((col('Exercice')>=2016) & (col('Sous_Article').startswith('6641')), 'Subsidies')
+            # social benefits
+            when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
+            # subsidies
+            .when((col('Exercice')>=2016) & (col('Sous_Article').startswith('6641 ')), 'Subsidies')
+            # subsidies
+            .when(((col('Exercice')<2016) & (col('Sous_Article').startswith('6110') | 
+                                            col('Sous_Article').startswith('6150'))), 'Subsidies')
             # Wage bill
             .when((~col('is_interest')) & ((~col('Article').startswith('12')) & col('Titre').startswith('3')), 'Wage bill')
             # Capital expenditure
-            .when(((~coalesce(col('Article'), lit('')).startswith('12')) & (~col('is_interest')) &
+            .when(((~col('Article').startswith('12')) & (~col('is_interest')) &
                  ((col('Titre').startswith('7') | (col('Titre').startswith('8'))))), 'Capital expenditures')
             # Goods and services
             .when((~col('is_interest')) & 
                   ((~col('Article').startswith('12')) & (col('Titre').startswith('4') | col('Titre').startswith('5'))), 'Goods and services')
-            # social benefits
-            .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
-            # subsidies
-            .when((col('Exercice')<2016) & (col('Sous_Article').startswith('6110') | col('Sous_Article').startswith('6150')), 'Subsidies')
             # grants and transfers
             .when((col('Exercice')<2016) & 
                  (col('Article').startswith('61') &
                  (~col('Sous_Article').startswith('6110')) &
                  (~col('Sous_Article').startswith('6150'))), 'Other grants and transfers')
             .when((col('Exercice')>=2016) & (col('Sous_Article').startswith('6642')), 'Other grants and transfers')
+            # interest on debt
+            .when((col('Article').startswith('21') & (col('Exercice')<2016)) |
+                  ((~col('Article').startswith('12')) & (col('Sous_Article').startswith('26')) & (col('Exercice')>=2016)), 'Interest on debt') # excel has a redundant condition on Article
             # other expenses
             .otherwise('Other expenses')
         )
