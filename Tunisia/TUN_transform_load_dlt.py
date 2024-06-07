@@ -32,11 +32,22 @@ def boost_bronze():
 @dlt.table(name=f'tun_boost_silver')
 def boost_silver():
     return (dlt.read(f'tun_boost_bronze')
+            .withColumn('ECON1',coalesce(col('ECON1'), lit('')))
+            .withColumn('Econ2',coalesce(col('Econ2'), lit('')))
+            .withColumn('ADMIN1',coalesce(col('ADMIN1'), lit('')))
+            .withColumn('ADMIN2',coalesce(col('ADMIN2'), lit('')))
+            .withColumn('PROG', coalesce(col('PROG').cast('string'), lit('')))   
+            .withColumn('Roads',coalesce(col('Roads'), lit('')))
+            .withColumn('WSS',coalesce(col('WSS'), lit('')))
+            .withColumn('railroads',coalesce(col('railroads'), lit('')))
+            .withColumn('Maintenance',coalesce(col('Maintenance'), lit('')))
+            .withColumn('subsidies',coalesce(col('subsidies'), lit('')))            
+            .withColumn('Air',coalesce(col('Air'), lit('')))         
             .withColumn('adm1_name', 
                 when(col("GEO1").isNull(), "Central Scope")
                 .when(col("GEO1").startswith("0") | col("GEO1").startswith("9"), "Other")
                 .when(col("GEO1").rlike('^[1-8]'), trim(regexp_replace(col("GEO1"), '^[1-8]+\\s*', '')))
-                )
+                )            
         ).withColumn(
         'admin0_tmp', lit('Central')
         ).withColumn(
@@ -57,49 +68,68 @@ def boost_silver():
             .when(substring(col("ADMIN2"), 1, 2).isin('04 30 33'.split()), 'tertiary education')
             .when((col("ADMIN2").startswith("16") | col("ADMIN2").startswith("17")), 'agriculture')
             .when(col('ADMIN1').startswith('18') , 'telecom')
-            .when(((coalesce(col('Roads'), lit('')) ==1) | (coalesce(col('railroads'), lit('')) == 1) | (coalesce(col('Air'), lit('')) == 1) | (coalesce(col('WSS'), lit(''))==1)), 'transport')
+            .when(((col('Roads')==1) | (col('railroads') == 1) | (col('Air') == 1)), 'transport')
         ).withColumn(
         'func',
-            when((col('ADMIN1').startswith('09') | col('ADMIN1').startswith('06')), 'Defence')
+            # housing
+            when(col('WSS')==1, 'Housing and community amenities')
+            # defence
+            .when((col('ADMIN1').startswith('09') | col('ADMIN1').startswith('06')), 'Defence')
+            # public order and safety
             .when(col("func_sub").isin('public safety', 'judiciary') , "Public order and safety")
+            # environment protection
             .when(col('ADMIN2').startswith('21'), 'Environmental protection')
+            # health
             .when(col('ADMIN2').startswith('27') | col('ADMIN2').startswith('34'), 'Health')
+            # social protection
             .when(col('ADMIN1').startswith('05'), 'Social protection')
+            # education
             .when(substring(col("ADMIN2"), 1, 2).isin('04 29 30 33 37 39 40'.split()), 'Education')
-            .when(coalesce(col('WSS'), lit(''))==1, 'Housing and community amenities')
+
+            # recreation, culture and religion
             .when(substring(col("ADMIN1"), 1, 2).isin('19 10 20'.split()), 'Recreation, culture and religion')
+            # economic affairs
             .when(col("func_sub").isin('agriculture', 'transport', 'telecom') , "Economic affairs")
+            # general public services
             .otherwise('General public services')
         ).withColumn(
         'econ_sub',
-            when(col('ECON2').startswith('01'), 'basic wages')
-            .when(((coalesce(col('Maintenance'), lit('')) == 1) & col('ECON1').startswith('Titre 2')), 'capital maintenance')
-            .when(((coalesce(col('Maintenance'), lit('')) == 1) & col('ECON1').startswith('Titre 1')), 'recurrent maintenance')
-            .when(coalesce(col('subsidies'), lit(''))==1, 'subsidies to production')
-            .when((col('YEAR')>2015) & (col('PROG') == '2 Securite Sociale'), 'pensions') # appears before social assistance. Available post 2015
-            .when((col('ADMIN1').startswith('05') & (coalesce(col('PROG'), lit(''))!='2 Securite Sociale')), 'social assistance')
-
+            when((col('YEAR')>2015) & (col('PROG') == '2 Securite Sociale'), 'pensions') # appears before social assistance. Available post 2015
+            .when((col('ADMIN1').startswith('05') & (col('PROG')!='2 Securite Sociale')), 'social assistance')
+            .when((col('Econ2').startswith('01') & (col('PROG')!='2 Securite Sociale')), 'basic wages')
+            .when(((col('Maintenance') == 1) & col('ECON1').startswith('Titre 2')), 'capital maintenance')
+            .when(((col('Maintenance') == 1) & col('ECON1').startswith('Titre 1')), 'recurrent maintenance')
+            .when(((col('subsidies')==1) & (~col('ECON2').startswith('02')) &
+                   (~col('ECON2').startswith('01'))), 'subsidies to production')
         ).withColumn(
         'econ',
-            when(col('ECON2').startswith('01'), 'Wage bill')
-            .when((col('ECON1').startswith('Titre 2') & (~(coalesce(col('ECON2'), lit('')).startswith('10')))), 'Capital expenditures')
-            .when(col('ECON2').startswith('02'), 'Goods and services')
-            .when(coalesce(col('subsidies'), lit(0))==1, 'Subsidies')
+            # wage bill
+            when((col('Econ2').startswith('01') & (col('PROG')!='2 Securite Sociale')), 'Wage bill')
+            # cap ex
+            .when((col('ECON1').startswith('Titre 2') & (~(col('Econ2').startswith('10')))), 'Capital expenditures')
+            # goods and services
+            .when((col('Econ2').startswith('02') & (col('PROG')!='2 Securite Sociale')), 'Goods and services')
+            # subsidies
+            .when(((col('subsidies')==1) & (~col('Econ2').startswith('02')) & (~col('Econ2').startswith('01'))), 'Subsidies')
+            # social benefits
             .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
+            # interest on debt
+            .when(col('Econ2').startswith('05'), 'Interest on debt')
+            # other expenses
             .otherwise('Other expenses')
         )
 
 @dlt.table(name=f'tun_boost_gold')
 def boost_gold():
     return (dlt.read(f'tun_boost_silver')
-            .filter(~((col('Maintenance')==1)& (col('ECON1').startswith('Titre 2'))))
+            .filter(~col('ECON2').startswith('10')) # debt repayment
             .withColumn('country_name', lit('Tunisia')) 
             .select('country_name',
                     'adm1_name',
                     col('YEAR').alias('year'),
                     col('OUVERT').alias('approved'),
                     col('ORDONNANCE').alias('revised'),
-                    col('PAYE').alias('executed').cast('int'),
+                    col('PAYE').alias('executed'),
                     col('admin0_tmp').alias('admin0'),
                     col('admin1_tmp').alias('admin1'),
                     col('admin2_tmp').alias('admin2'),
@@ -110,4 +140,4 @@ def boost_gold():
                     'econ',
                     'econ_sub'
                     )
-    )
+            )
