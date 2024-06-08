@@ -2,7 +2,7 @@
 from glob import glob
 from pyspark.sql.types import StructType
 import dlt
-from pyspark.sql.functions import col, lower, initcap, trim, regexp_replace, when, lit, substring, expr
+from pyspark.sql.functions import col, lower, initcap, trim, regexp_replace, when, lit, substring, expr, coalesce
 
 # Note DLT requires the path to not start with /dbfs
 TOP_DIR = "/mnt/DAP/data/BOOSTProcessed"
@@ -76,6 +76,10 @@ def boost_silver():
         'adm1_name_tmp',
         when(col("GEO1").isNotNull(),
              trim(initcap(regexp_replace(col("GEO1"), "[0-9\-]", " "))))
+    ).withColumn('ECON1', coalesce(col('ECON1'), lit(''))
+    ).withColumn('ECON2', coalesce(col('ECON2'), lit(''))
+    ).withColumn(
+        'is_foreign', (((col('YEAR')<2017) & (~col('SOURCE_FIN1').startswith('1'))) | ((col('Year')>=2017) & (col('SOURCE_FIN1') != 'Financement Exterieur')))
     ).withColumn(
         'adm1_name',
         when(col('adm1_name_tmp').isin('Central', 'Centrale'), 'Central Scope')
@@ -118,7 +122,10 @@ def boost_silver():
         .otherwise('General public services')
     ).withColumn(
         'econ_sub',
-        when(((col('YEAR')<2017) & (
+        when(((col('YEAR')==2006) & (col('FUNCTION1').startswith('10') & (col('ECON1').startswith('4 ')))), 'social assistance') # different formula for 2006
+        .when((((col('YEAR')>2006) & (col('YEAR')<2017)) & (col('FUNCTION1').startswith('10') )), 'social assistance')
+        .when(((col('YEAR')>=2017) & ((col('FUNCTION1').startswith('10')) | (col('PROG3').startswith('1330313') | col('PROG3').startswith('1330303')))), 'social assistance') # no formulae for pensions and other social benefits
+        .when(((col('YEAR')<2017) & (
             ((~col('SOURCE_FIN1').startswith('1')) & (col('ECON1').startswith('5')) & (~col('ECON2').startswith('66'))) |
             (col('ECON1').startswith('6')) |
             (col('ECON1').startswith('7') & (col('ECON2').startswith('21') | col('ECON2').startswith('22') | col('ECON2').startswith('23'))) |
@@ -134,15 +141,10 @@ def boost_silver():
         .when(((col('YEAR')<2017) & (col('ECON3').startswith('622'))), 'recurrent maintenance')
         .when(((col('YEAR')>=2017) & (col('ECON3').startswith('614'))), 'recurrent maintenance')
         .when(col('ECON2').startswith('63'), 'subsidies to production' ) # same as 'Subsidies' in econ
-        .when(((col('YEAR')<2017) & (col('FUNCTION1').startswith('10'))), 'social assistance')
-        .when(((col('YEAR')>=2017) & ((col('FUNCTION1').startswith('10')) | (col('PROG3').startswith('1330313') | col('PROG3').startswith('1330303')))), 'social assistance') # no formulae for pensions and other social benefits
     ).withColumn(
         'econ',
-        # foreign funded expenditure
-        when((col('YEAR')<2017) & (~col('SOURCE_FIN1').startswith('1')), 'Foreign funded expenditure')
-        .when((col('Year')>=2017) & (col('SOURCE_FIN1') != 'Financement Exterieur'), 'Foreign funded expenditure')
         # Wage bill
-        .when((col('YEAR')<2017) & ((col('ECON1').startswith('2')) | (
+        when((col('YEAR')<2017) & ((col('ECON1').startswith('2')) | (
             col('ECON4').startswith('63111') |
             col('ECON4').startswith('63112') |
             col('ECON4').startswith('63113') |
@@ -162,68 +164,64 @@ def boost_silver():
         .when(((col('YEAR')<2017) & 
             ((col('ECON1').startswith('5') & (~(col('ECON2')=='66 CHARGES DE PERSONNEL'))) |
             (col('ECON1').startswith('6')) |
-            (col('ECON1').startswith('7') & (col('ECON2').startswith('21') | col('ECON2').startswith('23') | col('ECON2').startswith('23'))) | 
-            (col("ECON1").startswith('7') & col('ECON4').startswith('62997')))
+            ((col('ECON1') == '7 Comptes speciaux du Tresor') & (col('ECON2').startswith('21') | col('ECON2').startswith('22') | col('ECON2').startswith('23'))) | 
+            ((col('ECON1') == '7 Comptes speciaux du Tresor') & col('ECON4').startswith('62997')))
             ), 'Capital expenditures')
+        .when(((col('YEAR')>2016) & (col('ECON1').startswith('5'))), 'Capital expenditures')
         # Goods and services
-        .when(((col('YEAR')>=2017) & (col('ECON1').startswith('3'))), 'Goods and services')
+        .when(((col('YEAR') == 2006) & ((col('ECON1').startswith('3') & (col('ECON2').startswith('62') | col('ECON2').startswith('24'))) |
+                (col('ECON2').startswith('64') & 
+                        (col('ECON4').startswith('64112') |
+                        col('ECON4').startswith('64132') |
+                        col('ECON4').startswith('64222') |
+                        col('ECON4').startswith('64232') |
+                        col('ECON4').startswith('64521'))) |
+                    ((col('ECON1') == '7 Comptes speciaux du Tresor') & (col('ECON2').startswith('62') | col('ECON2').startswith('24')))
+                )), 'Goods and services')
+        .when(((col('YEAR')>2016) & (col('ECON1').startswith('3'))), 'Goods and services')
         .when(((col('YEAR')<2017) & 
-               (                   
-                    (
-                        col('ECON1').startswith('3') & (col('ECON2').startswith('62') | col('ECON2').startswith('24'))
-                    ) |
-                    (
-                        col('ECON2').startswith('64') & 
-                        (
-                            col('ECON4').startswith('64112') |
-                            col('ECON4').startswith('64132') |
-                            col('ECON4').startswith('64222') |
-                            col('ECON4').startswith('64232') |
-                            col('ECON4').startswith('64521')
-                        )
-                    ) |
-                    (
-                        (col('ECON2').startswith('63')) &
-                        (
-                            col('ECON4').startswith('63119') |
-                            col('ECON4').startswith('63120') |
-                            col('ECON4').startswith('63122') |
-                            col('ECON4').startswith('63123') |
-                            col('ECON4').startswith('63125') |
-                            col('ECON4').startswith('63132') |
-                            col('ECON4').startswith('63133') |
-                            col('ECON4').startswith('63141') |
-                            col('ECON4').startswith('6322') |
-                            col('ECON4').startswith('63922') |
-                            col('ECON4').startswith('63923') |
-                            col('ECON4').startswith('63925') |
-                            col('ECON4').startswith('63929') |
-                            col('ECON4').startswith('63972') 
-                        )
-                    ) |
-                    (
-                        col('ECON1').startswith('7') & (col('ECON2').startswith('62') | col('ECON2').startswith('24'))
-                    )
+               ((col('ECON1').startswith('3') & (col('ECON2').startswith('62') | col('ECON2').startswith('24'))) |
+                (col('ECON2').startswith('64') & 
+                        (col('ECON4').startswith('64112') |
+                        col('ECON4').startswith('64132') |
+                        col('ECON4').startswith('64222') |
+                        col('ECON4').startswith('64232') |
+                        col('ECON4').startswith('64521'))) |
+                    ((col('ECON2').startswith('63')) &
+                        (col('ECON4').startswith('63119') |
+                        col('ECON4').startswith('63120') |
+                        col('ECON4').startswith('63122') |
+                        col('ECON4').startswith('63123') |
+                        col('ECON4').startswith('63125') |
+                        col('ECON4').startswith('63132') |
+                        col('ECON4').startswith('63133') |
+                        col('ECON4').startswith('63141') |
+                        col('ECON4').startswith('6322') |
+                        col('ECON4').startswith('63922') |
+                        col('ECON4').startswith('63923') |
+                        col('ECON4').startswith('63925') |
+                        col('ECON4').startswith('63929') |
+                        col('ECON4').startswith('63972'))) |
+                    ((col('ECON1') == '7 Comptes speciaux du Tresor') & (col('ECON2').startswith('62') | col('ECON2').startswith('24')))
                 )
             ), 'Goods and services')
         # subsidies
         .when(col('ECON2').startswith('63'), 'Subsidies')
         # Social benefits
         .when(col('econ_sub').isin('social assistance', 'pensions', 'other social benefits'), 'Social benefits')
+        # interest on debt
+        .when((((col('YEAR')<2017) & (col('ECON2') =='65 Interets et frais financiers'))) |
+              ((col('YEAR')>2016) & (col('ECON2') == '67 INTERETS ET FRAIS FINANCIERS')),  'Interest on debt')
+        # other expenses
         .otherwise('Other expenses')
     )
-    
     return silver_df
 
 @dlt.table(name=f'bfa_boost_gold')
 def boost_gold():
     silver = dlt.read(f'bfa_boost_silver')
     gold_df = (silver
-               .filter(
-                   (col('ECON1') != '1 Amortissement, charge de la dette et depenses en attenuation des recettes ') |
-                   ((col('ECON1') == '1 Amortissement, charge de la dette et depenses en attenuation des recettes ') &
-                    (col('ECON2') == '65 Interets et frais financiers'))
-                   )
+               .filter(col('ECON1') != '1 Amortissement, charge de la dette et depenses en attenuation des recettes ')
                .withColumn('country_name', lit(COUNTRY))
                .select('country_name',
                        'adm1_name',
