@@ -32,16 +32,12 @@ for sheet in tqdm(disaggregated_data_sheets):
     if sheet == 'BOOST_':
         column_mapping = {
             'GEO_REG': 'GEO1',
-            'Approved.1': 'APPROVED_1',
-            'Paid': 'PAID',
-            'Revised': 'REVISED'
+            'paid':'PAID',
+            'Approved':'APPROVED',
+            'Revised':'REVISED'
         }
         # Rename columns based on the mapping
         df.rename(columns=column_mapping, inplace=True)
 
     # Write to CSV
     df.to_csv(csv_file_path, index=False, encoding='utf-8')
-
-# COMMAND ----------
-
-
