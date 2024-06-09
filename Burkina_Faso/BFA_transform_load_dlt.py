@@ -77,13 +77,6 @@ def boost_silver():
         when(col("GEO1").isNotNull(),
              trim(initcap(regexp_replace(col("GEO1"), "[0-9\-]", " "))))
     ).withColumn(
-        'adm1_name',
-        when(col('adm1_name_tmp').isin('Central', 'Centrale'), 'Central Scope')
-        .when(col('adm1_name_tmp') == 'Region Etrangere', 'Other')
-        .when(col('adm1_name_tmp') == 'Est', 'Est Region Burkina Faso')
-        .when(col('adm1_name_tmp') == 'Centre Sud', 'Centre Sud Region Burkina Faso')
-        .otherwise(col('adm1_name_tmp'))
-    ).withColumn(
         'admin0', lit('Central')
     ).withColumn(
         'admin1', lit('Central')
@@ -226,7 +219,6 @@ def boost_gold():
                    )
                .withColumn('country_name', lit(COUNTRY))
                .select('country_name',
-                       'adm1_name',
                        col('YEAR').alias('year').cast('int'),
                        col('APPROVED').alias('approved'),
                        col('REVISED').alias('revised'),
