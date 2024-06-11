@@ -39,12 +39,6 @@ def boost_silver():
         .withColumn('Nature_Economique',coalesce(col('Nature_Economique'), lit('')))
         .withColumn('is_interest', col('Titre') == "1 DETTE PUBLIQUE EN CAPITAL") # this is not interest need to rename it
         .withColumn('is_foreign', (col('Source').isin('Budget General_Externe', 'Externe') & (col('Article')!='12 Dette Exterieure')))
-        .withColumn('adm1_name', 
-            when(trim(lower(col("Province"))) == "00 services centraux", 'Central Scope')
-            .when((trim(lower(col("Province"))) == "19 multiprovince") | (trim(lower(col("Province"))) == "27 multi-province"), 'Other')
-            .when(col("Province").isNotNull(),
-                lower(trim(regexp_replace(col("Province"), "\d+", ""))))
-            .otherwise('Other'))
         .withColumn('admin0', lit('Central'))
         .withColumn('admin1', lit('Central'))
         .withColumn('admin2', initcap(regexp_replace(col('Chapitre'), '^[0-9\\s]*', '')))
@@ -52,7 +46,7 @@ def boost_silver():
             when(col("Province").startswith('00'), 'Central Scope')
             .when((col("Province").startswith("19") | col("Province").startswith('27')), 'Central Scope')
             .when(col("Province").isNotNull(),
-                initcap(trim(regexp_replace(col("Province"), "\d+", "")))))
+                initcap(trim(regexp_replace(regexp_replace(col("Province"), "\d+", ""), "-", " ")))))
         .withColumn('func_sub',
             # education
             # NOTE: post 2016 the code for primary education is not present. pre-primary is the only one tagged -- we assume it refers to primary as well following previous years codes
@@ -159,7 +153,6 @@ def boost_gold():
             .filter(~col('is_interest'))
             .withColumn('country_name', lit('Congo, Dem. Rep.'))
             .select('country_name',
-                    'adm1_name',
                     col('Exercice').alias('year'),
                     col('Montant_Vote').alias('approved'),
                     col('Montant_Engage').alias('revised'),
