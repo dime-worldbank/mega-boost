@@ -43,15 +43,16 @@ def contains_any(column, words_to_check):
 
 @dlt.table(name=f'ken_boost_silver')
 def boost_silver():
-    culture_keywords = ["sports", "culture", "heritage", "library", "arts"]
+    culture_keywords = ["sports", "culture", "heritage", "library", " arts"]
     housing_keywords_01 = [
         "housing development and human settlement",
     ]
     housing_keywords_10 = [
         "integrated regional development",
         "water policy and management",
-        "water supply services",
+        "water supply",
         "water resources management",
+        "water and sanitation"
     ]
     return (dlt.read(f'ken_boost_bronze')
         .filter(~col('Class').isin('2 Revenue', '4 Funds & Deposits (BTL)'))
