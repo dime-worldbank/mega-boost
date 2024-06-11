@@ -81,13 +81,6 @@ def boost_silver():
     ).withColumn(
         'is_foreign', (((col('YEAR')<2017) & (~col('SOURCE_FIN1').startswith('1'))) | ((col('Year')>=2017) & (col('SOURCE_FIN1') != 'Financement Exterieur')))
     ).withColumn(
-        'adm1_name',
-        when(col('adm1_name_tmp').isin('Central', 'Centrale'), 'Central Scope')
-        .when(col('adm1_name_tmp') == 'Region Etrangere', 'Other')
-        .when(col('adm1_name_tmp') == 'Est', 'Est Region Burkina Faso')
-        .when(col('adm1_name_tmp') == 'Centre Sud', 'Centre Sud Region Burkina Faso')
-        .otherwise(col('adm1_name_tmp'))
-    ).withColumn(
         'admin0', lit('Central')
     ).withColumn(
         'admin1', lit('Central')
@@ -224,7 +217,6 @@ def boost_gold():
                .filter(col('ECON1') != '1 Amortissement, charge de la dette et depenses en attenuation des recettes ')
                .withColumn('country_name', lit(COUNTRY))
                .select('country_name',
-                       'adm1_name',
                        col('YEAR').alias('year').cast('int'),
                        col('APPROVED').alias('approved'),
                        col('REVISED').alias('revised'),
