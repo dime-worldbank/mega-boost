@@ -208,6 +208,7 @@ def boost_silver():
 @dlt.table(name=f'ken_boost_gold')
 def boost_gold():
     return (dlt.read(f'ken_boost_silver')
+        .filter(col('year') != 2015) # 2015 data is missing wage amounts for education, exclude entirely for correness sake
         .withColumn('country_name', lit(COUNTRY))
         .select('country_name',
                 'adm1_name',
