@@ -117,6 +117,8 @@ def quality_economic_silver():
                 F.col("category_code") == 'EXP_ECON_OTH_GRA_EXE' , "Other grants and transfers"
             ).when(
                 F.col("category_code") == 'EXP_ECON_OTH_EXP_EXE' , "Other expenses"
+            ).when(
+                F.col("category_code") == 'EXP_ECON_INT_DEB_EXE' , "Interest on debt"
             )
         )
         .filter(F.col('econ').isNotNull())
