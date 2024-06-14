@@ -38,6 +38,20 @@ CREATE OR REFRESH LIVE TABLE data_availability
         GROUP BY 1
     ),
 
+    subnat_hd_attendace as (
+        SELECT
+        country_name,
+        CAST(min(year) AS INT) as subnat_edu_attendance_earliest_year,
+        CAST(max(year) AS INT) as subnat_edu_attendance_latest_year,
+        count(distinct adm1_name) as subnat_attendance_num_subnat_regions
+        FROM
+        indicator.global_data_lab_hd_index
+        WHERE
+        attendance is not null
+        GROUP BY
+        1
+    ),
+
     youth_lit as (
         SELECT country_name, min(year) as youth_lit_rate_earliest_year, max(year) as youth_lit_rate_latest_year
         FROM indicator.youth_literacy_rate_unesco
@@ -102,12 +116,14 @@ CREATE OR REFRESH LIVE TABLE data_availability
         hpe.health_ooo_spending_earliest_year, hpe.health_ooo_spending_latest_year,
         hc.uni_health_coverage_earliest_year, hc.uni_health_coverage_latest_year,
         shd.subnat_edu_health_index_earliest_year, shd.subnat_edu_health_index_latest_year, shd.subnat_edu_health_index_num_subnat_regions,
+        areadata.subnat_edu_attendance_earliest_year, areadata.subnat_edu_attendance_latest_year, areadata.subnat_attendance_num_subnat_regions,
         sp.subnat_poverty_earliest_year, sp.subnat_poverty_latest_year, sp.subnat_poverty_num_subnat_regions
     FROM time_coverage t
     LEFT JOIN func_coverage f on t.country_name = f.country_name
     LEFT JOIN pefa2016 p16 on t.country_name = p16.country_name
     LEFT JOIN pefa2011 p11 on t.country_name = p11.country_name
     LEFT JOIN subnat_hd shd on t.country_name = shd.country_name
+    LEFT JOIN subnat_hd_attendace areadata on t.country_name = areadata.country_name
     LEFT JOIN youth_lit yl on t.country_name = yl.country_name
     LEFT JOIN edu_pov lp on t.country_name = lp.country_name
     LEFT JOIN health_cov hc on t.country_name = hc.country_name
