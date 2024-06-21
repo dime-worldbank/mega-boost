@@ -36,6 +36,7 @@ def boost_silver():
             .withColumn('Econ3',coalesce(col('Econ3'), lit('')))
             .withColumn('source',coalesce(col('source'), lit('')))
             .withColumn('activity',coalesce(col('activity'), lit('')))
+
             # adm1_name
             .withColumn(
                 'adm1_name',
@@ -68,10 +69,11 @@ def boost_silver():
                 .when(col('prog1').startswith('30'), 'public safety')
                 # agriculture
                 .when((col('prog1').startswith('43') | col('prog1').startswith('44') | col('prog1').startswith('45') | col('prog1').startswith('46') | col('prog1').startswith('48') | col ('prog1').startswith('83')), 'agriculture')
-                # transportation
+                # air transportation
                 .when(
-                    (((col('airport')==1) & (~col('prog1').startswith('33')) & (~col('prog1').startswith('55'))) |
-                    (col('Roads')==True)), 'transport')
+                    (((col('airport')==1) & (~col('prog1').startswith('33')) & (~col('prog1').startswith('55')))), 'air transport')
+                # road transport
+                .when((col('Roads')==True) | col('Roads')==1, 'road transport')
                 # education spending decomposed
                 .when(col('prog2').startswith('87'), 'primary education')
                 .when((col('prog2').startswith("88") | col('prog2').startswith("89") | col("prog2").startswith("90")), "secondary education")
@@ -81,10 +83,8 @@ def boost_silver():
                 .when(col('prog1').startswith('68'), 'tertiary and quaternary health')
             ).withColumn(
                 'func',
-                when(col("func_sub").isin("judiciary", "public safety") , "Public order and safety")
-                .when(((col('Econ3')=='Social benefits') | col('econ4').startswith('25.01')), 'Social protection')
-                # No classification into defence
-                .when((
+                # education
+                when((
                     col('prog1').startswith('16') |
                     col('prog1').startswith('70') |
                     col('prog1').startswith('71') |
@@ -92,25 +92,35 @@ def boost_silver():
                     col('prog1').startswith('84') |
                     col('prog1').startswith('93') |
                     col('prog1').startswith('15')), 'Education')
+                # pulic order and safety
+                .when(col("func_sub").isin("judiciary", "public safety") , "Public order and safety")
+                # No classification into defence
+                # health
                 .when((
                     col('prog1').startswith('67') |
                     col('prog1').startswith('68') |
                     col('prog1').startswith('69') |
                     col('prog1').startswith('80')), 'Health')
+                # religion and culture
                 .when(col('prog1').startswith('4 ') | col('prog1').startswith('33') | col('prog1').startswith('73'), 'Recreation, culture and religion')
-                .when(col('prog1').startswith('10'), 'Environmental protection') # 2021 and 2020 figures don't match
+                # environmental protection
+                .when(col('prog1').startswith('10 '), 'Environmental protection') 
+                # housing
                 .when(
                     ((
                         (col('prog1').startswith('54')) & (col('Water&SanitationTag') == False)
                     ) | (
                         (col('prog1').startswith('56') | col('prog1').startswith('91') | col('prog1').startswith('98')) & (col('Water&SanitationTag') == True)
                     )) ,'Housing and community amenities')
-                # No Defence spending information
+                # econ affairs
                 .when((
-                    (col('func_sub').isin('agriculture', 'transport')) |
+                    (col('func_sub').isin('agriculture', 'air transport', 'road transport')) |
                     (col('prog1').startswith('53') | col('prog1').startswith('26') | col('prog1').startswith('50') | col('prog1').startswith('51')) |
                     ((col('activity') == '26 SUBSIDY TO BHUTAN POWER CORPORATION') | col('prog1').startswith('52') | col('prog1').startswith('88') | col('prog1').startswith('89') | col('prog1').startswith('90'))                
                 ), 'Economic affairs')
+                # social protection
+                .when((col('Econ3')=='Social benefits'), 'Social protection')
+                # general public services
                 .otherwise('General public services')
             ).withColumn('econ_sub',
                         when(col('Econ3') == 'Social benefits', 'social assistance')
@@ -132,8 +142,10 @@ def boost_silver():
                         .when(col('econ4').startswith('22.02'), 'Subsidies')
                         # social benefits
                         .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
+                        # NO data on interest on debt
                         # other expenses
                         .otherwise('Other expenses')  
+
             )
         )
     
