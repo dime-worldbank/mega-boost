@@ -95,9 +95,15 @@ def boost_silver():
             .when(col('Func1').startswith("09"), "Education")
             .when(col('Func1').startswith("10"), "Social protection")
         ).withColumn( 'econ_sub',
+            # pensions
+            when((col('Econ4').startswith('1431') | col('Econ4').startswith('1432')), 'pensions')
+            # social assistance
+            .when(((col('Func1').startswith('10')) &
+                   (~col('Econ4').startswith('1431')) &
+                   (~col('Econ4').startswith('1432'))), 'social assistance')
             # wage bill breakdowm missing
             # capital expenditure (foreign funded)
-            when((col('Econ1').startswith('2') & (~col('Fund1').startswith('1'))), 'capital expenditure (foreign spending)')
+            .when((col('Econ1').startswith('2') & (~col('Fund1').startswith('1'))), 'capital expenditure (foreign spending)')
             # basic services
             .when((col('Econ5').startswith('121001') | col('Econ5').startswith('122013') | col('Econ5').startswith('122004') | col('Econ5').startswith('121010')), 'basic services')
             # employment contracts
@@ -110,18 +116,21 @@ def boost_silver():
                    col('Econ5').startswith('122007')), 'recurrent maintenance')
             # subsidies to production
             .when(col('Econ2').startswith('15'), 'subsidies to production') # same as the value for subsidies
-            # pensions
-            .when((col('Econ4').startswith('1431') | col('Econ4').startswith('1432')), 'pensions')
-            # social assistance
-            .when(((col('Func1').startswith('10')) & 
-                   ((~(col('Econ4').startswith('1431')) | col('Econ4').startswith('1432')))), 'social assistance')
 
         ).withColumn( 'econ',
-            when(col('Econ1').startswith('2'), 'Capital expenditures')
-            .when(col('Econ2').startswith('11'), 'Wage bill')
-            .when(col('Econ2').startswith('12'), 'Goods and services')
+            # social benefits
+            when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits') # should come before other econ categories
+            # cap ex
+            .when((col('Econ1').startswith('2')) & (~col('Func1').startswith('10')), 'Capital expenditures')
+            # wage bill
+            .when((col('Econ2').startswith('11')) & (~col('Func1').startswith('10')), 'Wage bill')
+            # goods and services
+            .when((col('Econ2').startswith('12')) & (~col('Func1').startswith('10')), 'Goods and services')
+            # subsidies
             .when(col('Econ2').startswith('15'), 'Subsidies')
-            .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
+            # interest on debt
+            .when(col('Econ2').startswith('13'), 'Interest on debt')
+            # other expenses
             .otherwise('Other expenses')
         )
     )
