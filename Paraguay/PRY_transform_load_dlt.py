@@ -83,7 +83,7 @@ def boost_bronze_cen():
                 .when(col('ECON5').startswith('260'), 'employment contracts')
                 .when(col('ECON5').startswith('240') & col('ECON2').startswith('120'), 'recurrent maintenance')
                 .when((~col('is_transfer')) & col('FUNCTION2').startswith('320') , 'social assistance')
-                .when((~col('is_transfer')) & col('ECON5').startswith('820') , 'pensions')
+                .when((~col('is_transfer')) & col('ECON5').startswith('820'), 'pensions')
             ).withColumn('econ',
                 # wage bill
                 when((col('ECON4').startswith('100') & (~col('is_transfer'))), 'Wage bill')
@@ -91,21 +91,27 @@ def boost_bronze_cen():
                 .when((col('ECON1').startswith('200') & (~col('is_transfer')) &
                     (~col('ECON4').startswith('100')) &
                     (~col('ECON4').startswith('200')) &
-                    (~col('ECON4').startswith('300'))), 'Capital expenditures')
+                    (~col('ECON4').startswith('300')) &
+                    (~col('ECON6').startswith('871')) &
+                    (~col('ECON6').startswith('876')) &
+                    (~col('ECON6').startswith('879')) &
+                    (~col('FUNCTION2').startswith('320'))), 'Capital expenditure')
                 # goods and services
-                .when(((~col('is_transfer')) & (col('ECON4').startswith('200') | col('ECON4').startswith('300'))), 'Goods and services')
+                .when(((~col('is_transfer')) & (~col('FUNCTION2').startswith('320')) & (col('ECON4').startswith('200') | col('ECON4').startswith('300'))), 'Goods and services')
                 # subsidies 
                 .when(((~col('is_transfer')) & (col('ECON6').isNotNull()) &(col('ECON6').startswith('871') | col('ECON6').startswith('876') | col('ECON6').startswith('879'))), 'Subsidies')
                 # social benefits
                 .when(col('econ_sub').isin(['social assistance', 'pensions']), 'Social benefits')
+                # interest on debt
+                .when((~col('is_transfer')) & ((col('ECON5').startswith('710')) | (col('ECON5').startswith('720'))), 'Interest on debt')
                 .otherwise('Other expenses')
             ).select(
                 col('YEAR').alias('year'),
                 col('APPROVED').alias('approved'),
                 col('MODIFIED').alias('revised'),
-                col('COMMITTED').alias('executed'), # change to PAID
+                col('COMMITTED').alias('executed'), 
                 col('geo1_tmp').alias('geo1'),
-                'is_transfer', 'is_foreign', 'adm1_name', 'admin0', 'admin1', 'admin2', 'func_sub', 'func', 'econ', 'econ_sub', 'sheet'
+                'is_transfer', 'is_foreign', 'adm1_name', 'admin0', 'admin1', 'admin2', 'ECON4', 'ECON5', 'FUNCTION2',  'func', 'func_sub', 'econ', 'econ_sub', 'sheet'
             )
     )
 
@@ -135,29 +141,35 @@ def boost_bronze_municipal():
                 # wage bill
                 when(col('ECON4').startswith('100'), 'Wage bill')
                 # capital expenditure
-                .when((col('ECON4').startswith('400') |
-                    col('ECON4').startswith('500') |
-                    col('ECON4').startswith('600')) |
-                    (col('ECON5').startswith('860') |
-                    col('ECON5').startswith('870') |
-                    col('ECON5').startswith('880') |
-                    col('ECON5').startswith('890') | col('ECON5').startswith('980')),  'Capital expenditure')
+                .when(((col('ECON4').startswith('400') | col('ECON4').startswith('500') | col('ECON4').startswith('600')) |
+                    ((~col('ECON4').startswith('100')) & (
+                        col('ECON5').startswith('860') |
+                        col('ECON5').startswith('870') | 
+                        col('ECON5').startswith('880') |
+                        col('ECON5').startswith('890') | 
+                        col('ECON5').startswith('980'))
+                    )),  'Capital expenditure')
                 # goods and services
                 .when((col('ECON4').startswith('200') | col('ECON4').startswith('300')), 'Goods and services')
                 # subsidies
                 .when(col('ECON5').startswith('870'), 'Subsidies')
+                # interest on debt
+                .when(((col('ECON5').startswith('710')) | (col('ECON5').startswith('720'))), 'Interest on debt')
+                # other expenses
+                .otherwise('Other expenses')
             ).withColumn('is_transfer', lit(None).cast("boolean")
             ).withColumn('is_foreign', lit(None).cast("boolean")
             ).withColumn('func', lit(None).cast("string")
             ).withColumn('func_sub', lit(None).cast("string")
             ).withColumn('adm1_name', lit(None).cast("string")
+            ).withColumn('FUNCTION2', lit(None).cast("string")
             ).select(
                 col('YEAR').alias('year'),
                 'approved',
                 col('MODIFIED').alias('revised'),
                 col('PAID').alias('executed'),
                 col('geo1_tmp').alias('geo1'),
-                'is_transfer', 'is_foreign', 'adm1_name', 'admin0', 'admin1', 'admin2', 'func', 'func_sub', 'econ', 'econ_sub', 'sheet'             
+                'is_transfer', 'is_foreign', 'adm1_name', 'admin0', 'admin1', 'admin2','ECON4', 'ECON5', 'FUNCTION2', 'func', 'func_sub', 'econ', 'econ_sub', 'sheet'             
             )
     )
 
