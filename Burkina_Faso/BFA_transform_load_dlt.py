@@ -69,6 +69,11 @@ def boost_bronze_combined():
     bronze = bronze2.unionByName(bronze1)
     return bronze
 
+econ4_codes_to_exclude = [
+    '63111', '63113', '63114', '63131', '63221', '63411', '63911', '63912', '63919', '63971', '63119',
+    '63120', '63122', '63123', '63125', '63132', '63133', '63141', '63922', '63923', '63925', '63929',
+    '63972'
+]
 @dlt.table(name=f'bfa_boost_silver')
 def boost_silver():
     bronze = dlt.read(f'bfa_boost_bronze')
@@ -123,8 +128,9 @@ def boost_silver():
     ).withColumn(
         'econ_sub',
         when(((col('YEAR')==2006) & (col('FUNCTION1').startswith('10') & (col('ECON1').startswith('4 ')))), 'social assistance') # different formula for 2006
-        .when((((col('YEAR')>2006) & (col('YEAR')<2017)) & (col('FUNCTION1').startswith('10') )), 'social assistance')
-        .when(((col('YEAR')>=2017) & ((col('FUNCTION1').startswith('10')) | (col('PROG3').startswith('1330313') | col('PROG3').startswith('1330303')))), 'social assistance') # no formulae for pensions and other social benefits
+        .when((((col('YEAR')>2006) & (col('YEAR')<2017)) & 
+               (col('FUNCTION1').startswith('10') & col('ECON1').startswith('4 '))), 'social assistance')
+        .when(((col('YEAR')>=2017) & (col('FUNCTION1').startswith('10')) & (col('ECON1').startswith('4 '))), 'social assistance') # no formulae for pensions and other social benefits
         .when(((col('YEAR')<2017) & (
             ((~col('SOURCE_FIN1').startswith('1')) & (col('ECON1').startswith('5')) & (~col('ECON2').startswith('66'))) |
             (col('ECON1').startswith('6')) |
@@ -140,11 +146,17 @@ def boost_silver():
         .when(((col('YEAR')>=2017) & (col('ECON3').startswith('622'))), 'employment contracts')
         .when(((col('YEAR')<2017) & (col('ECON3').startswith('622'))), 'recurrent maintenance')
         .when(((col('YEAR')>=2017) & (col('ECON3').startswith('614'))), 'recurrent maintenance')
-        .when(col('ECON2').startswith('63'), 'subsidies to production' ) # same as 'Subsidies' in econ
+        # subsidies to production 
+        .when((col('YEAR')>=2017) & ((col('ECON2').startswith('63')) | 
+                            (col('PROG3').startswith('1330303') | col('PROG3').startswith('1330313'))), 'subsidies to production')
+        .when((col('YEAR')<2017) & (col('ECON2').startswith('63')) & (~col('ECON4').startswith('6322')) &  (~col('ECON4').substr(1, 5).isin(econ4_codes_to_exclude)) , 'subsidies to production') # same as 'Subsidies' in econ
     ).withColumn(
         'econ',
+        # interest on debt
+        when((((col('YEAR')<2017) & (col('ECON2') =='65 Interets et frais financiers'))) |
+              ((col('YEAR')>=2017) & (col('ECON2') == '67 INTERETS ET FRAIS FINANCIERS')),  'Interest on debt')
         # Wage bill
-        when((col('YEAR')<2017) & ((col('ECON1').startswith('2')) | (
+        .when((col('YEAR')<2017) & ((col('ECON1').startswith('2')) | (
             col('ECON4').startswith('63111') |
             col('ECON4').startswith('63112') |
             col('ECON4').startswith('63113') |
@@ -159,7 +171,7 @@ def boost_silver():
             col('ECON4').startswith('63971') |
             col('ECON4').startswith('64221') |
             col('ECON4').startswith('64231'))), 'Wage bill')
-        .when(((col('ECON2') == '66 CHARGES DE PERSONNEL') & (col('YEAR')>=2017)), 'Wage bill')
+        .when(((col('ECON2') == '66 CHARGES DE PERSONNEL') & (~col('ECON1').startswith('5 ')) & (col('YEAR')>=2017)), 'Wage bill')
         # capital expenditure
         .when(((col('YEAR')<2017) & 
             ((col('ECON1').startswith('5') & (~(col('ECON2')=='66 CHARGES DE PERSONNEL'))) |
@@ -178,7 +190,7 @@ def boost_silver():
                         col('ECON4').startswith('64521'))) |
                     ((col('ECON1') == '7 Comptes speciaux du Tresor') & (col('ECON2').startswith('62') | col('ECON2').startswith('24')))
                 )), 'Goods and services')
-        .when(((col('YEAR')>2016) & (col('ECON1').startswith('3'))), 'Goods and services')
+        .when(((col('YEAR')>=2017) & (col('ECON1').startswith('3'))), 'Goods and services')
         .when(((col('YEAR')<2017) & 
                ((col('ECON1').startswith('3') & (col('ECON2').startswith('62') | col('ECON2').startswith('24'))) |
                 (col('ECON2').startswith('64') & 
@@ -187,31 +199,15 @@ def boost_silver():
                         col('ECON4').startswith('64222') |
                         col('ECON4').startswith('64232') |
                         col('ECON4').startswith('64521'))) |
-                    ((col('ECON2').startswith('63')) &
-                        (col('ECON4').startswith('63119') |
-                        col('ECON4').startswith('63120') |
-                        col('ECON4').startswith('63122') |
-                        col('ECON4').startswith('63123') |
-                        col('ECON4').startswith('63125') |
-                        col('ECON4').startswith('63132') |
-                        col('ECON4').startswith('63133') |
-                        col('ECON4').startswith('63141') |
-                        col('ECON4').startswith('6322') |
-                        col('ECON4').startswith('63922') |
-                        col('ECON4').startswith('63923') |
-                        col('ECON4').startswith('63925') |
-                        col('ECON4').startswith('63929') |
-                        col('ECON4').startswith('63972'))) |
-                    ((col('ECON1') == '7 Comptes speciaux du Tresor') & (col('ECON2').startswith('62') | col('ECON2').startswith('24')))
+                    ((col('ECON1') == '7 Comptes speciaux du Tresor') & (col('ECON2').startswith('62') | col('ECON2').startswith('24')) & (~col('ECON4').startswith('62997 ')))
                 )
             ), 'Goods and services')
-        # subsidies
-        .when(col('ECON2').startswith('63'), 'Subsidies')
         # Social benefits
         .when(col('econ_sub').isin('social assistance', 'pensions', 'other social benefits'), 'Social benefits')
-        # interest on debt
-        .when((((col('YEAR')<2017) & (col('ECON2') =='65 Interets et frais financiers'))) |
-              ((col('YEAR')>2016) & (col('ECON2') == '67 INTERETS ET FRAIS FINANCIERS')),  'Interest on debt')
+        # subsidies
+        .when((col('YEAR')>=2017) & ((col('ECON2').startswith('63')) | 
+                            (col('PROG3').startswith('1330303') | col('PROG3').startswith('1330313'))), 'Subsidies')
+        .when(((col('YEAR')<2017) & (col('ECON2').startswith('63')) & (~col('ECON4').startswith('6322')) & (~col('ECON4').substr(1, 5).isin(econ4_codes_to_exclude))) , 'Subsidies')
         # other expenses
         .otherwise('Other expenses')
     )
