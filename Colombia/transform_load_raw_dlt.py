@@ -513,7 +513,9 @@ def col_central_boost_silver_from_raw():
         ) & ~col("pension")), "Goods and services"
       ).when(
         (col("subsidy") & ~col("pension")), "Subsidies"
-      ).otherwise( # Colombia has no "Other grants and transfers"
+      ).when(
+        lower(col('econ2')).startswith("servicio") & ~col('econ1').contains('Adquisición de Activos Financieros'), 'Interest on debt'
+        ).otherwise( # Colombia has no "Other grants and transfers"
         lit("Other expenses")
       )
     )
@@ -537,6 +539,8 @@ def col_subnat_boost_silver_from_raw():
                 col("econ2").isin('ADQUISICIÓN DE BIENES', 'ADQUISICIÓN DE SERVICIOS', 'ADQUISICION DE BIENES Y SERVICIOS'), 'Goods and services'
             ).when(
                 col("econ2") == 'TRANSFERENCIAS DE CAPITAL', 'Capital expenditures'
+            ).when(
+                lower(col('econ2')).startswith("servicio") & ~col('econ1').contains('Adquisición de Activos Financieros'), 'Interest on debt'
             ).otherwise(
                 lit("Other expenses")
             )
