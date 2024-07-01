@@ -436,7 +436,7 @@ def col_central_gold():
 @dlt.table(name=f'col_central_boost_silver_from_raw')
 def col_central_boost_silver_from_raw():
   return (dlt.read('col_central_gold')
-    .filter(~(col('econ2') == "Adquisición de Activos Financieros"))
+    .filter(~(lower(col('econ2')) == "adquisición de activos financieros"))
     .filter(~col('econ3').startswith('03-03-05-001') & ~col('econ3').startswith('03-03-05-002'))
     .withColumn('pension',
       upper(col("func1")).like('%PENSIONES%') | upper(col("econ3")).like('%(DE PENSIONES)%')
@@ -514,7 +514,7 @@ def col_central_boost_silver_from_raw():
       ).when(
         (col("subsidy") & ~col("pension")), "Subsidies"
       ).when(
-        lower(col('econ2')).startswith("servicio") & ~col('econ1').contains('Adquisición de Activos Financieros'), 'Interest on debt'
+        lower(col('econ2')).startswith("servicio"), 'Interest on debt'
         ).otherwise( # Colombia has no "Other grants and transfers"
         lit("Other expenses")
       )
@@ -528,6 +528,7 @@ def col_central_boost_silver_from_raw():
 @dlt.table(name=f'col_subnat_boost_silver_from_raw')
 def col_subnat_boost_silver_from_raw():
     return (dlt.read('col_subnat_gold')
+        .filter(~(lower(col('econ2')) == "adquisición de activos financieros"))
         .withColumn("func",
             when(col("func1") == "Pensions", lit("Social protection"))
             .otherwise(col("func1"))
@@ -540,7 +541,7 @@ def col_subnat_boost_silver_from_raw():
             ).when(
                 col("econ2") == 'TRANSFERENCIAS DE CAPITAL', 'Capital expenditures'
             ).when(
-                lower(col('econ2')).startswith("servicio") & ~col('econ1').contains('Adquisición de Activos Financieros'), 'Interest on debt'
+                lower(col('econ2')).startswith("servicio"), 'Interest on debt'
             ).otherwise(
                 lit("Other expenses")
             )
