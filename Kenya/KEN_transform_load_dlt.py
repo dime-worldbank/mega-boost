@@ -202,6 +202,16 @@ def boost_silver():
             .when(((~col('Class').startswith('2')) & (col('Chapter_econ2').startswith('24'))), 'Interest on debt')
             # other expenses
             .otherwise('Other expenses')
+        ).withColumn('geo_0.5', 
+            when(col('adm1_name').isin('Kiambu', 'Kirinyaga', 'Murang’A', 'Nyandarua', 'Nyeri', 'Tharaka Nithi'), 'Central')
+            .when(col('adm1_name').isin('Kilifi', 'Kwale', 'Lamu','Mombasa' , 'Taita Taveta','Tana River'), 'Coast')
+            .when(col('adm1_name').isin('Embu', 'Isiolo', 'Kitui', 'Machakos', 'Makueni', 'Marsabit', 'Meru'), 'Eastern')
+            .when(col('adm1_name').isin('Nairobi City'), 'Nairobi')
+            .when(col('adm1_name').isin('Garissa', 'Mandera','Wajir'), 'North Eastern')
+            .when(col('adm1_name').isin('Homa Bay', 'Kisii', 'Migori', 'Nyamira'), 'Nyanza')
+            .when(col('adm1_name').isin('Baringo', 'Bomet', 'Elgeyo Marakwet', 'Kajiado', 'Kericho', 'Laikipia', 'Nakuru', 'Nandi', 'Narok', 'Samburu', 'Trans Nzoia', 'Turkana', 'Uasin Gishu', 'West Pokot'), 'Rift Valley')
+            .when(col('adm1_name').isin('Bungoma','Busia', 'Kakamega', 'Kisumu', 'Siaya', 'Vihiga'), 'Western')
+            .otherwise(None) 
         )
     )
     
@@ -211,7 +221,8 @@ def boost_gold():
         .filter(col('year') != 2015) # 2015 data is missing wage amounts for education, exclude entirely for correness sake
         .withColumn('country_name', lit(COUNTRY))
         .select('country_name',
-                'adm1_name',
+                '`geo_0.5`',
+                'adm1_name', 
                 'year',
                 col('Initial_Budget_Printed_Estimate').alias('approved').cast(DoubleType()),
                 col('Final_Budget_Approved_Estimate').alias('revised'),
