@@ -43,7 +43,7 @@ def contains_any(column, words_to_check):
 
 @dlt.table(name=f'ken_boost_silver')
 def boost_silver():
-    culture_keywords = ["sports", "culture", "heritage", "library", " arts"]
+    culture_keywords = [" sports", " culture", " heritage", " library", " arts"]
     housing_keywords_01 = [
         "housing development and human settlement",
     ]
