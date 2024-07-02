@@ -108,7 +108,8 @@ def boost_silver():
         .when((col('YEAR') < 2017) & (col('FUNCTION2').startswith('092')), 'secondary education')
     ).withColumn(
         'func',
-        when(col('FUNCTION1').startswith('02'), 'Defence')
+        when(col('YEAR') == 2016, lit(None)) # Remove 2016 entirely from func calculation as wage bill is missing
+        .when(col('FUNCTION1').startswith('02'), 'Defence')
         .when(col('func_sub').isin('judiciary', 'public safety'), 'Public order and safety')
         .when(col('FUNCTION1').startswith('04'), 'Economic affairs')
         .when(col('FUNCTION1').startswith('05'), 'Environmental protection')
