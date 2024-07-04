@@ -225,10 +225,36 @@ def expenditure_by_country_func_year():
 
 @dlt.table(name=f'edu_private_expenditure_by_country_year')
 def edu_private_expenditure_by_country_year():
+    edu_pub_exp = (dlt.read('expenditure_by_country_func_year')
+        .filter(F.col('func') == "Education")
+        .select(
+            "country_name",
+            "year",
+            F.col("expenditure").alias("pub_expenditure"),
+            F.col("real_expenditure").alias("real_pub_expenditure"),
+        )
+    )
+
     cpi_factors = dlt.read('cpi_factor')
-    return (spark.table('indicator.edu_private_spending')
+    edu_exp = (spark.table('indicator.edu_spending')
         .join(cpi_factors, on=["country_name", "year"], how="inner")
-        .withColumn("real_expenditure", F.col("edu_private_spending_current_lcu") / F.col("cpi_factor"))
+        .withColumn(
+            "real_edu_spending_current_lcu_icp",
+            F.col("edu_spending_current_lcu_icp") / F.col("cpi_factor")
+        )
+    )
+    return (
+        edu_exp
+        .join(edu_pub_exp, on=["country_name", "year"], how="inner")
+        .withColumn(
+            "expenditure",
+            F.col("edu_spending_current_lcu_icp") - F.col("pub_expenditure")
+        )
+        .withColumn(
+            "real_expenditure",
+            F.col("real_edu_spending_current_lcu_icp") - F.col("real_pub_expenditure")
+        )
+        .filter(F.col("expenditure") >= 0)
     )
 
 @dlt.table(name=f'health_private_expenditure_by_country_year')
