@@ -58,6 +58,9 @@ def expenditure_by_country_year():
     )
     cpi_factors = dlt.read('cpi_factor')
 
+    pop = (spark.table('indicator.population')
+        .select("country_name", "year", "population"))
+
     return (boost_gold
         .groupBy("country_name", "year").agg(
             F.sum("executed").alias("expenditure"),
@@ -70,6 +73,9 @@ def expenditure_by_country_year():
         )
         .join(cpi_factors, on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
+        .join(pop, on=["country_name", "year"], how="inner")
+        .withColumn("per_capita_expenditure", F.col("expenditure") / F.col("population"))
+        .withColumn("per_capita_real_expenditure", F.col("real_expenditure") / F.col("population"))
         .join(year_ranges, on=['country_name'], how='left')
     )
 
