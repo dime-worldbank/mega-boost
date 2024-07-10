@@ -149,8 +149,18 @@ def boost_silver():
             .when((col('Article').startswith('21') & (col('Exercice')<2016)) |
                   ((~col('Article').startswith('12')) & (col('Sous_Article').startswith('26')) & (col('Exercice')>=2016)), 'Interest on debt') # excel has a redundant condition on Article
             # other expenses
-            .otherwise('Other expenses')
-        )
+            .otherwise('Other expenses'))
+        ).withColumn('geo_0.5', 
+            when(col('geo1').isin('Kwilu', 'Mai Ndombe', 'Bandundu', 'Kwango'), 'Bandundu')
+            .when(col('geo1').isin('Kongo Central', 'Bas Congo'), 'Bas-Congo')
+            .when(col('geo1').isin('Sud Ubangi', 'Tshuapa', 'Mongala', 'Equateur'), 'Equateur')
+            .when(col('geo1').isin('Kasai Central', 'Kasai Occidental', 'Kasai'), 'Kasai Occidental')
+            .when(col('geo1').isin('Lomami', 'Kasai Oriental', 'Sankuru'), 'Kasai Oriental')
+            .when(col('geo1').isin('Katanga', 'Tanganyika', 'Haut Lomami', 'Lualaba', 'Haut Katanga'), 'Katanga')
+            .when(col('geo1').isin('Kinshasa', 'Ville Province De Kinshasa'), 'Kinshasa')
+            .when(col('geo1').isin('Nord Kivu'), 'Nord-Kivu')
+            .when(col('geo1').isin('Ituri', 'Haut Uele', 'Orientale', 'Bas Uele', 'Tshopo'), 'Orientale')
+            .otherwise(None)
     )
 
 @dlt.table(name=f'cod_boost_gold')
@@ -168,6 +178,7 @@ def boost_gold():
                     'admin1',
                     'admin2',
                     'geo1',
+                    '`geo_0.5`',
                     'is_interest',
                     'is_foreign',
                     'func',
