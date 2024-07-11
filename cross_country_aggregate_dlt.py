@@ -239,6 +239,22 @@ def expenditure_by_country_func_year():
         )
     )
 
+@dlt.table(name=f'expenditure_by_country_econ_year')
+def expenditure_by_country_econ_year():
+    return (dlt.read('expenditure_by_country_func_econ_year')
+        .groupBy("country_name", "year", "econ").agg(
+            F.sum("expenditure").alias("expenditure"),
+            F.sum("real_expenditure").alias("real_expenditure"),
+            F.sum("decentralized_expenditure").alias("decentralized_expenditure"),
+            F.sum("central_expenditure").alias("central_expenditure"),
+            F.min("year").alias("earliest_year"), 
+            F.max("year").alias("latest_year")
+        )
+        .withColumn("expenditure_decentralization",
+            F.col("decentralized_expenditure") / F.col("expenditure")
+        )
+    )
+
 @dlt.table(name=f'edu_private_expenditure_by_country_year')
 def edu_private_expenditure_by_country_year():
     edu_pub_exp = (dlt.read('expenditure_by_country_func_year')
@@ -284,9 +300,9 @@ def health_private_expenditure_by_country_year():
 
 # COMMAND ----------
 
-@dlt.table(name='quality_boost_agg')
-@dlt.expect_or_fail('country has subnational agg', 'row_count IS NOT NULL')
-def quality_exp_by_country_year():
+@dlt.table(name='quality_boost_country')
+@dlt.expect_or_fail('country has total agg', 'row_count IS NOT NULL')
+def quality_boost_country():
     country_codes_upper = [c.upper() for c in country_codes]
     boost_countries = (spark.table('indicator.country')
         .filter(F.col('country_code').isin(country_codes_upper))
@@ -295,8 +311,57 @@ def quality_exp_by_country_year():
     assert boost_countries.count() == len(country_codes),\
         f'expect all BOOST countries ({country_codes_upper}) to be present in indicator.country table ({boost_countries.select("country_code").collect()})'
 
+    quality_cci_total = (spark.table('boost_intermediate.quality_total_silver')
+        .groupBy('country_name')
+        .agg(F.count('*').alias('cci_row_count'))
+        .join(boost_countries, on=['country_name'], how="right")
+    )
+
+    return (dlt.read('expenditure_by_country_year')
+        .groupBy('country_name')
+        .agg(F.count('*').alias('row_count'))
+        .join(quality_cci_total, on=['country_name'], how="right")
+    )
+
+@dlt.table(name='quality_boost_subnat')
+@dlt.expect_or_fail('country has subnational agg', 'row_count IS NOT NULL')
+def quality_boost_subnat():
+    boost_countries = dlt.read('quality_boost_country').select('country_name')
+
     return (dlt.read('expenditure_by_country_geo1_year')
         .groupBy('country_name')
         .agg(F.count('*').alias('row_count'))
         .join(boost_countries, on=['country_name'], how="right")
+    )
+
+@dlt.table(name='quality_boost_func')
+@dlt.expect_or_fail('country has func agg', 'row_count IS NOT NULL')
+def quality_boost_func():
+    boost_countries = dlt.read('quality_boost_country').select('country_name')
+    quality_cci_func = (spark.table('boost_intermediate.quality_functional_silver')
+        .groupBy('country_name', 'func')
+        .agg(F.count('*').alias('cci_row_count'))
+        .join(boost_countries, on=['country_name'], how="right")
+    )
+    return (
+        dlt.read('expenditure_by_country_func_year')
+        .groupBy('country_name', 'func')
+        .agg(F.count('*').alias('row_count'))
+        .join(quality_cci_func, on=['country_name', 'func'], how="right")
+    )
+
+@dlt.table(name='quality_boost_econ')
+@dlt.expect_or_fail('country has econ agg', 'row_count IS NOT NULL')
+def quality_boost_econ():
+    boost_countries = dlt.read('quality_boost_country').select('country_name')
+    quality_cci_econ = (spark.table('boost_intermediate.quality_economic_silver')
+        .groupBy('country_name', 'econ')
+        .agg(F.count('*').alias('cci_row_count'))
+        .join(boost_countries, on=['country_name'], how="right")
+    )
+    return (
+        dlt.read('expenditure_by_country_econ_year')
+        .groupBy('country_name', 'econ')
+        .agg(F.count('*').alias('row_count'))
+        .join(quality_cci_econ, on=['country_name', 'econ'], how="right")
     )
