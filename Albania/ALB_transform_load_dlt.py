@@ -64,9 +64,9 @@ def boost_silver():
                         # public order and safety
                         when(col('func_sub').isin('judiciary', 'public safety'), 'Public order and safety')
                         # defense
-                        .when(col('func1').startswith('02'), 'Defense')
+                        .when(col('func1').startswith('02'), 'Defence')
                         # economic relations
-                        .when(col('func1').startswith('04'), 'Economic relations')
+                        .when(col('func1').startswith('04'), 'Economic affairs')
                         # environmental protection
                         .when(col('func1').startswith('05'), 'Environmental protection')
                         # housing
