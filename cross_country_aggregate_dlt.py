@@ -206,12 +206,10 @@ def expenditure_by_country_admin_func_sub_econ_sub_year():
 
     return with_decentralized.join(year_ranges, on=['country_name', 'func'], how='inner')
 
-# This is intentionally not aggregating from expenditure_by_country_geo1_func_year
-# because we need decentralized exp which uses admin0
-@dlt.table(name=f'expenditure_by_country_func_year')
-def expenditure_by_country_func_year():
+@dlt.table(name=f'expenditure_by_country_func_econ_year')
+def expenditure_by_country_func_econ_year():
     return (dlt.read('expenditure_by_country_admin_func_sub_econ_sub_year')
-        .groupBy("country_name", "year", "func").agg(
+        .groupBy("country_name", "year", "func", "econ").agg(
             F.sum("expenditure").alias("expenditure"),
             F.sum("real_expenditure").alias("real_expenditure"),
             F.sum(
@@ -220,14 +218,26 @@ def expenditure_by_country_func_year():
             F.sum(
                 F.when(F.col("admin0") == "Central", F.col("expenditure"))
             ).alias("central_expenditure"),
-            F.min("earliest_year").alias("earliest_year"), 
-            F.max("latest_year").alias("latest_year")
+        )
+    )
+
+# This is intentionally not aggregating from expenditure_by_country_geo1_func_year
+# because we need decentralized exp which uses admin0
+@dlt.table(name=f'expenditure_by_country_func_year')
+def expenditure_by_country_func_year():
+    return (dlt.read('expenditure_by_country_func_econ_year')
+        .groupBy("country_name", "year", "func").agg(
+            F.sum("expenditure").alias("expenditure"),
+            F.sum("real_expenditure").alias("real_expenditure"),
+            F.sum("decentralized_expenditure").alias("decentralized_expenditure"),
+            F.sum("central_expenditure").alias("central_expenditure"),
+            F.min("year").alias("earliest_year"), 
+            F.max("year").alias("latest_year")
         )
         .withColumn("expenditure_decentralization",
             F.col("decentralized_expenditure") / F.col("expenditure")
         )
     )
-
 
 @dlt.table(name=f'edu_private_expenditure_by_country_year')
 def edu_private_expenditure_by_country_year():
@@ -271,6 +281,8 @@ def health_private_expenditure_by_country_year():
         .join(cpi_factors, on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("oop_expenditure_current_lcu") / F.col("cpi_factor"))
     )
+
+# COMMAND ----------
 
 @dlt.table(name='quality_boost_agg')
 @dlt.expect_or_fail('country has subnational agg', 'row_count IS NOT NULL')
