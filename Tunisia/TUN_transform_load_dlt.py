@@ -118,14 +118,13 @@ def boost_silver():
             # other expenses
             .otherwise('Other expenses')
         ).withColumn('geo_0.5', 
-            when(col('adm1_name').isin('Mahdia', 'Monastir', 'Sfax', 'Sousse'), 'Centre Est (Sousse, Monastir, Mahdia, Sfax)')
-            .when(col('adm1_name').isin('Kairouan', 'Kasserine', 'Sidi Bouz'), 'Centre Ouest (Kairouan, Kasserine, Sidi Bouzid)')
-            .when(col('adm1_name').isin('Ariana', 'Manouba','Tunis', 'BeBen Arous'), 'Grand Tunis (Tunis, Ariana, Ben Arous, Manouba)')
-            .when(col('adm1_name').isin('Bizerte', 'Nabeul', 'Zaghouan'), 'Nord Est (Nabeul, Zaghouan, Bizerte)')
-            .when(col('adm1_name').isin('Beja', 'Jendouba', 'Le Kef', 'Siliana'), 'Nord Ouest (Beja, Jendouba, Kef, Siliana)')
-            .when(col('adm1_name').isin('Gabes', 'Medenine', 'Tataouine'), 'Sud Est (Gabes, Medinine, Tataouine)')
-            .when(col('adm1_name').isin('Gafsa', 'Kebili', 'Tozeur'), 'Sud Ouest (Gafsa, Tozeur, Kebili)')
-            .otherwise(None)
+            when(col('geo1').isin('Mahdia', 'Monastir', 'Sfax', 'Sousse'), 'Centre Est')
+            .when(col('geo1').isin('Kairouan', 'Kasserine', 'Sidi Bouz'), 'Centre Ouest')
+            .when(col('geo1').isin('Ariana', 'Manouba','Tunis', 'BeBen Arous'), 'Grand Tunis')
+            .when(col('geo1').isin('Bizerte', 'Nabeul', 'Zaghouan'), 'Nord Est')
+            .when(col('geo1').isin('Beja', 'Jendouba', 'Le Kef', 'Siliana'), 'Nord Ouest')
+            .when(col('geo1').isin('Gabes', 'Medenine', 'Tataouine'), 'Sud Est')
+            .when(col('geo1').isin('Gafsa', 'Kebili', 'Tozeur'), 'Sud Ouest')
         )
 
 @dlt.table(name=f'tun_boost_gold')
