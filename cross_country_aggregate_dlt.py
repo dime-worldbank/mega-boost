@@ -225,6 +225,9 @@ def expenditure_by_country_func_econ_year():
 # because we need decentralized exp which uses admin0
 @dlt.table(name=f'expenditure_by_country_func_year')
 def expenditure_by_country_func_year():
+    pop = (spark.table('indicator.population')
+        .select("country_name", "year", "population"))
+    
     return (dlt.read('expenditure_by_country_func_econ_year')
         .groupBy("country_name", "year", "func").agg(
             F.sum("expenditure").alias("expenditure"),
@@ -237,6 +240,9 @@ def expenditure_by_country_func_year():
         .withColumn("expenditure_decentralization",
             F.col("decentralized_expenditure") / F.col("expenditure")
         )
+        .join(pop, on=["country_name", "year"], how="inner")
+        .withColumn("per_capita_expenditure", F.col("expenditure") / F.col("population"))
+        .withColumn("per_capita_real_expenditure", F.col("real_expenditure") / F.col("population"))
     )
 
 @dlt.table(name=f'expenditure_by_country_econ_year')
