@@ -65,7 +65,6 @@ def boost_silver():
             .when(col('func2').startswith('091'), 'primary education')
             .when(col('func2').startswith('092'), 'secondary education')
             .when(col('func2').startswith('093'), 'tertiary education')
-            .when(col('econ1').startswith('A07'), 'interest on debt')
         ).withColumn(
             'func',
             when(col('func1').startswith('02'), 'Defence')
