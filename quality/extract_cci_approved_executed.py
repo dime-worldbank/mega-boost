@@ -74,11 +74,8 @@ metadata_df = get_cci_metadata()
 merged_metadata_df = pd.merge(metadata_df, existing_metadata_df, on=['country_code'], how='left', suffixes=('', '_old'))
 
 # handling for the new countries added
-existing_countries = existing_metadata_df.country.unique()
-current_countries = metadata_df.country.unique()
-new_countries = [country for country in current_countries if country not in existing_countries]
-for country in new_countries:
-    merged_metadata_df.loc[merged_metadata_df.country == country, 'updated_at_old'] =  existing_metadata_df.loc[merged_metadata_df.country == country,'updated_at'] - 1e+09
+older_updated_at = merged_metadata_df['updated_at'] - 1e+09
+merged_metadata_df['updated_at_old'].fillna(older_updated_at, inplace=True)
 
 merged_metadata_df
 

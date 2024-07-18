@@ -27,7 +27,7 @@ def boost_bronze():
             .format("csv")
             .options(**CSV_READ_OPTIONS)
             .option("inferSchema", "true")
-            .load(f'{COUNTRY_MICRODATA_DIR}/Datos.csv')
+            .load(f'{COUNTRY_MICRODATA_DIR}')
     )
 
 @dlt.table(name=f'ury_boost_silver')
@@ -105,8 +105,4 @@ def boost_gold():
                 'econ_sub',
                 'econ')
     )
-
-
-# COMMAND ----------
-
 
