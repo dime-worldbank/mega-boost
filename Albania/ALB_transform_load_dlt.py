@@ -49,7 +49,7 @@ def boost_silver():
                         # public safety
                         .when(col('func2').substr(1,3).isin(['031', '034', '035']), 'public safety')
                         # spending in energy
-                        .when(col('func2').startswith('043'), 'spending in energy')
+                        .when(col('func2').startswith('043'), 'Energy')
                         # primary and secondary health
                         .when(col('func2').startswith('072') | col('func2').startswith('074'), 'primary and secondary health')
                         # tertitaey and quaternary health
@@ -109,7 +109,7 @@ def boost_silver():
                         # wage bill
                         when(col('econ3').startswith('601') | col('econ3').startswith('600'), 'Wage bill')
                         # capital expenditure
-                        .when(col('exp_type').startswith('3'), 'Capital expenditure')
+                        .when(col('exp_type').startswith('3'), 'Capital expenditures')
                         # goods and services
                         .when(col('econ3').startswith('602'), 'Goods and services')
                         # subsidies

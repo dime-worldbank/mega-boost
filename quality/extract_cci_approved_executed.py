@@ -72,6 +72,11 @@ else:
 
 metadata_df = get_cci_metadata()
 merged_metadata_df = pd.merge(metadata_df, existing_metadata_df, on=['country_code'], how='left', suffixes=('', '_old'))
+
+# handling for the new countries added
+older_updated_at = merged_metadata_df['updated_at'] - 1e+09
+merged_metadata_df['updated_at_old'].fillna(older_updated_at, inplace=True)
+
 merged_metadata_df
 
 # COMMAND ----------
