@@ -1,7 +1,7 @@
 # Databricks notebook source
 import dlt
 import unicodedata
-from pyspark.sql.functions import substring, col, lit, when, udf, trim, regexp_replace, initcap, concat
+from pyspark.sql.functions import substring, col, lit, when, udf, trim, regexp_replace, initcap, concat,lower
 from pyspark.sql.types import StringType
 
 # Note DLT requires the path to not start with /dbfs
@@ -62,14 +62,14 @@ def boost_silver():
                         .when(col('func1').startswith('11 '), 'Social protection')
                         .otherwise('General public services'))
             .withColumn('econ_sub',
-                        when((col('exp_type') == "Personal") & (col('econ2') != '06 Beneficios al personal') & (col('econ2') != '07 Beneficios familiares",econ2') & ( col('econ2') != '08 Cargas legales sobre servicios personales'), 'basic wages')
+                        when((col('exp_type') == "Personal") & (lower(col('econ2')) != '06 beneficios al personal') & (lower(col('econ2')) != '07 beneficios familiares') & ( lower(col('econ2')) != '08 cargas legales sobre servicios personales'), 'basic wages')
                         .when(col('exp_type') == "Personal", "allowances")
                         .when((col('exp_type')=="Inversion") & col('source_fin1').startswith('20 '), 'capital expenditure (foreign spending)')
-                        .when(col('econ2') == '21 Servicios basicos', 'basic services')
-                        .when(col('econ2') == '28 Servicios tecnicos, profesionales y artisticos(Dec.17/003)', 'employment contracts')
-                        .when(col('econ2').startswith('27 Serv. para mant., reparaciones menores y limpieza'), 'recurrent maintenance')
-                        .when((col("year") < 2020) & ((col('econ2') == '52 Transferencias corrientes al sector privado') | (col('econ2') == '54 Transferencias de capital al sector privado') | (col('econ2') == '04 Transferencias De Capital Al Sector Privado') | (col('econ2') == '02 Transferencias Corrientes Al Sector Privado')), 'subsidies to production')
-                        .when((col("year") >= 2020) & ((col('econ2') == '04 Transferencias De Capital Al Sector Privado') | (col('econ2') == '02 Transferencias Corrientes Al Sector Privado')), 'subsidies to production')
+                        .when(lower(col('econ2')) == '21 servicios basicos', 'basic services')
+                        .when(lower(col('econ2')) == '28 servicios tecnicos, profesionales y artisticos(dec.17/003)', 'employment contracts')
+                        .when(lower(col('econ2')) == '27 serv. para mant., reparaciones menores y limpieza', 'recurrent maintenance')
+                        .when(((col("year") < 2020) & (lower(col('econ2')) == '52 transferencias corrientes al sector privado') | (lower(col('econ2')) == '54 transferencias de capital al sector privado') | (lower(col('econ2')) == '04 transferencias de capital al sector privado') | (lower(col('econ2')) == '02 transferencias corrientes al sector privado')), 'subsidies to production')
+                        .when((col("year") >= 2020) & ((lower(col('econ2')) == '04 transferencias de capital al sector privado') | (lower(col('econ2')) == '02 transferencias corrientes al sector privado')), 'subsidies to production')
                         .when(col('func1').startswith('11 ') & col('func2').startswith('0402') & col('econ1').startswith('5 '), 'pensions')
                         .when(col('func1').startswith('11 ') & col('econ1').startswith('5 '), 'social assistance'))
             .withColumn('econ',
@@ -78,10 +78,10 @@ def boost_silver():
                         .when(col('exp_type') == 'Inversion','Capital expenditures')
                         .when(col('econ1').startswith('1 ') | col('econ1').startswith('2 ')| ((col('econ1').startswith('3 ')) &
                         (col('exp_type')=="Inversion")),'Goods and services')
-                        .when(((col("year") < 2020) & ((col('econ2') == '52 Transferencias corrientes al sector privado') | (col('econ2') == '54 Transferencias de capital al sector privado' ) | (col('econ2') == '04 Transferencias De Capital Al Sector Privado') | (col('econ2') == '02 Transferencias Corrientes Al Sector Privado'))), 'Subsidies')
-                        .when(((col("year") >= 2020) & ((col('econ2')== '04 Transferencias De Capital Al Sector Privado') | (col('econ2') == '02 Transferencias Corrientes Al Sector Privado'))), 'Subsidies')
+                        .when(((col("year") < 2020) & (lower(col('econ2')) == '52 transferencias corrientes al sector privado') | (lower(col('econ2')) == '54 transferencias de capital al sector privado' ) | (lower(col('econ2')) == '04 transferencias de capital al sector privado') | (lower(col('econ2')) == '02 transferencias corrientes al sector privado')), 'Subsidies')
+                        .when(((col("year") >= 2020) & ((lower(col('econ2'))== '04 transferencias de capital al sector privado') | (lower(col('econ2')) == '02 transferencias corrientes al sector privado'))), 'Subsidies')
                         .when(col('econ_sub').isin('pensions', 'social assistance'), 'Social benefits')
-                        .when((col('econ2') == '01 Transferencias Corrientes Al Sector Público ') | (col('econ2') == '51 Transferencias corrientes al sector público') & ~col('func1').startswith('11 '), 'Grants and transfers')
+                        .when((lower(col('econ2')) == '01 transferencias corrientes al sector publico') | (lower(col('econ2')) == '51 transferencias corrientes al sector publico') & ~col('func1').startswith('11 '), 'Grants and transfers')
                         .otherwise('Other expenses'))
             )
 
