@@ -371,3 +371,18 @@ def quality_boost_econ():
         .agg(F.count('*').alias('row_count'))
         .join(quality_cci_econ, on=['country_name', 'econ'], how="right")
     )
+
+# COMMAND ----------
+
++ # Pre-query for the rpf dash/PowerBI dashboard
++ @dlt.table(name="pov_expenditure_by_country_year")
++ def pov_expenditure():
++     return (
++         spark.table("indicator.poverty").join(
++             dlt.read("expenditure_by_country_year"),
++             on=["year", "country_name"],
++             how="right",
++         )
++         # Only poor215 is required for the dashboard
++         .drop("country_code", "region", "poor365", "poor685", "data_source")
++     )
