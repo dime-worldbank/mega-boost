@@ -105,20 +105,13 @@ def boost_bronze_cen():
                 # interest on debt
                 .when((~col('is_transfer')) & ((col('ECON5').startswith('710')) | (col('ECON5').startswith('720'))), 'Interest on debt')
                 .otherwise('Other expenses')
-            ).withColumn('geo_0.5', 
-            when(col('adm1_name').isin('Asuncion', 'Central'), 'Central (Asuncion, Central)')
-            .when(col('adm1_name').isin('Alto Parana', 'Caaguazu', 'Canindeyu'), 'North-East (Caaguazu, Alto Parana, Canideyu)')
-            .when(col('adm1_name').isin('Alto Paraguay', 'Amambay', 'Boqueron', 'Concepcion', 'Cordillera', 'Presidente Hayes', 'San Pedro'), 'North-West (Boqueron, Alto Paraguay, Presidente Hayes, Conception, Amambay, San pedro, Cordillera)')
-            .when(col('adm1_name').isin('Guaira', 'Misiones', 'Neembucu', 'Paraguari'), 'South-East (Guaira, Misiones, Paraguari, Neembucu)')
-            .when(col('adm1_name').isin('Caazapa', 'Itapua'), 'South-West (Caazapa, Itapua)')
-            .otherwise(None)
             ).select(
                 col('YEAR').alias('year'),
                 col('APPROVED').alias('approved'),
                 col('MODIFIED').alias('revised'),
                 col('COMMITTED').alias('executed'), 
                 col('geo1_tmp').alias('geo1'),
-                'is_transfer', 'is_foreign', 'adm1_name', '`geo_0.5`', 'admin0', 'admin1', 'admin2', 'ECON4', 'ECON5', 'FUNCTION2',  'func', 'func_sub', 'econ', 'econ_sub', 'sheet'
+                'is_transfer', 'is_foreign', 'adm1_name', 'admin0', 'admin1', 'admin2', 'ECON4', 'ECON5', 'FUNCTION2',  'func', 'func_sub', 'econ', 'econ_sub', 'sheet'
             )
     )
 
@@ -170,20 +163,13 @@ def boost_bronze_municipal():
             ).withColumn('func_sub', lit(None).cast("string")
             ).withColumn('adm1_name', lit(None).cast("string")
             ).withColumn('FUNCTION2', lit(None).cast("string")
-            ).withColumn('geo_0.5', 
-            when(col('adm1_name').isin('Asuncion', 'Central'), 'Central (Asuncion, Central)')
-            .when(col('adm1_name').isin('Alto Parana', 'Caaguazu', 'Canindeyu'), 'North-East (Caaguazu, Alto Parana, Canideyu)')
-            .when(col('adm1_name').isin('Alto Paraguay', 'Amambay', 'Boqueron', 'Concepcion', 'Cordillera', 'Presidente Hayes', 'San Pedro'), 'North-West (Boqueron, Alto Paraguay, Presidente Hayes, Conception, Amambay, San pedro, Cordillera)')
-            .when(col('adm1_name').isin('Guaira', 'Misiones', 'Neembucu', 'Paraguari'), 'South-East (Guaira, Misiones, Paraguari, Neembucu)')
-            .when(col('adm1_name').isin('Caazapa', 'Itapua'), 'South-West (Caazapa, Itapua)')
-            .otherwise(None) 
             ).select(
                 col('YEAR').alias('year'),
                 'approved',
                 col('MODIFIED').alias('revised'),
                 col('PAID').alias('executed'),
                 col('geo1_tmp').alias('geo1'),
-                'is_transfer', 'is_foreign', 'adm1_name', '`geo_0.5`', 'admin0', 'admin1', 'admin2','ECON4', 'ECON5', 'FUNCTION2', 'func', 'func_sub', 'econ', 'econ_sub', 'sheet'             
+                'is_transfer', 'is_foreign', 'adm1_name', 'admin0', 'admin1', 'admin2','ECON4', 'ECON5', 'FUNCTION2', 'func', 'func_sub', 'econ', 'econ_sub', 'sheet'             
             
     )
     )
@@ -193,7 +179,15 @@ def boost_silver():
     cen = dlt.read('pry_boost_bronze_cen' )
     municipalidades = dlt.read('pry_boost_bronze_municipal')
     df = cen.union(municipalidades)
-    return df
+    return (df
+            .withColumn('geo_0.5',
+                when(col('geo1').isin('Asuncion', 'Central'), 'Central')
+                .when(col('geo1').isin('Alto Parana', 'Caaguazu', 'Canindeyu'), 'North-East')
+                .when(col('geo1').isin('Alto Paraguay', 'Amambay', 'Boqueron', 'Concepcion', 'Cordillera', 'Presidente Hayes', 'San Pedro'), 'North-West')
+                .when(col('geo1').isin('Guaira', 'Misiones', 'Neembucu', 'Paraguari'), 'South-East')
+                .when(col('geo1').isin('Caazapa', 'Itapua'), 'South-West')
+            )
+    )
         
 @dlt.table(name=f'pry_boost_gold')
 def boost_gold():
