@@ -203,15 +203,14 @@ def boost_silver():
             # other expenses
             .otherwise('Other expenses')
         ).withColumn('geo_0.5', 
-            when(col('adm1_name').isin('Kiambu', 'Kirinyaga', 'Murang’A', 'Nyandarua', 'Nyeri', 'Tharaka Nithi'), 'Central')
-            .when(col('adm1_name').isin('Kilifi', 'Kwale', 'Lamu','Mombasa' , 'Taita Taveta','Tana River'), 'Coast')
-            .when(col('adm1_name').isin('Embu', 'Isiolo', 'Kitui', 'Machakos', 'Makueni', 'Marsabit', 'Meru'), 'Eastern')
-            .when(col('adm1_name').isin('Nairobi City'), 'Nairobi')
-            .when(col('adm1_name').isin('Garissa', 'Mandera','Wajir'), 'North Eastern')
-            .when(col('adm1_name').isin('Homa Bay', 'Kisii', 'Migori', 'Nyamira'), 'Nyanza')
-            .when(col('adm1_name').isin('Baringo', 'Bomet', 'Elgeyo Marakwet', 'Kajiado', 'Kericho', 'Laikipia', 'Nakuru', 'Nandi', 'Narok', 'Samburu', 'Trans Nzoia', 'Turkana', 'Uasin Gishu', 'West Pokot'), 'Rift Valley')
-            .when(col('adm1_name').isin('Bungoma','Busia', 'Kakamega', 'Kisumu', 'Siaya', 'Vihiga'), 'Western')
-            .otherwise(None) 
+            when(col('geo1').isin('Kiambu County', 'Kirinyaga County', 'Muranga County', 'Nyandarua County', 'Nyeri County', 'Tharaka Nithi County'), 'Central')
+            .when(col('geo1').isin('Kilifi County', 'Kwale County', 'Lamu County','Mombasa County' , 'Taita/Taveta County','Tana River County'), 'Coast')
+            .when(col('geo1').isin('Embu County', 'Isiolo County', 'Kitui County', 'Machakos County', 'Makueni County', 'Marsabit County', 'Meru County'), 'Eastern')
+            .when(col('geo1').isin('Nairobi City County'), 'Nairobi')
+            .when(col('geo1').isin('Garissa County', 'Mandera County','Wajir County'), 'North Eastern')
+            .when(col('geo1').isin('Homa Bay County', 'Kisii County', 'Migori County', 'Nyamira County'), 'Nyanza')
+            .when(col('geo1').isin('Baringo County', 'Bomet County', 'Elgeyo Marakwet County', 'Kajiado County', 'Kericho County', 'Laikipia County', 'Nakuru County', 'Nandi County', 'Narok County', 'Samburu County', 'Trans Nzoia County', 'Turkana County', 'Uasin Gishu County', 'West Pokot County'), 'Rift Valley')
+            .when(col('geo1').isin('Bungoma County','Busia County', 'Kakamega County', 'Kisumu County', 'Siaya County', 'Vihiga County'), 'Western')
         )
     )
     
