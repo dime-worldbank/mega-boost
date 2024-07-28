@@ -159,8 +159,7 @@ def boost_silver():
             .when(col('geo1').isin('Katanga', 'Tanganyika', 'Haut Lomami', 'Lualaba', 'Haut Katanga'), 'Katanga')
             .when(col('geo1').isin('Kinshasa', 'Ville Province De Kinshasa'), 'Kinshasa')
             .when(col('geo1').isin('Nord Kivu'), 'Nord-Kivu')
-            .when(col('geo1').isin('Ituri', 'Haut Uele', 'Orientale', 'Bas Uele', 'Tshopo'), 'Orientale')
-            .otherwise(None)
+            .when(col('geo1').isin('Ituri', 'Haut Uele', 'Orientale', 'Bas Uele', 'Tshopo', 'Maniema'), 'Orientale')
     )
 
 @dlt.table(name=f'cod_boost_gold')
