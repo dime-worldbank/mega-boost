@@ -46,6 +46,7 @@ def boost_bronze():
 def boost_silver():
     return (
         dlt.read(f"ury_boost_bronze")
+        .withColumn("econ2_lower", lower(col("econ2")))
         .withColumn("admin0", lit("Central"))  # No subnational data available
         .withColumn("geo1", lit("Central"))  # No subnational data available
         .withColumn("is_foreign", col("SOURCE_FIN1").startswith("20 "))
@@ -141,11 +142,10 @@ def boost_silver():
             "econ_sub",
             when(
                 (col("exp_type") == "Personal")
-                & (lower(col("econ2")) != "06 beneficios al personal")
-                & (lower(col("econ2")) != "07 beneficios familiares")
+                & (col("econ2_lower") != "06 beneficios al personal")
+                & (col("econ2_lower") != "07 beneficios familiares")
                 & (
-                    lower(col("econ2"))
-                    != "08 cargas legales sobre servicios personales"
+                    col("econ2_lower") != "08 cargas legales sobre servicios personales"
                 ),
                 "basic wages",
             )
@@ -154,14 +154,14 @@ def boost_silver():
                 (col("exp_type") == "Inversion") & col("source_fin1").startswith("20 "),
                 "capital expenditure (foreign spending)",
             )
-            .when(lower(col("econ2")) == "21 servicios basicos", "basic services")
+            .when(col("econ2_lower") == "21 servicios basicos", "basic services")
             .when(
-                lower(col("econ2"))
+                col("econ2_lower")
                 == "28 servicios tecnicos, profesionales y artisticos(dec.17/003)",
                 "employment contracts",
             )
             .when(
-                lower(col("econ2"))
+                col("econ2_lower")
                 == "27 serv. para mant., reparaciones menores y limpieza",
                 "recurrent maintenance",
             )
@@ -169,19 +169,19 @@ def boost_silver():
                 (
                     (col("year") < 2020)
                     & (
-                        lower(col("econ2"))
+                        col("econ2_lower")
                         == "52 transferencias corrientes al sector privado"
                     )
                     | (
-                        lower(col("econ2"))
+                        col("econ2_lower")
                         == "54 transferencias de capital al sector privado"
                     )
                     | (
-                        lower(col("econ2"))
+                        col("econ2_lower")
                         == "04 transferencias de capital al sector privado"
                     )
                     | (
-                        lower(col("econ2"))
+                        col("econ2_lower")
                         == "02 transferencias corrientes al sector privado"
                     )
                 ),
@@ -191,11 +191,11 @@ def boost_silver():
                 (col("year") >= 2020)
                 & (
                     (
-                        lower(col("econ2"))
+                        col("econ2_lower")
                         == "04 transferencias de capital al sector privado"
                     )
                     | (
-                        lower(col("econ2"))
+                        col("econ2_lower")
                         == "02 transferencias corrientes al sector privado"
                     )
                 ),
@@ -227,19 +227,19 @@ def boost_silver():
                 (
                     (col("year") < 2020)
                     & (
-                        lower(col("econ2"))
+                        col("econ2_lower")
                         == "52 transferencias corrientes al sector privado"
                     )
                     | (
-                        lower(col("econ2"))
+                        col("econ2_lower")
                         == "54 transferencias de capital al sector privado"
                     )
                     | (
-                        lower(col("econ2"))
+                        col("econ2_lower")
                         == "04 transferencias de capital al sector privado"
                     )
                     | (
-                        lower(col("econ2"))
+                        col("econ2_lower")
                         == "02 transferencias corrientes al sector privado"
                     )
                 ),
@@ -250,11 +250,11 @@ def boost_silver():
                     (col("year") >= 2020)
                     & (
                         (
-                            lower(col("econ2"))
+                            col("econ2_lower")
                             == "04 transferencias de capital al sector privado"
                         )
                         | (
-                            lower(col("econ2"))
+                            col("econ2_lower")
                             == "02 transferencias corrientes al sector privado"
                         )
                     )
@@ -265,12 +265,9 @@ def boost_silver():
                 col("econ_sub").isin("pensions", "social assistance"), "Social benefits"
             )
             .when(
-                (
-                    lower(col("econ2"))
-                    == "01 transferencias corrientes al sector publico"
-                )
+                (col("econ2_lower") == "01 transferencias corrientes al sector publico")
                 | (
-                    lower(col("econ2"))
+                    col("econ2_lower")
                     == "51 transferencias corrientes al sector publico"
                 )
                 & ~col("func1").startswith("11 "),
