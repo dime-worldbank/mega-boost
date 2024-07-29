@@ -79,6 +79,19 @@ def expenditure_by_country_year():
         .join(year_ranges, on=['country_name'], how='left')
     )
 
+# Pre-query for the rpf dash/PowerBI dashboard
+@dlt.table(name="pov_expenditure_by_country_year")
+def pov_expenditure():
+    return (
+        spark.table("indicator.poverty").join(
+            dlt.read("expenditure_by_country_year"),
+            on=["year", "country_name"],
+            how="right",
+        )
+        # Only poor215 is required for the dashboard
+        .drop("country_code", "region", "poor365", "poor685", "data_source")
+    )
+
 @dlt.table(name=f'expenditure_by_country_geo1_func_year')
 def expenditure_by_country_geo1_func_year():
     boost_gold = dlt.read('boost_gold')
