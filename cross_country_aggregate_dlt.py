@@ -105,7 +105,7 @@ def expenditure_by_country_geo1_func_year():
     subnat_pop = spark.table('indicator.subnational_population')
     pop = (subnat_pop.groupBy("country_name", "year")
         .agg(F.sum("population").alias("population"))
-        .withColumn("adm1_name", F.lit("Central Scope"))
+        .withColumn("adm1_name", F.lit("Central Scope")) #TODO: update all adm1_name to geo1 after migration off PowerBI
         .union(
             subnat_pop
             .select("country_name", "year", "population", "adm1_name")
@@ -345,9 +345,43 @@ def quality_boost_country():
 @dlt.table(name='quality_boost_subnat')
 @dlt.expect_or_fail('country has subnational agg', 'row_count IS NOT NULL')
 def quality_boost_subnat():
-    boost_countries = dlt.read('quality_boost_country').select('country_name')
+    no_subnat_countries = ['Uruguay']
+    boost_countries = (
+        dlt.read('quality_boost_country')
+        .filter(~F.col('country_name').isin(no_subnat_countries))
+        .select('country_name')
+    )
 
     return (dlt.read('expenditure_by_country_geo1_year')
+        .groupBy('country_name')
+        .agg(F.count('*').alias('row_count'))
+        .join(boost_countries, on=['country_name'], how="right")
+    )
+
+@dlt.table(name='quality_boost_geo1_central_scope')
+@dlt.expect_or_fail('country geo1 has central scope', 'row_count IS NOT NULL')
+def quality_boost_geo1_central_scope():
+    no_geo1_central_scope_countries = ['Uruguay', 'Nigeria']
+    boost_countries = (
+        dlt.read('quality_boost_country')
+        .filter(~F.col('country_name').isin(no_geo1_central_scope_countries))
+        .select('country_name')
+    )
+
+    return (dlt.read('expenditure_by_country_geo1_year')
+        .filter(F.col('adm1_name') == 'Central Scope')
+        .groupBy('country_name')
+        .agg(F.count('*').alias('row_count'))
+        .join(boost_countries, on=['country_name'], how="right")
+    )
+
+@dlt.table(name='quality_boost_admin1_central_scope')
+@dlt.expect_or_fail('country admin1 has central scope', 'row_count IS NOT NULL')
+def quality_boost_admin1_central_scope():
+    boost_countries = dlt.read('quality_boost_country').select('country_name')
+
+    return (dlt.read('boost_gold')
+        .filter(F.col('admin1') == 'Central Scope')
         .groupBy('country_name')
         .agg(F.count('*').alias('row_count'))
         .join(boost_countries, on=['country_name'], how="right")
@@ -369,6 +403,22 @@ def quality_boost_func():
         .join(quality_cci_func, on=['country_name', 'func'], how="right")
     )
 
+@dlt.table(name='quality_boost_func_unknown')
+@dlt.expect_or_fail('country has no unknown func', 'cci_row_count IS NOT NULL')
+def quality_boost_func_exact():
+    boost_countries = dlt.read('quality_boost_country').select('country_name')
+    quality_cci_func = (spark.table('boost_intermediate.quality_functional_silver')
+        .groupBy('country_name', 'func')
+        .agg(F.count('*').alias('cci_row_count'))
+        .join(boost_countries, on=['country_name'], how="right")
+    )
+    return (
+        dlt.read('expenditure_by_country_func_year')
+        .groupBy('country_name', 'func')
+        .agg(F.count('*').alias('row_count'))
+        .join(quality_cci_func, on=['country_name', 'func'], how="left")
+    )
+
 @dlt.table(name='quality_boost_econ')
 @dlt.expect_or_fail('country has econ agg', 'row_count IS NOT NULL')
 def quality_boost_econ():
@@ -383,4 +433,20 @@ def quality_boost_econ():
         .groupBy('country_name', 'econ')
         .agg(F.count('*').alias('row_count'))
         .join(quality_cci_econ, on=['country_name', 'econ'], how="right")
+    )
+
+@dlt.table(name='quality_boost_econ_unknown')
+@dlt.expect_or_fail('country has no unknown econ agg', 'cci_row_count IS NOT NULL')
+def quality_boost_econ_unknown():
+    boost_countries = dlt.read('quality_boost_country').select('country_name')
+    quality_cci_econ = (spark.table('boost_intermediate.quality_economic_silver')
+        .groupBy('country_name', 'econ')
+        .agg(F.count('*').alias('cci_row_count'))
+        .join(boost_countries, on=['country_name'], how="right")
+    )
+    return (
+        dlt.read('expenditure_by_country_econ_year')
+        .groupBy('country_name', 'econ')
+        .agg(F.count('*').alias('row_count'))
+        .join(quality_cci_econ, on=['country_name', 'econ'], how="left")
     )
