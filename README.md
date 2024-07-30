@@ -8,7 +8,10 @@ ELT pipelines that take BOOST coded microdata for each country, clean, harmonize
 - Create a new folder with the country name (Add underscores for countries with 2 words:  Burkina_Faso) 
 - Code: You will need
   - 1 notebook for extracting the Boost/raw data from the excel sheet (e.g. ALB_extract_microdata_excel_to_csv.py)
-  - 1 notebook for transforming the Boost country data to harmonize with other countries. (e.g. ALB_transform_load_dlt.py)
+  - 1 notebook for transforming the Boost country data to harmonize with other countries. (e.g. ALB_transform_load_dlt.py).
+     - Make sure that the output tables has the country prefix code.
+      https://github.com/dime-worldbank/mega-boost/blob/df095567afb187ae6db60181ce81588533bfdd0a/Albania/ALB_transform_load_dlt.py#L128
+      This should be consistent with the country code listed in https://github.com/dime-worldbank/mega-boost/blob/df095567afb187ae6db60181ce81588533bfdd0a/cross_country_aggregate_dlt.py#L7
 - Test the ELT scripts in databricks (set up DLT workflow if necessary)
   - There are multiple ways to set up the DLT workflow. One way is to first run the notebook with the default cluster (DAP-PROD-CLUSTER). Then create a pipeline following the UI (see below)
   - The pipeline name (anything you like) and target schema name (e.g. boost_intermediate) should be populated 
