@@ -1,4 +1,16 @@
 # Databricks notebook source
+import sys, os
+
+workspace_path = [p for p in sys.path if p.startswith("/Workspace/")]
+user_name = [s for s in workspace_path[0].split("/") if "@" in s]
+root_path = f"/Workspace/Users/{user_name[0]}/mega-boost"
+
+sys.path.append(os.path.abspath(root_path))
+
+from constants import *
+
+# COMMAND ----------
+
 import dlt
 import unicodedata
 from pyspark.sql.functions import (
@@ -214,14 +226,14 @@ def boost_silver():
         )
         .withColumn(
             "econ",
-            when(col("econ1").startswith("6 "), "Interest on debt")
-            .when(col("exp_type") == "Personal", "Wage bill")
-            .when(col("exp_type") == "Inversion", "Capital expenditures")
+            when(col("econ1").startswith("6 "), ECON_TYPES.INTEREST_ON_DEBT.value)
+            .when(col("exp_type") == "Personal", ECON_TYPES.WAGE_BILL.value)
+            .when(col("exp_type") == "Inversion", ECON_TYPES.CAPITAL_EXPENDITURES.value)
             .when(
                 col("econ1").startswith("1 ")
                 | col("econ1").startswith("2 ")
                 | ((col("econ1").startswith("3 ")) & (col("exp_type") == "Inversion")),
-                "Goods and services",
+                ECON_TYPES.GOODS_AND_SERVICES.value,
             )
             .when(
                 (
@@ -243,7 +255,7 @@ def boost_silver():
                         == "02 transferencias corrientes al sector privado"
                     )
                 ),
-                "Subsidies",
+                ECON_TYPES.SUBSIDIES.value,
             )
             .when(
                 (
@@ -259,10 +271,11 @@ def boost_silver():
                         )
                     )
                 ),
-                "Subsidies",
+                ECON_TYPES.SUBSIDIES.value,
             )
             .when(
-                col("econ_sub").isin("pensions", "social assistance"), "Social benefits"
+                col("econ_sub").isin("pensions", "social assistance"),
+                ECON_TYPES.SOCIAL_BENEFITS.value,
             )
             .when(
                 (col("econ2_lower") == "01 transferencias corrientes al sector publico")
@@ -271,9 +284,9 @@ def boost_silver():
                     == "51 transferencias corrientes al sector publico"
                 )
                 & ~col("func1").startswith("11 "),
-                "Grants and transfers",
+                ECON_TYPES.OTHER_GRANTS_AND_TRANSFERS.value,
             )
-            .otherwise("Other expenses"),
+            .otherwise(ECON_TYPES.OTHER_EXPENSES.value),
         )
     )
 
