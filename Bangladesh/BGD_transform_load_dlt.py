@@ -37,8 +37,12 @@ def boost_2019_onward_silver():
     return (dlt.read(f'bgd_2019_onward_boost_bronze')
         .filter(col('ECON1').isin(['3 - Recurrent Expenditure', '4 - Capital Expenditure']))
         .withColumn(
-            'geo1', 
-            regexp_replace(col("GEO1"), r"\d+ ", "") # remove leading numbers
+            'geo1',
+            when(
+                # necessary for coercing other values to None
+                regexp_extract(col("GEO1"), r'\d', 0) != '',
+                regexp_replace(col("GEO1"), r"\d+ ", "") # remove leading numbers
+            ).otherwise('Central Scope')
         ).withColumn(
             'admin0', 
             when((col('ADMIN0').endswith('CAFO') | col('ADMIN0').endswith('DAFO')), 'Regional')
@@ -157,8 +161,8 @@ def boost_2015_to_2018_silver():
             when(
                 # necessary for coercing other values to None
                 regexp_extract(col("GEO1"), r'\d', 0) != '',
-                regexp_replace(col("GEO1"), r"\d+ ", "")
-            )
+                regexp_replace(col("GEO1"), r"\d+ ", "") # remove leading numbers
+            ).otherwise('Central Scope')
         ).withColumn(
             'admin1',
             when(col('admin0') == 'Central', 'Central Scope')
@@ -329,8 +333,8 @@ def boost_2008_to_2014_silver():
             when(
                 # necessary for coercing other values to None
                 regexp_extract(col("GEO1"), r'\d', 0) != '',
-                regexp_replace(col("GEO1"), r"\d+ ", "")
-            )
+                regexp_replace(col("GEO1"), r"\d+ ", "") # remove leading numbers
+            ).otherwise('Central Scope')
         ).withColumn(
             'admin1',
             when(col('admin0') == 'Central', 'Central Scope')
@@ -480,7 +484,9 @@ def boost_gold():
     ]
 
     return (
+        # 2008 data FUNC1 is not propertly tagged, exclude entirely for correness sake
         dlt.read(f'bgd_2019_onward_boost_silver')
+        .filter(col('year') != 2008) 
         .select(*gold_cols)
         .union(
             dlt.read(f'bgd_2015_to_2018_boost_silver')
