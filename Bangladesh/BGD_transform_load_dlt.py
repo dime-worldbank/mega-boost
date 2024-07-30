@@ -45,7 +45,7 @@ def boost_2019_onward_silver():
             .otherwise('Central')
         ).withColumn(
             'admin1',
-            when(col('admin0') == 'Central', 'Central')
+            when(col('admin0') == 'Central', 'Central Scope')
             .otherwise(col('geo1'))
         ).withColumn(
             'admin2',
@@ -161,7 +161,7 @@ def boost_2015_to_2018_silver():
             )
         ).withColumn(
             'admin1',
-            when(col('admin0') == 'Central', 'Central')
+            when(col('admin0') == 'Central', 'Central Scope')
             .otherwise(col('geo1'))
         ).withColumn(
             'admin2',
@@ -293,6 +293,175 @@ def boost_2015_to_2018_silver():
 
 # COMMAND ----------
 
+@dlt.expect_or_drop("year_not_null", "Year IS NOT NULL")
+@dlt.table(name=f'bgd_2008_to_2014_boost_bronze')
+def boost_2008_to_2014_bronze():
+    file_paths = list(f"{COUNTRY_MICRODATA_DIR}/{year}.csv" for year in range(2008, 2014))
+
+    bronze_df = (spark.read
+                 .format("csv")
+                 .options(**CSV_READ_OPTIONS)
+                 .option("inferSchema", "true")
+                 .load(file_paths))
+    bronze_df = bronze_df.withColumn('year', col('year').cast('int'))
+    bronze_df = bronze_df.dropna(how='all')
+    return bronze_df
+
+@dlt.table(name=f'bgd_2008_to_2014_boost_silver')
+def boost_2008_to_2014_silver():
+    return (dlt.read(f'bgd_2008_to_2014_boost_bronze')
+        .filter((regexp_extract(col("ECON1"), r'\d', 0) != '') &
+            ~(col('ECON1').startswith("71")
+             | col('ECON1').startswith("72")
+             | col('ECON1').startswith("73")
+             | col('ECON1').startswith("74")
+             | col('ECON1').startswith("75")
+             | col('ECON1').startswith("76")
+             | col('ECON1').startswith("77")
+             | col('ECON1').startswith("79")
+            )
+        ).withColumn(
+            'admin0', 
+            when(col('ADMIN0').isin(['DAO', 'UAO']), 'Regional')
+            .otherwise('Central')
+        ).withColumn(
+            'geo1', 
+            when(
+                # necessary for coercing other values to None
+                regexp_extract(col("GEO1"), r'\d', 0) != '',
+                regexp_replace(col("GEO1"), r"\d+ ", "")
+            )
+        ).withColumn(
+            'admin1',
+            when(col('admin0') == 'Central', 'Central Scope')
+            .otherwise(col('geo1'))
+        ).withColumn(
+            'admin2',
+            col('ADMIN2')
+        ).withColumn(
+            'func',
+            # social protection needs to be first to pick up all of ECON1 63 Pensions and Gratuities
+            when(
+                ((col('FUNC1') == 'Social Security and Welfare') | (col('ECON1') == '63 Pensions and Gratuities')),
+                'Social protection'
+            ).when(
+                col('FUNC1') == 'Defence Services',
+                'Defence'
+            ).when(
+                col('FUNC1') == 'Public Order and Safety',
+                'Public order and safety'
+            ).when(
+                col('FUNC1') == 'Housing',
+                'Housing and community amenities'
+            ).when(
+                col('FUNC1') == 'Health',
+                'Health'
+            ).when(
+                col('FUNC1') == 'Recreation, Culture and Religious Affairs',
+                'Recreation, culture and religion'
+            ).when(
+                col('FUNC1') == 'Education & Technology',
+                'Education'
+            ).when(
+                # Environment needs to be before Economic affairs as it's a subcategory of FUNC1='Agriculture'
+                col('ADMIN2') == "45 Ministry of Environment and Forest",
+                'Environmental protection'
+            ).when(
+                col('FUNC1').isin([
+                    "Agriculture",
+                    "Energy and Power",
+                    "Transport and Communication",
+                    "Industrial and Economic Services"
+                ]),
+                'Economic affairs'
+            ).otherwise(lit('General public services'))
+        )
+        .withColumn(
+            'func_sub',
+            when(col('func') == 'Public order and safety', 
+                 when(col('ADMIN2') == '22 Ministry of Home Affairs', 'public order')
+                 .otherwise('judiciary')
+            )
+            .when(col('func') == 'Education', 
+                when(
+                    (col('ADMIN2').contains('Primary Education') 
+                    | col('ADMIN2').contains('Primary and Mass Education'))
+                , 'primary education')
+                .when(
+                    col('ADMIN2') == '25 Ministry of Education'
+                , 'secondary education')
+            )
+        ).withColumn(
+            'econ_sub',
+            when(col('ECON1').isin(["45 Pay of Officers","46 Pay of Establishment"]), 'basic wages')
+            .when(col('ECON1') == "47 Allowances", 'allowances')
+            .when(
+                col('ECON1') == "48 Supplies and Services",
+                when(
+                    col('ECON2').isin([
+                        "4823 Petrol, Oil and Lubricants",
+                        "4821 Electricity",
+                        "4891 Subsistence",
+                        "4872 Diet",
+                        "4806 Rent - Office",
+                        "4819 Water"
+                    ]),
+                    'basic services'
+                ).when(
+                    col('ECON2') == "4883 Honorarium/Fees/Remuneration",
+                    'employment contracts'
+                )
+            )
+            .when(
+                col('ECON1') == '63 Pensions and Gratuities',
+                'pensions')
+            .when(
+                ((col('ECON1') == '59 Grants-in-Aid') & (col('FUNC1') == 'Social Security and Welfare')),
+                'social assistance'
+            )
+        ).withColumn(
+            'econ',
+            when(
+                (col('ECON1').startswith("68")
+                 | col('ECON1').startswith("69")
+                 | col('ECON1').startswith("70")
+                ),
+                'Capital expenditures')
+            .when(
+                col('econ_sub').isin([
+                    'basic wages',
+                    'allowances']),
+                'Wage bill')
+            .when(
+                col('ECON1').isin([
+                    "48 Supplies and Services",
+                    "49 Repairs, Maintenance and Rehabilitation"]),
+                'Goods and services')
+            .when(
+                col('ECON1').isin([
+                    "50 Term Loan Interest Repayment",
+                    "51 Floating Loan Interest",
+                    "52 Interest on National Savings Certificates",
+                    "53 Provident Fund Interest",
+                    "55 Other Interest",
+                    "56 Interest on Foreign Debt",
+                ]),
+                'Interest on debt'
+            ) 
+            .when(
+                col('ECON1') == "58 Subsidies",
+                'Subsidies')
+            .when(
+                col('econ_sub').isin([
+                    'social assistance',
+                    'pensions']),
+                'Social benefits')
+            .otherwise('Other expenses') 
+        )
+    )
+
+# COMMAND ----------
+
 @dlt.table(name=f'bgd_boost_gold')
 def boost_gold():
     gold_cols = [
@@ -315,6 +484,10 @@ def boost_gold():
         .select(*gold_cols)
         .union(
             dlt.read(f'bgd_2015_to_2018_boost_silver')
+            .select(*gold_cols)
+        )
+        .union(
+            dlt.read(f'bgd_2008_to_2014_boost_silver')
             .select(*gold_cols)
         )
         .withColumn('country_name', lit(COUNTRY))
