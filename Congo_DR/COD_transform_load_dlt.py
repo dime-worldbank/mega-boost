@@ -40,7 +40,7 @@ def boost_silver():
         .withColumn('is_interest', col('Titre') == "1 DETTE PUBLIQUE EN CAPITAL") # this is not interest need to rename it
         .withColumn('is_foreign', (col('Source').isin('Budget General_Externe', 'Externe') & (col('Article')!='12 Dette Exterieure')))
         .withColumn('admin0', lit('Central'))
-        .withColumn('admin1', lit('Central'))
+        .withColumn('admin1', lit('Central Scope'))
         .withColumn('admin2', initcap(regexp_replace(col('Chapitre'), '^[0-9\\s]*', '')))
         .withColumn('geo1',
             when(col("Province").startswith('00'), 'Central Scope')

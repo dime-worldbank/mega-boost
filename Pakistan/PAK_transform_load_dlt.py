@@ -37,18 +37,13 @@ def boost_bronze():
 def boost_silver():
     return (dlt.read(f'pak_boost_bronze')
         .filter(~col('econ1').startswith('A08 ') & ~col('econ1').startswith('A10 ') & ~col('econ1').startswith('A99 '))
-        .withColumn('adm1_name',
-            when(col("Admin0") == "Federal", "Central Scope")
-            .otherwise(
-                when(col("Admin0") == "KP", "Khyber Pakhtunkhwa")
-                .otherwise(col("Admin0")))
-        ).withColumn(
+        .withColumn(
             'admin0_tmp', 
             when(col('Admin0')=='Federal', 'Central')
             .otherwise('Regional')
         ).withColumn(
             'admin1_tmp', # since admin1 already exists in the raw data
-            when(col('admin0_tmp')=='Central', 'Central')
+            when(col('admin0_tmp')=='Central', 'Central Scope')
             .when(col("Admin0") == "KP", 'Khyber Pakhtunkhwa')
             .otherwise(col('Admin0'))
         ).withColumn(
@@ -99,7 +94,7 @@ def boost_silver():
             # social benefits
             .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
             # other grants and transfers
-            .when((col('econ1').startswith('A05')) & (~col('func1').startswith('10')) & (~col('econ2').startswith('A051')), 'Grants and transfers')
+            .when((col('econ1').startswith('A05')) & (~col('func1').startswith('10')) & (~col('econ2').startswith('A051')), 'Other grants and transfers')
             # interest on debt
             .when(col('econ1').startswith('A07 '), 'Interest on debt') 
             .otherwise('Other expenses') 
@@ -111,7 +106,6 @@ def boost_gold():
     return (dlt.read(f'pak_boost_silver')
             .withColumn('country_name', lit(COUNTRY))
             .select('country_name',
-                    'adm1_name',
                     'year',
                     'approved',
                     expr("CAST(NULL AS DOUBLE) as revised"),

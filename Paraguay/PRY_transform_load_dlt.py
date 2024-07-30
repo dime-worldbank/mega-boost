@@ -32,29 +32,27 @@ def boost_bronze_cen():
                     ~col('ECON5').startswith('740') &
                     (~col('TRANS').isNotNull())
             ).withColumn('sheet', lit('cen'))
-            .withColumn('adm1_name_tmp', initcap(trim(regexp_replace(col("GEO1"), "^.+-", ""))) 
-            ).withColumn('adm1_name',
-                when(col("adm1_name_tmp") == 'Alcance Nacional', 'Central Scope')
-                .when(col("adm1_name_tmp") == 'Auxiliar Traspaso', 'Auxiliary Transfer')
-                .when(col("adm1_name_tmp") == 'No Disponible', 'Other')
-                .otherwise(col("adm1_name_tmp"))
-            ).withColumn(
+            .withColumn(
                 'is_transfer', col('TRANS').isNotNull()                        
             ).withColumn(
                 'is_foreign', (~col('is_transfer')) & (col('Foreign')=='Foreign')
             ).withColumn(
                 'admin0', lit('Central')
             ).withColumn(
-                'admin1', lit('Central')
+                'admin1', lit('Central Scope')
             ).withColumn(
                 'admin2', initcap(trim(regexp_replace('ADMIN1', "^[\d\s-]+", '')))
-            ).withColumn('geo1_tmp',
-                when(col("adm1_name_tmp") == 'Alcance Nacional', 'Central Scope')
-                .when(col("adm1_name_tmp") == 'Auxiliar Traspaso', 'Auxiliary Transfer')
-                .when(col("adm1_name_tmp") == 'No Disponible', 'Other')
-                .otherwise(col("adm1_name_tmp"))
+            ).withColumn(
+                'geo1_tmp', initcap(trim(regexp_replace(col("GEO1"), "^.+-", ""))) 
+            ).withColumn('geo1',
+                when(col("geo1_tmp").isin([
+                    'Alcance Nacional',
+                    'Auxiliar Traspaso',
+                    'No Disponible',
+                    ]), 'Central Scope'
+                ).otherwise(col("geo1_tmp"))
             ).drop(
-                'adm1_name_tmp'
+                'geo1_tmp'
             ).withColumn('func_sub',
                 when(col('FUNCTION2').startswith('120'), "judiciary")
                 .when(col('FUNCTION2').startswith('220'), "public safety")
@@ -65,11 +63,11 @@ def boost_bronze_cen():
             ).withColumn('func', 
                 when(col("func_sub").isin("judiciary", "public safety"), "Public order and safety")
                 .when(col('FUNCTION2').startswith('210'), 'Defence')
+                .when(col('FUNCTION2').startswith('440'), 'Environmental protection') # env needs to be before economic affairs due to overlap
                 .when((col('FUNCTION1').startswith('400') | col('FUNCTION1').startswith('600')), 'Economic affairs')
                 .when(col('FUNCTION2').startswith('310'), 'Health')
                 .when((col('FUNCTION3').startswith('344') | col('FUNCTION3').startswith('345')), 'Recreation, culture and religion')
                 .when(col('FUNCTION2').startswith('340'), 'Education')
-                .when(col('FUNCTION2').startswith('440'), 'Environmental protection')
                 .when((col('FUNCTION2').startswith('370') | col('FUNCTION2').startswith('380') | col('FUNCTION2').startswith('630')), 'Housing and community amenities')
                 .when((col('FUNCTION2').startswith('320') | col('FUNCTION2').startswith('330') | col('FUNCTION2').startswith('390')), 'Social protection')
                 .otherwise('General public services')
@@ -110,8 +108,8 @@ def boost_bronze_cen():
                 col('APPROVED').alias('approved'),
                 col('MODIFIED').alias('revised'),
                 col('COMMITTED').alias('executed'), 
-                col('geo1_tmp').alias('geo1'),
-                'is_transfer', 'is_foreign', 'adm1_name', 'admin0', 'admin1', 'admin2', 'ECON4', 'ECON5', 'FUNCTION2',  'func', 'func_sub', 'econ', 'econ_sub', 'sheet'
+                'geo1',
+                'is_transfer', 'is_foreign', 'admin0', 'admin1', 'admin2', 'ECON4', 'ECON5', 'FUNCTION2',  'func', 'func_sub', 'econ', 'econ_sub', 'sheet'
             )
     )
 
@@ -130,8 +128,8 @@ def boost_bronze_municipal():
                     ~col('ECON5').startswith('740')
             ).withColumn('admin0', lit('Regional')
             ).withColumn('admin1', initcap(trim(regexp_replace('geo', "^[\d\s-]+", '')))
-            ).withColumn('admin2', initcap(trim(regexp_replace('geo', "^[\d\s-]+", '')))
-            ).withColumn('geo1_tmp', initcap(trim(regexp_replace('geo', "^[\d\s-]+", '')))
+            ).withColumn('admin2', col('admin1')
+            ).withColumn('geo1', col('admin1')
             ).withColumnRenamed("approved", "APPROVED"
             ).withColumn('econ_sub',
                 when(col('ECON5').startswith('210'), 'basic services')
@@ -148,7 +146,7 @@ def boost_bronze_municipal():
                         col('ECON5').startswith('880') |
                         col('ECON5').startswith('890') | 
                         col('ECON5').startswith('980'))
-                    )),  'Capital expenditure')
+                    )),  'Capital expenditures')
                 # goods and services
                 .when((col('ECON4').startswith('200') | col('ECON4').startswith('300')), 'Goods and services')
                 # subsidies
@@ -159,17 +157,16 @@ def boost_bronze_municipal():
                 .otherwise('Other expenses')
             ).withColumn('is_transfer', lit(None).cast("boolean")
             ).withColumn('is_foreign', lit(None).cast("boolean")
-            ).withColumn('func', lit(None).cast("string")
+            ).withColumn('func', lit("General public services")
             ).withColumn('func_sub', lit(None).cast("string")
-            ).withColumn('adm1_name', lit(None).cast("string")
             ).withColumn('FUNCTION2', lit(None).cast("string")
             ).select(
                 col('YEAR').alias('year'),
                 'approved',
                 col('MODIFIED').alias('revised'),
                 col('PAID').alias('executed'),
-                col('geo1_tmp').alias('geo1'),
-                'is_transfer', 'is_foreign', 'adm1_name', 'admin0', 'admin1', 'admin2','ECON4', 'ECON5', 'FUNCTION2', 'func', 'func_sub', 'econ', 'econ_sub', 'sheet'             
+                'geo1',
+                'is_transfer', 'is_foreign', 'admin0', 'admin1', 'admin2','ECON4', 'ECON5', 'FUNCTION2', 'func', 'func_sub', 'econ', 'econ_sub', 'sheet'             
             )
     )
 
@@ -189,7 +186,6 @@ def boost_gold():
                 'approved',
                 'revised',
                 'executed',
-                'adm1_name',
                 'is_transfer',
                 'is_foreign',
                 'geo1',
@@ -201,4 +197,3 @@ def boost_gold():
                 'econ_sub',
                 'econ')
     )
-

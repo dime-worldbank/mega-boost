@@ -60,27 +60,35 @@ def boost_silver():
             '52 Settlement Of Financial Liabilities',
             '55 Settlement Of Financial Liabilities',
         ))
-        .withColumn('adm1_name', 
-            when(lower(col("Counties_Geo2")).like("%county%"),
-                 initcap(trim(regexp_replace(regexp_replace(col("Counties_Geo2"), "\d+", ""), "County", ""))))
-            .when(lower(col("Counties_Geo2")).like("%nation%"), 'Central Scope')
-        ).withColumn('adm1_name',
-            when(col("adm1_name") == 'Muranga', "Murang’A")
-            .when(col("adm1_name") == "Transnzoia",  'Trans Nzoia')
-            .otherwise(col("adm1_name"))
-        ).withColumn( 'admin0',
+        .withColumn('admin2',
+            regexp_replace(col("National_Government_Votes_&_Counties_adm2"), '^[0-9\\s]*', '')
+        ).withColumn('admin2',
+            trim(regexp_replace(col("admin2"), 'County', ''))
+        ).withColumn('admin2',
+            when(col("admin2") == 'Muranga', "Murang’A")
+            .otherwise(col("admin2"))
+        ).withColumn('county_geo', 
+            when(
+                lower(col("Counties_Geo2")).like("%county%"),
+                initcap(trim(regexp_replace(regexp_replace(col("Counties_Geo2"), "\d+", ""), "County", "")))
+            ).otherwise('Central')
+        ).withColumn('county_geo',
+            when(col("county_geo") == 'Muranga', "Murang’A")
+            .when(col("county_geo") == "Transnzoia",  'Trans Nzoia')
+            .otherwise(col("county_geo"))
+        ).withColumn('admin0',
             when(col('Vote_Groups_adm1') == '3 Counties', 'Regional')
             .otherwise('Central')
         ).withColumn('admin1',
-            when(col('admin0')=='Central', 'Central')
-            .otherwise(trim(regexp_replace(col("National_Government_Votes_&_Counties_adm2"), '^[0-9\\s]*', '')))
-        ).withColumn('admin2',
-            trim(regexp_replace(col("National_Government_Votes_&_Counties_adm2"), '^[0-9\\s]*', ''))
+            when(col('admin0')=='Central', 'Central Scope')
+            .otherwise(col('admin2'))
         ).withColumn('geo1', 
-            when(col('admin0') == 'Regional', col('admin1')) # if spent by Regional government then it is assumed to be spent in a region
-            .when((col('admin0') == 'Central') & lower(col("Counties_Geo2")).like("%county%"), 
-                initcap(trim(regexp_replace(col("Counties_Geo2"), "\d+", "")))) # central spending tagged with a region
-            .otherwise('Central Scope') # central spending not linked to a region
+            # if spent by Regional government then it is assumed to be spent in a region
+            when(col('admin0') == 'Regional', col('admin1'))
+            .when( # central spending tagged with a region
+                (col('admin0') == 'Central') & (col("county_geo") != "Central"), 
+                col('county_geo')
+            ).otherwise('Central Scope') # central spending not linked to a region
         ).withColumn('year', concat(lit('20'), substring(col('Year'), -2, 2)).cast('int')
         ).withColumn('is_foreign', (~col('Class').startswith('2')) & (~col('SOF2').startswith('00'))
         ).withColumn('func_sub',
@@ -211,7 +219,6 @@ def boost_gold():
         .filter(col('year') != 2015) # 2015 data is missing wage amounts for education, exclude entirely for correness sake
         .withColumn('country_name', lit(COUNTRY))
         .select('country_name',
-                'adm1_name',
                 'year',
                 col('Initial_Budget_Printed_Estimate').alias('approved').cast(DoubleType()),
                 col('Final_Budget_Approved_Estimate').alias('revised'),
