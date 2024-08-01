@@ -15,11 +15,14 @@ COUNTRY = 'Colombia'
 microdata_csv_dir = prepare_raw_microdata_csv_dir(COUNTRY)
 
 def normalize(cell):
+    if type(cell) != str:
+        return cell
     # downcase, remove white space, newline, non-word, accent
     return re.sub(r'[\s\W]', '', unidecode(cell)).lower()
 
 # COMMAND ----------
 
+# Central data extraction
 HEADER = ["EntidadDetalle", "ApropiacionDefinitiva", "Compromiso", "Obligacion", "Pago"]
 central_files = glob(f'{RAW_INPUT_DIR}/{COUNTRY}/central/execution/*.xlsx')
 for f in central_files:
@@ -62,6 +65,8 @@ for f in central_files:
 
 # COMMAND ----------
 
+# Subnational data extraction
+
 earlier_filenames = glob(f'{RAW_INPUT_DIR}/{COUNTRY}/subnational/gastos/*_FUT_*.xlsx')
 recent_filenames = glob(f'{RAW_INPUT_DIR}/{COUNTRY}/subnational/gastos/*_EJECUCION_*.xlsx')
 
@@ -72,14 +77,31 @@ EJECUCION_REQUIRED_COLS = [
     'vigenciagasto', # validity? needed for partitioning/grouping before ordering by budget code
     'compromisos', 'obligaciones', 'pagos' # numbers
 ]
+
+def read_subnat_excel_with_header_detection(file_path):
+    df = pd.read_excel(file_path, sheet_name=0, header=None)
+    
+    header_row_index = None
+    for i, row in df.iterrows():
+        normalized_values = list(normalize(v) for v in row.values.tolist())
+        if 'compromisos' in normalized_values and 'pagos' in normalized_values:
+            header_row_index = i
+            break
+    
+    if header_row_index is None:
+        raise ValueError("The header 'compromisos' and 'pagos' were not found in the sheet.")
+    
+    return pd.read_excel(file_path, sheet_name=sheet_name, header=header_row_index)
+
 for filename in earlier_filenames + recent_filenames:
     filename_stem = Path(filename).stem
     outfile = f'{microdata_csv_dir}/subnational_gastos_{filename_stem}.csv'
     
     if dbfs_file_exists(outfile.replace('/dbfs', '')):
+        print(f'{outfile} already exists, skipping extraction')
         continue
 
-    df = pd.read_excel(filename, sheet_name=0)
+    df = read_subnat_excel_with_header_detection(filename)
     df.columns = df.columns.map(normalize)
 
     print(filename_stem, df.shape)
@@ -92,7 +114,11 @@ for filename in earlier_filenames + recent_filenames:
         assert len(df.columns) == 15
         assert df.shape[0] >= min_num_rows_subnat_earlier, f'Expect to find at least {min_num_rows_subnat_earlier}, but found {df.shape[0]} row'
     elif 'EJECUCION' in filename:
-        df = df.rename(columns={'nombreseccionpresupuestal': 'nombreseccion'})
+        df = df.rename(columns={
+            'nombreseccionpresupuestal': 'nombreseccion',
+            'codigoconcepto': 'concepto_cod',
+            'concepto': 'nombreconcepto',
+        })
         for col_name in EJECUCION_REQUIRED_COLS:
             assert col_name in df.columns, f'Expect column named {col_name} to exist in {df.columns} in {filename_stem}'
         assert df.shape[0] >= min_num_rows_subnat_recent, f'Expect to find at least {min_num_rows_subnat_recent}, but found {df.shape[0]} row'
@@ -109,7 +135,3 @@ for filename in earlier_filenames + recent_filenames:
 # Copy all auxiliary files into csv folder for DLT consumption
 dbutils.fs.cp(f'{RAW_INPUT_DIR}/{COUNTRY}/auxiliary'.replace('/dbfs', ''),       
               microdata_csv_dir.replace('/dbfs', ''), recurse=True)
-
-# COMMAND ----------
-
-dbutils.fs.ls(microdata_csv_dir.replace('/dbfs', ''))
