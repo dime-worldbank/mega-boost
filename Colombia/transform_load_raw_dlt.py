@@ -356,9 +356,8 @@ def col_subnat_quality():
       .agg(count('*').alias('row_count_actual'),
            sum('compromisos').alias('approved_total_actual'),
            sum('pagos').alias('executed_total_actual'))
-      .join(expected_agg, on=['year'], how='left')
+      .join(expected_agg, on=['year'], how='right')
     )
-    #TODO: check all expected years are present (left join above would not catch the case all years are missing from col_subnat_gold)
 
     return subnat_agg
 
