@@ -33,10 +33,10 @@ def boost_silver():
     return (dlt.read(f'alb_boost_bronze')          
             .filter(col('transfer') == 'Excluding transfers'
             ).withColumn('is_foreign', col('fin_source').startswith('2')
-            ).withColumn('admin0',
-                        when(col('admin1')=='Local', 'Regional')
-                        .otherwise('Central')                
-            ).withColumn('admin1',
+            ).withColumn('admin0', 
+                when(col('admin2').startswith('00') | col('admin2').startswith('999'), 'Central')
+                .otherwise('Regional')    
+            ).withColumn('admin1_tmp',
                         when(col('counties')=='Central', 'Central Scope')
                         .otherwise(col('counties'))
             ).withColumn('admin2_tmp',
@@ -137,7 +137,7 @@ def boost_gold():
                 'is_foreign',
                 'geo1',
                 'admin0',
-                'admin1',
+                col('admin1_tmp').alias('admin1'),
                 col('admin2_tmp').alias('admin2'),
                 'func_sub',
                 'func',
