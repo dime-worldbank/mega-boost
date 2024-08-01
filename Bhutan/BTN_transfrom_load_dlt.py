@@ -36,31 +36,22 @@ def boost_silver():
             .withColumn('Econ3',coalesce(col('Econ3'), lit('')))
             .withColumn('source',coalesce(col('source'), lit('')))
             .withColumn('activity',coalesce(col('activity'), lit('')))
-
-            # adm1_name
             .withColumn(
-                'adm1_name',
-                when(col("Admin2").startswith("4"), trim(regexp_replace(col("Admin2"), "\d+", "")))
-                # manually checked that Mongar district is missing and corresponds to 414 (which is missing in the consecutive codes for the districts)
-                .when((col("Admin2").isNull()) & (col("Admin3").startswith("414")), "Mongar")
-                # imputing that the rest belongs to central scope (various ministries etc)
-                .otherwise("Central Scope")
-            ).withColumn(
-                'admin0', 
-                when(lower(col('Admin1'))=='central', 'Central')
-                .when(lower(col('Admin1'))=='local', 'Regional')
-                .otherwise('Regional') # correcting the null values manually
-            ).withColumn(
                 'admin1', 
-                when(col('admin0')=='Central', 'Central')
+                when(col('Admin1')=='central', 'Central Scope')
                 # error with one district 'Mongar'
-                .when((col('Admin2').isNull()) & (col('Admin3').startswith("414")), "Mongar")
-                .when(col('admin0')=='Regional', initcap(regexp_replace(col("Admin2"), '^[0-9\\s]*', '')))
+                .when(col('Admin2').isNull() & col('Admin3').startswith("414"), "Mongar")
+                .otherwise(initcap(regexp_replace(col("Admin2"), '^[0-9\\s]*', '')))
             ).withColumn(
                 'admin2', 
                 when(col('admin1')=='Mongar', 'Mongar')
                 .otherwise(initcap(trim(regexp_replace(col("Admin2"), '^[0-9\\s]*', ''))))
-            ).withColumn('geo1', when(col('admin0')=='Central', 'Central Scope')
+            ).withColumn(
+                'geo1', col('admin1')
+            ).withColumn(
+                'admin0', 
+                when(col('admin1')=='Central Scope', 'Central')
+                .otherwise('Regional')
             ).withColumn(
                 'is_foreign', col('source')=='foreign'
             ).withColumn(
@@ -155,7 +146,6 @@ def boost_gold():
             .withColumn('country_name', lit('Bhutan')) 
             .filter(~(col('Econ2').startswith('32')))
             .select('country_name',
-                    'adm1_name',
                     'year',
                     col('Budget').alias('approved'),
                     col('Executed').alias('executed'),

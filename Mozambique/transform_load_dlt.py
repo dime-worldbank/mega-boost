@@ -46,22 +46,15 @@ def boost_silver():
         .drop('Adm5')
         .select("*", col('Adm51').alias('Adm5'))
         .drop('Adm51', 'UGB_third')
-        .withColumn('adm1_name',
+        .withColumn('geo1',
             when(col("Adm5En") == "Maputo (city)", "Cidade de Maputo")
             .otherwise(
                 when(col("Adm5En") == "Central", "Central Scope")
                 .otherwise(col("Adm5En")))
-        ).withColumn('geo1',
-            when(col("Adm5En") == "Maputo (city)", "Cidade de Maputo")
-            .otherwise(
-                when(col("Adm5En") == "Central", "Central Scope")
-                .otherwise(col("Adm5En")))
-        ).withColumn( 'admin0',
+        ).withColumn('admin0',
             when(col('Adm5').startswith('A'), 'Central')
             .otherwise('Regional')
-        ).withColumn('admin1',
-            when(col("Adm5En") == "Maputo (city)", "Cidade de Maputo")
-            .otherwise(col("Adm5En"))
+        ).withColumn('admin1', col('geo1')
         ).withColumn('admin2',
             trim(regexp_replace(col("Adm2"), '^[0-9\\s]*', ''))
         ).withColumn('is_foreign', ~col('Fund1').startswith('1') # foreign funded expenditure
@@ -140,7 +133,6 @@ def boost_gold():
     return (dlt.read(f'moz_boost_silver')
         .withColumn('country_name', lit(COUNTRY))
         .select('country_name',
-                'adm1_name',
                 col('Year').alias('year'),
                 col('DotacaoInicial').alias('approved'),
                 col('DotacaoActualizada').alias('revised'),

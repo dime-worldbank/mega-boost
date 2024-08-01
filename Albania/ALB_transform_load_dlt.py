@@ -20,8 +20,7 @@ CSV_READ_OPTIONS = {
 
 @dlt.expect_or_drop("year_not_null", "YEAR IS NOT NULL")
 @dlt.table(name=f'alb_boost_bronze')
-def boost_bronze_cen():
-    # Load the data from CSV
+def boost_bronze():
     return (spark.read
             .format("csv")
             .options(**CSV_READ_OPTIONS)
@@ -34,15 +33,16 @@ def boost_silver():
     return (dlt.read(f'alb_boost_bronze')          
             .filter(col('transfer') == 'Excluding transfers'
             ).withColumn('is_foreign', col('fin_source').startswith('2')
-            ).withColumn('admin0',
-                        when(col('admin1')=='Local', 'Regional')
-                        .otherwise('Central')                
+            ).withColumn('admin0', 
+                when(col('admin2').startswith('00') | col('admin2').startswith('999'), 'Central')
+                .otherwise('Regional')    
+            ).withColumn('admin1_tmp',
+                        when(col('counties')=='Central', 'Central Scope')
+                        .otherwise(col('counties'))
             ).withColumn('admin2_tmp',
                         when(col('counties')=='Central', col('admin3'))
                         .otherwise(col('counties'))
-            ).withColumn('geo1',
-                        when(col('counties')=='Central', 'Central Scope')
-                        .otherwise(col('counties'))
+            ).withColumn('geo1', col('admin1')
             ).withColumn('func_sub',
                         # spending in judiciary
                         when(col('func2').startswith('033'), 'judiciary')
@@ -137,7 +137,7 @@ def boost_gold():
                 'is_foreign',
                 'geo1',
                 'admin0',
-                col('counties').alias('admin1'),
+                col('admin1_tmp').alias('admin1'),
                 col('admin2_tmp').alias('admin2'),
                 'func_sub',
                 'func',

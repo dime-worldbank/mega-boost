@@ -48,7 +48,7 @@ def boost_silver():
         dlt.read(f"ury_boost_bronze")
         .withColumn("econ2_lower", lower(col("econ2")))
         .withColumn("admin0", lit("Central"))  # No subnational data available
-        .withColumn("geo1", lit("Central"))  # No subnational data available
+        .withColumn("geo1", lit("Central Scope"))  # No subnational data available
         .withColumn("is_foreign", col("SOURCE_FIN1").startswith("20 "))
         .withColumn(
             "func_sub",
@@ -271,7 +271,7 @@ def boost_silver():
                     == "51 transferencias corrientes al sector publico"
                 )
                 & ~col("func1").startswith("11 "),
-                "Grants and transfers",
+                "Other grants and transfers",
             )
             .otherwise("Other expenses"),
         )
@@ -283,6 +283,8 @@ def boost_gold():
     return (
         dlt.read(f"ury_boost_silver")
         .withColumn("country_name", lit(COUNTRY))
+        .withColumn("admin2", col("admin1"))
+        .withColumn("admin1", lit("Central Scope"))
         .select(
             "country_name",
             "year",

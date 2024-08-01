@@ -43,15 +43,10 @@ def boost_silver():
             .withColumn('Maintenance',coalesce(col('Maintenance'), lit('')))
             .withColumn('subsidies',coalesce(col('subsidies'), lit('')))            
             .withColumn('Air',coalesce(col('Air'), lit('')))         
-            .withColumn('adm1_name', 
-                when(col("GEO1").isNull(), "Central Scope")
-                .when(col("GEO1").startswith("0") | col("GEO1").startswith("9"), "Other")
-                .when(col("GEO1").rlike('^[1-8]'), trim(regexp_replace(col("GEO1"), '^[1-8]+\\s*', '')))
-                )            
         ).withColumn(
         'admin0_tmp', lit('Central')
         ).withColumn(
-        'admin1_tmp', lit('Central')
+        'admin1_tmp', lit('Central Scope')
         ).withColumn(
         'admin2_tmp', trim(regexp_replace(col("ADMIN2"), '^[0-9\\s]*', ''))
         ).withColumn(
@@ -125,7 +120,6 @@ def boost_gold():
             .filter(~col('ECON2').startswith('10')) # debt repayment
             .withColumn('country_name', lit('Tunisia')) 
             .select('country_name',
-                    'adm1_name',
                     col('YEAR').alias('year'),
                     col('OUVERT').alias('approved'),
                     col('ORDONNANCE').alias('revised'),

@@ -76,28 +76,25 @@ econ4_codes_to_exclude = [
 ]
 @dlt.table(name=f'bfa_boost_silver')
 def boost_silver():
-    bronze = dlt.read(f'bfa_boost_bronze')
-    silver_df = bronze.withColumn(
-        'adm1_name_tmp',
-        when(col("GEO1").isNotNull(),
-             trim(initcap(regexp_replace(col("GEO1"), "[0-9\-]", " "))))
-    ).withColumn('ECON1', coalesce(col('ECON1'), lit(''))
+    return (dlt.read(f'bfa_boost_bronze')
+    .withColumn('ECON1', coalesce(col('ECON1'), lit(''))
     ).withColumn('ECON2', coalesce(col('ECON2'), lit(''))
     ).withColumn(
         'is_foreign', (((col('YEAR')<2017) & (~col('SOURCE_FIN1').startswith('1'))) | ((col('Year')>=2017) & (col('SOURCE_FIN1') != 'Financement Exterieur')))
     ).withColumn(
         'admin0', lit('Central')
     ).withColumn(
-        'admin1', lit('Central')
+        'admin1', lit('Central Scope')
     ).withColumn(
         'admin2', col('ADMIN1')
     ).withColumn(
+        'geo1_tmp',
+        when(col("GEO1").isNotNull(),
+             trim(initcap(regexp_replace(col("GEO1"), "[0-9\-]", " "))))
+    ).withColumn(
         'geo1',
-        when(col('adm1_name_tmp').isin('Central', 'Centrale'), 'Central Scope')
-        .when(col('adm1_name_tmp') == 'Region Etrangere', 'Other')
-        .when(col('adm1_name_tmp') == 'Est', 'Est Region Burkina Faso')
-        .when(col('adm1_name_tmp') == 'Centre Sud', 'Centre Sud Region Burkina Faso')
-        .otherwise(col('adm1_name_tmp'))
+        when(col('geo1_tmp').isin('Central', 'Centrale', 'Region Etrangere'), 'Central Scope')
+        .otherwise(col('geo1_tmp'))
     ).withColumn(
         'func_sub',
         when(col('FUNCTION2').startswith('033'), 'judiciary')
@@ -204,8 +201,7 @@ def boost_silver():
         .when(((col('YEAR')<2017) & (col('ECON2').startswith('63')) & (~col('ECON4').startswith('6322')) & (~col('ECON4').substr(1, 5).isin(econ4_codes_to_exclude))) , 'Subsidies')
         # other expenses
         .otherwise('Other expenses')
-    )
-    return silver_df
+    ))
 
 @dlt.table(name=f'bfa_boost_gold')
 def boost_gold():
