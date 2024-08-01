@@ -18,10 +18,15 @@ workbook = openpyxl.open(filename, read_only=True, data_only=True)
 for sheet_name in workbook.sheetnames:
     if not sheet_name.startswith('2'):
         continue
-    print(f'Reading {COUNTRY} BOOST coded microdata from sheet {sheet_name}')
+    
     sheet = workbook[sheet_name]
     csv_file_path = f'{microdata_csv_dir}/{sheet_name}.csv'
 
+    if dbfs_file_exists(csv_file_path.replace('/dbfs', '')):
+        print(f'{csv_file_path} already exists, skipping extraction')
+        continue
+
+    print(f'Reading {COUNTRY} BOOST coded microdata from sheet {sheet_name}')
     df = pd.read_excel(filename, sheet_name=sheet_name, header=0)
 
     # Handle unnamed or null named columns
