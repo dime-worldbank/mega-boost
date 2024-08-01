@@ -42,7 +42,7 @@ def boost_silver():
             ).withColumn('admin2_tmp',
                         when(col('counties')=='Central', col('admin3'))
                         .otherwise(col('counties'))
-            ).withColumn('geo1', col('admin1')
+            ).withColumn('geo1', col('admin1_tmp')
             ).withColumn('func_sub',
                         # spending in judiciary
                         when(col('func2').startswith('033'), 'judiciary')
