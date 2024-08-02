@@ -300,7 +300,7 @@ def boost_2015_to_2018_silver():
 @dlt.expect_or_drop("year_not_null", "Year IS NOT NULL")
 @dlt.table(name=f'bgd_2008_to_2014_boost_bronze')
 def boost_2008_to_2014_bronze():
-    file_paths = list(f"{COUNTRY_MICRODATA_DIR}/{year}.csv" for year in range(2008, 2014))
+    file_paths = list(f"{COUNTRY_MICRODATA_DIR}/{year}.csv" for year in range(2008, 2015))
 
     bronze_df = (spark.read
                  .format("csv")
@@ -484,16 +484,16 @@ def boost_gold():
     ]
 
     return (
-        # 2008 data FUNC1 is not propertly tagged, exclude entirely for correness sake
         dlt.read(f'bgd_2019_onward_boost_silver')
-        .filter(col('year') != 2008) 
         .select(*gold_cols)
         .union(
             dlt.read(f'bgd_2015_to_2018_boost_silver')
             .select(*gold_cols)
         )
         .union(
+            # 2008 data FUNC1 is not propertly tagged, exclude entirely for correness sake
             dlt.read(f'bgd_2008_to_2014_boost_silver')
+            .filter(col('year') != 2008)
             .select(*gold_cols)
         )
         .withColumn('country_name', lit(COUNTRY))
