@@ -151,7 +151,7 @@ def expenditure_by_country_geo1_func_year():
             ).when(
                     F.col('country_name')=='Tunisia', F.concat(F.col("adm1_name"), F.lit(" governorate, Tunisia"))
             ).otherwise(
-                F.col("adm1_name")
+                F.concat(F.col("adm1_name"), F.lit(", "), F.col("country_name"))
             )
         ).withColumn('spent_in_region',
             F.when(
