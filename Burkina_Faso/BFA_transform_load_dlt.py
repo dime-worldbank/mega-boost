@@ -222,6 +222,7 @@ def boost_gold():
                        'econ_sub',
                        'econ'
                        )
+               .filter(col('year') != 2016) # Remove altogether due to data quality issues
               )
     return gold_df
 
