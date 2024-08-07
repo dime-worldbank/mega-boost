@@ -1,7 +1,7 @@
 # Databricks notebook source
 import dlt
 import unicodedata
-from pyspark.sql.functions import substring, col, lit, when, udf, trim, regexp_replace, initcap, concat
+from pyspark.sql.functions import substring, col, lit, when, udf, trim, regexp_replace, initcap, concat, lower
 from pyspark.sql.types import StringType
 
 # Note DLT requires the path to not start with /dbfs
@@ -64,15 +64,17 @@ def boost_bronze_cen():
                 when(col("func_sub").isin("judiciary", "public safety"), "Public order and safety")
                 .when(col('FUNCTION2').startswith('210'), 'Defence')
                 .when(col('FUNCTION2').startswith('440'), 'Environmental protection') # env needs to be before economic affairs due to overlap
-                .when((col('FUNCTION1').startswith('400') | col('FUNCTION1').startswith('600')), 'Economic affairs')
                 .when(col('FUNCTION2').startswith('310'), 'Health')
-                .when((col('FUNCTION3').startswith('344') | col('FUNCTION3').startswith('345')), 'Recreation, culture and religion')
-                .when(col('FUNCTION2').startswith('340'), 'Education')
+                .when((lower(col('FUNCTION3')).startswith('344 - cultura') | lower(col('FUNCTION3')).startswith('345 - deporte y recreacion')), 'Recreation, culture and religion')
+                .when(lower(col('FUNCTION2')).startswith('340'), 'Education')
                 .when((col('FUNCTION2').startswith('370') | col('FUNCTION2').startswith('380') | col('FUNCTION2').startswith('630')), 'Housing and community amenities')
-                .when((col('FUNCTION2').startswith('320') | col('FUNCTION2').startswith('330') | col('FUNCTION2').startswith('390')), 'Social protection')
+                .when((col('FUNCTION2').startswith('320') | col('FUNCTION2').startswith('330') | lower(col('FUNCTION2')).startswith('390 - otros servicios sociales')), 'Social protection')
+                .when((col('FUNCTION1').startswith('400') | col('FUNCTION1').startswith('600')), 'Economic affairs')
                 .otherwise('General public services')
             ).withColumn('econ_sub',
-                when((~col('is_transfer')) & col('ECON4').startswith('100') & 
+                when((~col('is_transfer')) & col('FUNCTION2').startswith('320') , 'social assistance')
+                .when((~col('is_transfer')) & col('ECON5').startswith('820'), 'pensions')
+                .when((~col('is_transfer')) & col('ECON4').startswith('100') & 
                       (col('ECON5').startswith('100') | col('ECON5').startswith('110') |
                        col('ECON5').startswith('120') | col('ECON5').startswith('140') | col('ECON5').startswith('160')), 'basic wages')
                 .when((~col('is_transfer')) & col('ECON4').startswith('100') & 
@@ -80,8 +82,6 @@ def boost_bronze_cen():
                 .when(col('ECON5').startswith('210'), 'basic services')
                 .when(col('ECON5').startswith('260'), 'employment contracts')
                 .when(col('ECON5').startswith('240') & col('ECON2').startswith('120'), 'recurrent maintenance')
-                .when((~col('is_transfer')) & col('FUNCTION2').startswith('320') , 'social assistance')
-                .when((~col('is_transfer')) & col('ECON5').startswith('820'), 'pensions')
             ).withColumn('econ',
                 # wage bill
                 when((col('ECON4').startswith('100') & (~col('is_transfer'))), 'Wage bill')
@@ -109,7 +109,7 @@ def boost_bronze_cen():
                 col('MODIFIED').alias('revised'),
                 col('COMMITTED').alias('executed'), 
                 'geo1',
-                'is_transfer', 'is_foreign', 'admin0', 'admin1', 'admin2', 'ECON4', 'ECON5', 'FUNCTION2',  'func', 'func_sub', 'econ', 'econ_sub', 'sheet'
+                'is_transfer', 'is_foreign', 'admin0', 'admin1', 'admin2', 'ECON1', 'ECON4', 'ECON5', 'ECON6', 'FUNCTION2', 'FUNCTION3', 'func', 'func_sub', 'econ', 'econ_sub', 'sheet'
             )
     )
 
@@ -138,6 +138,8 @@ def boost_bronze_municipal():
             ).withColumn( 'econ',
                 # wage bill
                 when(col('ECON4').startswith('100'), 'Wage bill')
+                # subsidies
+                .when(col('ECON5').startswith('870'), 'Subsidies')
                 # capital expenditure
                 .when(((col('ECON4').startswith('400') | col('ECON4').startswith('500') | col('ECON4').startswith('600')) |
                     ((~col('ECON4').startswith('100')) & (
@@ -149,8 +151,6 @@ def boost_bronze_municipal():
                     )),  'Capital expenditures')
                 # goods and services
                 .when((col('ECON4').startswith('200') | col('ECON4').startswith('300')), 'Goods and services')
-                # subsidies
-                .when(col('ECON5').startswith('870'), 'Subsidies')
                 # interest on debt
                 .when(((col('ECON5').startswith('710')) | (col('ECON5').startswith('720'))), 'Interest on debt')
                 # other expenses
@@ -160,13 +160,15 @@ def boost_bronze_municipal():
             ).withColumn('func', lit("General public services")
             ).withColumn('func_sub', lit(None).cast("string")
             ).withColumn('FUNCTION2', lit(None).cast("string")
+            ).withColumn('ECON1', lit(None).cast("string")
+            ).withColumn('FUNCTION3', lit(None).cast("string")
             ).select(
                 col('YEAR').alias('year'),
                 'approved',
                 col('MODIFIED').alias('revised'),
                 col('PAID').alias('executed'),
                 'geo1',
-                'is_transfer', 'is_foreign', 'admin0', 'admin1', 'admin2','ECON4', 'ECON5', 'FUNCTION2', 'func', 'func_sub', 'econ', 'econ_sub', 'sheet'             
+                'is_transfer', 'is_foreign', 'admin0', 'admin1', 'admin2', 'ECON1', 'ECON4', 'ECON5', 'ECON6', 'FUNCTION2', 'FUNCTION3',  'func', 'func_sub', 'econ', 'econ_sub', 'sheet'             
             )
     )
 
