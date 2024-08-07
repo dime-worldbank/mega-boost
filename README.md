@@ -38,6 +38,7 @@ BOOST data is country-specific — for instance, some ministries of finance have
   - Visit the [PFM BOOST Data Quality Dashboard](https://adb-6102124407836814.14.azuredatabricks.net/dashboardsv3/01ef07bf07d615bb98b5ff5b37e6fa69/published).
   - Filter Countries to the newly added country. Check that the year coverage range and number of functional & economic category coverage are as expected.
   - Further filter by Discrepancy %, set min as 1% and 5%, and investigate discrepancies at various dimensions (e.g., func/econ/total). Resolution may involve an iterative process of updating the pre-existing BOOST Excel workflows and/or updating the ETL pipeline code.
+  - Our current acceptable threshold of discrepancy is 5%. If there needs to be a fix in the BOOST CCI EXCEL sheets, docuemnt the content of the changes and leave the logs in the following document: [BOOST CCI changes reconciliations](https://worldbankgroup-my.sharepoint.com/:x:/r/personal/wlu4_worldbank_org/_layouts/15/Doc.aspx?sourcedoc=%7B19BCE6C7-E183-4F11-A41F-E4BBB792ABFC%7D&file=BOOST%20CCI%20changes%20reconciled.xlsx&action=default&mobileredirect=true). 
 7. Check the [PowerBI report](https://app.powerbi.com/groups/75fff923-5acd-443e-877b-d2c6e88cdb31/reports/a28af24a-6a8a-4241-bd42-40a4c4af5716/) to ensure the new country is reflected and its narratives are correctly presented.
 
 ## boost_gold
