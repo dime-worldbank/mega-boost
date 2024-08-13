@@ -14,6 +14,7 @@ from pyspark.sql.functions import (
     lower,
 )
 from pyspark.sql.types import StringType
+from pyspark.sql.functions import monotonically_increasing_id
 
 # Note DLT requires the path to not start with /dbfs
 TOP_DIR = "/mnt/DAP/data/BOOSTProcessed"
@@ -39,6 +40,7 @@ def boost_bronze():
         .options(**CSV_READ_OPTIONS)
         .option("inferSchema", "true")
         .load(f"{COUNTRY_MICRODATA_DIR}")
+        .withColumn("id", monotonically_increasing_id())
     )
 
 
@@ -46,6 +48,7 @@ def boost_bronze():
 def boost_silver():
     return (
         dlt.read(f"ury_boost_bronze")
+        .withColumn("id", monotonically_increasing_id())
         .withColumn("econ2_lower", lower(col("econ2")))
         .withColumn("admin0", lit("Central"))  # No subnational data available
         .withColumn("geo1", lit("Central Scope"))  # No subnational data available
@@ -216,7 +219,20 @@ def boost_silver():
             "econ",
             when(col("econ1").startswith("6 "), "Interest on debt")
             .when(col("exp_type") == "Personal", "Wage bill")
-            .when(col("exp_type") == "Inversion", "Capital expenditures")
+            .when(
+                (
+                    (col("exp_type") == "Inversion")
+                    & (
+                        col("econ2_lower")
+                        != "02 transferencias corrientes al sector privado"
+                    )
+                    & (
+                        col("econ2_lower")
+                        != "04 transferencias de capital al sector privado"
+                    )
+                ),
+                "Capital expenditures",
+            )
             .when(
                 col("econ1").startswith("1 ")
                 | col("econ1").startswith("2 ")
@@ -265,10 +281,15 @@ def boost_silver():
                 col("econ_sub").isin("pensions", "social assistance"), "Social benefits"
             )
             .when(
-                (col("econ2_lower") == "01 transferencias corrientes al sector publico")
-                | (
-                    col("econ2_lower")
-                    == "51 transferencias corrientes al sector publico"
+                (
+                    (
+                        col("econ2_lower")
+                        == "01 transferencias corrientes al sector publico"
+                    )
+                    | (
+                        col("econ2_lower")
+                        == "51 transferencias corrientes al sector publico"
+                    )
                 )
                 & ~col("func1").startswith("11 "),
                 "Other grants and transfers",
@@ -286,6 +307,7 @@ def boost_gold():
         .withColumn("admin2", col("admin1"))
         .withColumn("admin1", lit("Central Scope"))
         .select(
+            "id",
             "country_name",
             "year",
             "approved",
