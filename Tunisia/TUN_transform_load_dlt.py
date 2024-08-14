@@ -55,6 +55,10 @@ def boost_silver():
             .when(col("GEO1").startswith("0") | col("GEO1").startswith("9"), "Central Scope")
             .when(col("GEO1").rlike('^[1-8]'), trim(regexp_replace(col("GEO1"), '^[1-8]+\\s*', ''))) 
         ).withColumn(
+        'geo1', 
+            when(col("geo1") == "BeBen Arous", "Ben Arous")
+            .otherwise(col("geo1"))
+        ).withColumn(
         'is_foreign', col('Econ2').startswith('09')
         ).withColumn(
         'func_sub',
