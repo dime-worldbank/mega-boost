@@ -94,6 +94,8 @@ def boost_silver():
     ).withColumn(
         'geo1',
         when(col('geo1_tmp').isin('Central', 'Centrale', 'Region Etrangere'), 'Central Scope')
+        .when(col('geo1_tmp') == 'Est', 'Est Region Burkina Faso')
+        .when(col('geo1_tmp') == 'Centre Sud', 'Centre Sud Region Burkina Faso')
         .otherwise(col('geo1_tmp'))
     ).withColumn(
         'func_sub',
