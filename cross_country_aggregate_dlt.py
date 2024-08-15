@@ -11,7 +11,7 @@ def boost_gold():
     unioned_df = None
     for code in country_codes:
         current_df = spark.table(f'boost_intermediate.{code}_boost_gold')
-        for col_name in ["func", "func_sub", "econ", "econ_sub", "admin0", "admin1", "admin2", "geo1", "revised"]:
+        for col_name in ["func", "func_sub", "econ", "econ_sub", "admin0", "admin1", "admin2", "geo1", "revised", "is_foreign"]:
             if col_name not in current_df.columns:
                 current_df = current_df.withColumn(col_name, F.lit(None))
 
@@ -21,7 +21,7 @@ def boost_gold():
         
         col_order = ['country_name', 'year',
                      'adm1_name', 'admin0', 'admin1', 'admin2', 'geo1',
-                     'func', 'func_sub', 'econ', 'econ_sub',
+                     'func', 'func_sub', 'econ', 'econ_sub', 'is_foreign',
                      'approved', 'revised', 'executed']
         current_df = current_df.select(col_order)
             
@@ -66,10 +66,16 @@ def expenditure_by_country_year():
             F.sum("executed").alias("expenditure"),
             F.sum(
                 F.when(boost_gold["admin0"] == "Regional", boost_gold["executed"])
-            ).alias("decentralized_expenditure")
+            ).alias("decentralized_expenditure"),
+            F.sum(
+                F.when(boost_gold["is_foreign"], boost_gold["executed"])
+            ).alias("foreign_funded_expenditure")
         )
         .withColumn("expenditure_decentralization",
             F.col("decentralized_expenditure") / F.col("expenditure")
+        )
+        .withColumn("expenditure_foreign_ratio",
+            F.col("foreign_funded_expenditure") / F.col("expenditure")
         )
         .join(cpi_factors, on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
@@ -449,4 +455,21 @@ def quality_boost_econ_unknown():
         .groupBy('country_name', 'econ')
         .agg(F.count('*').alias('row_count'))
         .join(quality_cci_econ, on=['country_name', 'econ'], how="left")
+    )
+
+@dlt.table(name='quality_boost_foreign')
+@dlt.expect_or_fail('country has foreign agg', 'row_count IS NOT NULL')
+def quality_boost_foreign():
+    boost_countries = dlt.read('quality_boost_country').select('country_name')
+    quality_cci_foreign = (spark.table('boost_intermediate.quality_total_foreign_silver')
+        .groupBy('country_name')
+        .agg(F.count('*').alias('cci_row_count'))
+        .join(boost_countries, on=['country_name'], how="inner")
+    )
+    return (
+        dlt.read('expenditure_by_country_year')
+        .filter(F.col('foreign_funded_expenditure').isNotNull())
+        .groupBy('country_name')
+        .agg(F.count('*').alias('row_count'))
+        .join(quality_cci_foreign, on=['country_name'], how="right")
     )

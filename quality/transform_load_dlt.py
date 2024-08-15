@@ -151,11 +151,27 @@ def quality_judiciary_silver():
 
 
 @dlt.table(name=f'quality_total_subnat_silver')
-def quality_total_silver():
+def quality_total_subnat_silver():
     bronze = dlt.read('quality_cci_bronze')
     year_cols = list(col_name for col_name in bronze.columns if col_name.isnumeric())
     return (bronze
         .filter(F.col('category_code') == 'EXP_ECON_SBN_TOT_SPE_EXE')
+        .melt(ids=["country_name", "approved_or_executed"], 
+            values=year_cols, 
+            variableColumnName="year", 
+            valueColumnName="amount"
+        )
+        .filter(F.col('amount').isNotNull())
+    )
+
+# COMMAND ----------
+
+@dlt.table(name=f'quality_total_foreign_silver')
+def quality_total_foreign_silver():
+    bronze = dlt.read('quality_cci_bronze')
+    year_cols = list(col_name for col_name in bronze.columns if col_name.isnumeric())
+    return (bronze
+        .filter(F.col('category_code') == 'EXP_ECON_TOT_EXP_FOR_EXE')
         .melt(ids=["country_name", "approved_or_executed"], 
             values=year_cols, 
             variableColumnName="year", 

@@ -222,7 +222,8 @@ def boost_gold():
                        'geo1',
                        'func',
                        'econ_sub',
-                       'econ'
+                       'econ',
+                       'is_foreign',
                        )
                .filter(col('year') != 2016) # Remove altogether due to data quality issues
               )
