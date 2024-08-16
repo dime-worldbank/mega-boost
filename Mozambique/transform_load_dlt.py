@@ -110,7 +110,7 @@ def boost_silver():
             # subsidies to production
             .when(col('Econ2').startswith('15'), 'subsidies to production') # same as the value for subsidies
 
-        ).withColumn( 'econ',
+        ).withColumn('econ',
             # social benefits
             when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits') # should come before other econ categories
             # cap ex

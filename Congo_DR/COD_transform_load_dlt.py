@@ -37,7 +37,8 @@ def boost_silver():
         .withColumn('Article',coalesce(col('Article'), lit('')))
         .withColumn('Sous_Article',coalesce(col('Sous_Article'), lit('')))
         .withColumn('Nature_Economique',coalesce(col('Nature_Economique'), lit('')))
-        .withColumn('is_interest', col('Titre') == "1 DETTE PUBLIQUE EN CAPITAL") # this is not interest need to rename it
+        .withColumn('is_debt_repayment', col('Titre') == "1 DETTE PUBLIQUE EN CAPITAL")
+        .filter(~col('is_debt_repayment'))
         .withColumn('is_foreign', (col('Source').isin('Budget General_Externe', 'Externe') & (col('Article')!='12 Dette Exterieure')))
         .withColumn('admin0', lit('Central'))
         .withColumn('admin1', lit('Central Scope'))
@@ -71,7 +72,7 @@ def boost_silver():
             .when(col('Grande_Fonction').startswith('10'), 'Social protection'))
         .withColumn('econ_sub',
             # basic wages
-            when((col('Exercice')<2016) & (~col('is_interest')) &
+            when((col('Exercice')<2016) &
                 ((~col('Article').startswith('12')) &
                  col('Titre').startswith('3') &
                  (~col('Sous_Article').startswith('34'))), 'basic wages')
@@ -80,16 +81,16 @@ def boost_silver():
                  (col('Titre').startswith('3')) &
                  (col('Sous_Article').startswith('3661'))), 'basic wages')
             # allowances
-            .when((col('Exercice')<2016) & (~col('is_interest')) &
+            .when((col('Exercice')<2016) &
                  ((~col('Article').startswith('12')) &
                  (col('Titre').startswith('3')) &
                  (col('Sous_Article').startswith('34'))), 'allowances')
-            .when((col('Exercice')>=2016) & (~col('is_interest')) &
+            .when((col('Exercice')>=2016) &
                  ((~col('Article').startswith('12')) &
                  (col('Titre').startswith('3')) &
                  (~col('Sous_Article').startswith('3661'))), 'allowances')
             # capital expenditure (foreign spending)
-            .when(((~col('Article').startswith('12')) & (~col('is_interest')) &
+            .when(((~col('Article').startswith('12')) &
                  ((col('Titre').startswith('7') | (col('Titre').startswith('8')))) &
                  col('is_foreign')), 'capital expenditure (foreign spending)')
             # capital maintenance
@@ -126,13 +127,12 @@ def boost_silver():
             .when(((col('Exercice')<2016) & (col('Sous_Article').startswith('6110') | 
                                             col('Sous_Article').startswith('6150'))), 'Subsidies')
             # Wage bill
-            .when((~col('is_interest')) & ((~col('Article').startswith('12')) & col('Titre').startswith('3')), 'Wage bill')
+            .when(((~col('Article').startswith('12')) & col('Titre').startswith('3')), 'Wage bill')
             # Capital expenditure
-            .when(((~col('Article').startswith('12')) & (~col('is_interest')) &
+            .when(((~col('Article').startswith('12')) &
                  ((col('Titre').startswith('7') | (col('Titre').startswith('8'))))), 'Capital expenditures')
             # Goods and services
-            .when((~col('is_interest')) & 
-                  ((~col('Article').startswith('12')) & (col('Titre').startswith('4') | col('Titre').startswith('5'))), 'Goods and services')
+            .when((~col('Article').startswith('12')) & (col('Titre').startswith('4') | col('Titre').startswith('5')), 'Goods and services')
             # grants and transfers
             .when((col('Exercice')<2016) & 
                  (col('Article').startswith('61') &
@@ -150,7 +150,6 @@ def boost_silver():
 @dlt.table(name=f'cod_boost_gold')
 def boost_gold():
     return (dlt.read(f'cod_boost_silver')
-            .filter(~col('is_interest'))
             .withColumn('country_name', lit('Congo, Dem. Rep.'))
             .select('country_name',
                     col('Exercice').alias('year'),
@@ -161,7 +160,6 @@ def boost_gold():
                     'admin1',
                     'admin2',
                     'geo1',
-                    'is_interest',
                     'is_foreign',
                     'func',
                     'func_sub',
