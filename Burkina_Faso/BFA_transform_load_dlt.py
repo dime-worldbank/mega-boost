@@ -80,7 +80,7 @@ def boost_silver():
     .withColumn('ECON1', coalesce(col('ECON1'), lit(''))
     ).withColumn('ECON2', coalesce(col('ECON2'), lit(''))
     ).withColumn(
-        'is_foreign', (((col('YEAR')<2017) & (~col('SOURCE_FIN1').startswith('1'))) | ((col('Year')>=2017) & (col('SOURCE_FIN1') != 'Financement Exterieur')))
+        'is_foreign', (((col('YEAR')<2017) & (~col('SOURCE_FIN1').startswith('1'))) | ((col('Year')>=2017) & (col('SOURCE_FIN1') != 'Financement Etat')))
     ).withColumn(
         'admin0', lit('Central')
     ).withColumn(
