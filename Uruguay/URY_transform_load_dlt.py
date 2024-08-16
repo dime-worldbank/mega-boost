@@ -14,7 +14,6 @@ from pyspark.sql.functions import (
     lower,
 )
 from pyspark.sql.types import StringType
-from pyspark.sql.functions import monotonically_increasing_id
 
 # Note DLT requires the path to not start with /dbfs
 TOP_DIR = "/mnt/DAP/data/BOOSTProcessed"
@@ -40,7 +39,6 @@ def boost_bronze():
         .options(**CSV_READ_OPTIONS)
         .option("inferSchema", "true")
         .load(f"{COUNTRY_MICRODATA_DIR}")
-        .withColumn("id", monotonically_increasing_id())
     )
 
 
@@ -318,7 +316,6 @@ def boost_gold():
         .withColumn("admin2", col("admin1"))
         .withColumn("admin1", lit("Central Scope"))
         .select(
-            "id",
             "country_name",
             "year",
             "approved",
