@@ -90,7 +90,7 @@ def boost_silver():
                 col('county_geo')
             ).otherwise('Central Scope') # central spending not linked to a region
         ).withColumn('year', concat(lit('20'), substring(col('Year'), -2, 2)).cast('int')
-        ).withColumn('is_foreign', (~col('Class').startswith('2')) & (~col('SOF2').startswith('00'))
+        ).withColumn('is_foreign', ((~col('SOF2').startswith('00') | col('SOF2').isNull()))
         ).withColumn('func_sub',
             when(
                 (col('Sector_prog1').startswith('06') & 
