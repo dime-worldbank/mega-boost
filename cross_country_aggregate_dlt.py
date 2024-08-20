@@ -225,6 +225,25 @@ def expenditure_by_country_admin_func_sub_econ_sub_year():
 
     return with_decentralized.join(year_ranges, on=['country_name', 'func'], how='inner')
 
+@dlt.table(name=f'expenditure_by_country_admin0_func_sub_year')
+def expenditure_by_country_admin_func_sub_econ_sub_year():
+    with_decentralized = (dlt.read('boost_gold')
+        .groupBy("country_name", "year", "admin0", "func", "func_sub").agg(
+            F.sum("executed").alias("expenditure")
+        )
+        .join(dlt.read('cpi_factor'), on=["country_name", "year"], how="inner")
+        .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
+        .filter(F.col("real_expenditure").isNotNull())
+    )
+
+    year_ranges = (with_decentralized
+        .groupBy("country_name", "func")
+        .agg(F.min("year").alias("earliest_year"), 
+             F.max("year").alias("latest_year"))
+    )
+
+    return with_decentralized.join(year_ranges, on=['country_name', 'func'], how='inner')
+    
 @dlt.table(name=f'expenditure_by_country_func_econ_year')
 def expenditure_by_country_func_econ_year():
     return (dlt.read('expenditure_by_country_admin_func_sub_econ_sub_year')
