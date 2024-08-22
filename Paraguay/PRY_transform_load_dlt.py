@@ -56,8 +56,8 @@ def boost_bronze_cen():
             ).withColumn('func_sub',
                 when(col('FUNCTION2').startswith('120'), "judiciary")
                 .when(col('FUNCTION2').startswith('220'), "public safety")
-                .when(((col('PROGRAM1').startswith('001') | col('PROGRAM1').startswith('007')) & (col('hospital').isNull())), "primary and secondary health")
-                .when((col('ECON2').startswith('120') & col('ECON5').startswith('240')), "tertiaty and quaternary health")
+                .when((col('FUNCTION3').startswith('311')) & ((col('PROGRAM1').startswith('001') | col('PROGRAM1').startswith('007')) & (col('hospital').isNull())), "primary and secondary health")
+                .when((col('FUNCTION2').startswith('310')) & (col('ECON2').startswith('120') & col('ECON5').startswith('240')), "tertiaty and quaternary health")
                 .when(col('FUNCTION3').startswith('341'), "primary education")
                 .when(col('FUNCTION3').startswith('342'), "secondary education") # No further information about higher education 
             ).withColumn('func', 
@@ -109,7 +109,7 @@ def boost_bronze_cen():
                 col('MODIFIED').alias('revised'),
                 col('COMMITTED').alias('executed'), 
                 'geo1',
-                'is_transfer', 'is_foreign', 'admin0', 'admin1', 'admin2', 'ECON1', 'ECON4', 'ECON5', 'ECON6', 'FUNCTION2', 'FUNCTION3', 'func', 'func_sub', 'econ', 'econ_sub', 'sheet'
+                'is_transfer', 'is_foreign', 'admin0', 'admin1', 'admin2', 'ECON1', 'ECON2', 'ECON4', 'ECON5', 'ECON6', 'FUNCTION2', 'FUNCTION3','PROGRAM1', 'hospital', 'func', 'func_sub', 'econ', 'econ_sub', 'sheet'
             )
     )
 
@@ -161,14 +161,17 @@ def boost_bronze_municipal():
             ).withColumn('func_sub', lit(None).cast("string")
             ).withColumn('FUNCTION2', lit(None).cast("string")
             ).withColumn('ECON1', lit(None).cast("string")
+            ).withColumn('ECON2', lit(None).cast("string")
             ).withColumn('FUNCTION3', lit(None).cast("string")
+            ).withColumn('PROGRAM1', lit(None).cast("string")
+            ).withColumn('hospital', lit(None).cast("string")
             ).select(
                 col('YEAR').alias('year'),
                 'approved',
                 col('MODIFIED').alias('revised'),
                 col('PAID').alias('executed'),
                 'geo1',
-                'is_transfer', 'is_foreign', 'admin0', 'admin1', 'admin2', 'ECON1', 'ECON4', 'ECON5', 'ECON6', 'FUNCTION2', 'FUNCTION3',  'func', 'func_sub', 'econ', 'econ_sub', 'sheet'             
+                'is_transfer', 'is_foreign', 'admin0', 'admin1', 'admin2', 'ECON1', 'ECON2', 'ECON4', 'ECON5', 'ECON6', 'FUNCTION2', 'FUNCTION3','PROGRAM1', 'hospital',  'func', 'func_sub', 'econ', 'econ_sub', 'sheet'             
             )
     )
 
