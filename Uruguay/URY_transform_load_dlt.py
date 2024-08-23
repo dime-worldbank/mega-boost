@@ -135,7 +135,17 @@ def boost_silver():
             .when(col("func1").startswith("13 "), "Health")
             .when(col("func1").startswith("05 "), "Recreation, culture and religion")
             .when(col("func1").startswith("08 "), "Education")
-            .when(col("func1").startswith("11 "), "Social protection")
+            .when(
+                ((col("year") < 2020) & (col("func1").startswith("11 ")))
+                | (
+                    (col("year") >= 2020)
+                    & (
+                        (col("func1").startswith("19 "))
+                        | (col("func1").startswith("20 "))
+                    )
+                ),
+                "Social protection",
+            )
             .otherwise("General public services"),
         )
         .withColumn(
@@ -151,7 +161,8 @@ def boost_silver():
             )
             .when(col("exp_type") == "Personal", "allowances")
             .when(
-                (col("exp_type") == "Inversion") & col("source_fin1").startswith("20 "),
+                (lower(col("exp_type")) == "inversion")
+                & col("source_fin1").startswith("20 "),
                 "capital expenditure (foreign spending)",
             )
             .when(col("econ2_lower") == "21 servicios basicos", "basic services")
@@ -216,7 +227,20 @@ def boost_silver():
             "econ",
             when(col("econ1").startswith("6 "), "Interest on debt")
             .when(col("exp_type") == "Personal", "Wage bill")
-            .when(col("exp_type") == "Inversion", "Capital expenditures")
+            .when(
+                (
+                    (lower(col("exp_type")) == "inversion")
+                    & (
+                        col("econ2_lower")
+                        != "02 transferencias corrientes al sector privado"
+                    )
+                    & (
+                        col("econ2_lower")
+                        != "04 transferencias de capital al sector privado"
+                    )
+                ),
+                "Capital expenditures",
+            )
             .when(
                 col("econ1").startswith("1 ")
                 | col("econ1").startswith("2 ")
@@ -265,10 +289,15 @@ def boost_silver():
                 col("econ_sub").isin("pensions", "social assistance"), "Social benefits"
             )
             .when(
-                (col("econ2_lower") == "01 transferencias corrientes al sector publico")
-                | (
-                    col("econ2_lower")
-                    == "51 transferencias corrientes al sector publico"
+                (
+                    (
+                        col("econ2_lower")
+                        == "01 transferencias corrientes al sector publico"
+                    )
+                    | (
+                        col("econ2_lower")
+                        == "51 transferencias corrientes al sector publico"
+                    )
                 )
                 & ~col("func1").startswith("11 "),
                 "Other grants and transfers",
