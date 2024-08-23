@@ -42,7 +42,8 @@ def boost_silver():
             .withColumn('railroads',coalesce(col('railroads'), lit('')))
             .withColumn('Maintenance',coalesce(col('Maintenance'), lit('')))
             .withColumn('subsidies',coalesce(col('subsidies'), lit('')))            
-            .withColumn('Air',coalesce(col('Air'), lit('')))         
+            .withColumn('Air',coalesce(col('Air'), lit('')))
+            .withColumn('year', col('YEAR').cast('int'))        
         ).withColumn(
         'admin0_tmp', lit('Central')
         ).withColumn(
@@ -124,7 +125,7 @@ def boost_gold():
             .filter(~col('ECON2').startswith('10')) # debt repayment
             .withColumn('country_name', lit('Tunisia')) 
             .select('country_name',
-                    col('YEAR').alias('year'),
+                    'year',
                     col('OUVERT').alias('approved'),
                     col('ORDONNANCE').alias('revised'),
                     col('PAYE').alias('executed'),
