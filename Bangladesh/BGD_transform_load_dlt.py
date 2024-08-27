@@ -196,7 +196,7 @@ def boost_2015_to_2018_silver():
                 'Education'
             ).when(
                 # Environment needs to be before Economic affairs as it's a subcategory of FUNC1='Agriculture'
-                col('ADMIN2') == "45-Ministry of Environment, Forest and Climate Change",
+                col('ADMIN2') == "45-Ministry of Environment and Forest",
                 'Environmental protection'
             ).when(
                 col('FUNC1').isin([

@@ -209,7 +209,9 @@ def boost_silver():
 def boost_gold():
     silver = dlt.read(f'bfa_boost_silver')
     gold_df = (silver
-               .filter(col('ECON1') != '1 Amortissement, charge de la dette et depenses en attenuation des recettes ')
+               .filter(
+                   ~((col('ECON1') == '1 Amortissement, charge de la dette et depenses en attenuation des recettes ')
+                   & (col('ECON2') != '65 Interets et frais financiers'))) # interest payment should be counted, 2016 and before ECON1 '1 Amortissement...' includes interest payments so account for those here
                .withColumn('country_name', lit(COUNTRY))
                .select('country_name',
                        col('YEAR').alias('year').cast('int'),
