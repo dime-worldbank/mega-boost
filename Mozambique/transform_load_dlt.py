@@ -46,6 +46,9 @@ def boost_silver():
         .drop('Adm5')
         .select("*", col('Adm51').alias('Adm5'))
         .drop('Adm51', 'UGB_third')
+        .withColumn('DotacaoInicial', col('DotacaoInicial').cast('double'))
+        .withColumn('DotacaoActualizada', col('DotacaoActualizada').cast('double'))
+        .withColumn('Execution', col('Execution').cast('double'))
         .withColumn('geo1',
             when(col("Adm5En") == "Maputo (city)", "Cidade de Maputo")
             .otherwise(

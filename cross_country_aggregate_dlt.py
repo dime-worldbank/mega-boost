@@ -2,11 +2,34 @@
 import dlt
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DoubleType, BooleanType
 
 # Adding a new country requires adding the country here
 country_codes = ['moz', 'pry', 'ken', 'pak', 'bfa', 'col', 'cod', 'nga', 'tun', 'btn', 'bgd', 'alb', 'ury']
 
-@dlt.table(name=f'boost_gold')
+schema = StructType([
+    StructField("country_name", StringType(), True, {'comment': 'The name of the country for which the budget data is recorded (e.g., "Kenya", "Brazil").'}),
+    StructField("year", IntegerType(), True, {'comment': 'The fiscal year for the budget data (e.g., 2023, 2024).'}),
+    StructField("adm1_name", StringType(), True, {'comment': 'Alias for admin1 to denote first sub-national administrative level where money was spent.'}),
+    StructField("admin0", StringType(), True, {'comment': 'Who spent the money at the highest administrative level (either "Central" or "Regional").'}),
+    StructField("admin1", StringType(), True, {'comment': 'Who spent the money at the first sub-national administrative level (e.g., state or province name).'}),
+    StructField("admin2", StringType(), True, {'comment': 'Who spent the money at the second sub-national administrative level (e.g., government agency/ministry name or district).'}),
+    StructField("geo1", StringType(), True, {'comment': 'Geographically, at which first sub-national administrative level the money was spent.'}),
+    StructField("func", StringType(), True, {'comment': 'Functional classification of the budget (e.g., Health, Education).'}),
+    StructField("func_sub", StringType(), True, {'comment': 'Sub-functional classification under the main COFOG function (e.g., primary education, secondary education).'}),
+    StructField("econ", StringType(), True, {'comment': 'Economic classification of the budget (e.g., Wage bill, Goods and services).'}),
+    StructField("econ_sub", StringType(), True, {'comment': 'Sub-economic classification under the main economic category (e.g., basic wages, allowances).'}),
+    StructField("is_foreign", BooleanType(), True, {'comment': 'Indicator whether the expenditure is foreign funded or not.'}),
+    StructField("approved", DoubleType(), True, {'comment': 'Amount of budget in current local currency approved by the relevant authority.'}),
+    StructField("revised", DoubleType(), True, {'comment': 'Revised budget in current local currency amount during the fiscal year.'}),
+    StructField("executed", DoubleType(), True, {'comment': 'Actual amount spent in current local currency by the end of the fiscal year.'})
+])
+
+@dlt.table(
+    name='boost_gold',
+    comment="This dataset includes BOOST budget and expenditure data for multiple countries across various years, with information presented at the most granular level possible to ensure maximum analytical flexibility. Each entry is harmonized to include standardized labels for common BOOST features, such as functional and economic categories.",
+    schema=schema
+)
 def boost_gold():
     unioned_df = None
     for code in country_codes:
