@@ -46,6 +46,9 @@ def boost_bronze():
 def boost_silver():
     return (
         dlt.read(f"ury_boost_bronze")
+        .withColumn('year', col('year').cast('int'))
+        .withColumn('approved', col('approved').cast('double'))
+        .withColumn('executed', col('executed').cast('double'))
         .withColumn("econ2_lower", lower(col("econ2")))
         .withColumn("admin0", lit("Central"))  # No subnational data available
         .withColumn("geo1", lit("Central Scope"))  # No subnational data available
