@@ -107,24 +107,14 @@ CREATE OR REFRESH LIVE TABLE data_availability
         GROUP BY 1
     ),
 
-    energy_consum as (
-        SELECT country_name, 
-            min(year) as renew_energy_consum_earliest_year,
-            max(year) as renew_energy_consum_latest_year
-        FROM indicator.energy_consumption
-        WHERE primary_renewable_consumption_share is not null
-        GROUP BY 1
-    ),
-
-    energy_mix as (
-        SELECT country_name, 
-            min(year) as solar_wind_gen_earliest_year,
-            max(year) as solar_wind_gen_latest_year
+    energy_generation as (
+        select country_name,  
+        min(year) as energy_generation_earliest_year,
+        max(year) as energy_generation_latest_year
         FROM indicator.energy_generation
-        WHERE energy_source in ('Solar', 'Wind')
-            AND generation_mix_share is not null
         GROUP BY 1
     )
+
 
     SELECT t.country_name, t.boost_earliest_year, t.boost_latest_year, f.boost_num_func_cofog,
         bsub.boost_subnat_earliest_year, bsub.boost_subnat_latest_year, p11.pefa2011_years, p16.pefa2016_years,
@@ -137,8 +127,7 @@ CREATE OR REFRESH LIVE TABLE data_availability
         shd.subnat_edu_health_index_earliest_year, shd.subnat_edu_health_index_latest_year, shd.subnat_edu_health_index_num_subnat_regions,
         areadata.subnat_edu_attendance_earliest_year, areadata.subnat_edu_attendance_latest_year, areadata.subnat_attendance_num_subnat_regions,
         sp.subnat_poverty_earliest_year, sp.subnat_poverty_latest_year, sp.subnat_poverty_num_subnat_regions,
-        ec.renew_energy_consum_earliest_year, ec.renew_energy_consum_latest_year,
-        em.solar_wind_gen_earliest_year, em.solar_wind_gen_latest_year
+        eg.energy_generation_earliest_year, eg.energy_generation_latest_year
     FROM time_coverage t
     LEFT JOIN func_coverage f on t.country_name = f.country_name
     LEFT JOIN pefa2016 p16 on t.country_name = p16.country_name
@@ -153,7 +142,6 @@ CREATE OR REFRESH LIVE TABLE data_availability
     LEFT JOIN edu_exp ee on t.country_name = ee.country_name
     LEFT JOIN health_priv_exp hpe on t.country_name = hpe.country_name
     LEFT JOIN boost_subnat bsub on t.country_name = bsub.country_name
-    LEFT JOIN energy_consum ec on t.country_name = ec.country_name
-    LEFT JOIN energy_mix em on t.country_name = em.country_name
+    LEFT JOIN energy_generation eg on t.country_name = eg.country_name
     ORDER BY t.country_name
   )
