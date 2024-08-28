@@ -279,12 +279,19 @@ def boost_silver():
                 )
                 | (
                     (col("year") > 2019)
-                    & (col("func1").startswith("20 ") & col("func1").startswith("5 "))
+                    & (col("func1").startswith("20 ") & col("econ1").startswith("5 "))
                 ),
                 "pensions",
             )
             .when(
-                col("func1").startswith("11 ") & col("econ1").startswith("5 "),
+                (
+                    (col("year") >= 2020)
+                    & (col("func1").startswith("19 ") & col("econ1").startswith("5 "))
+                )
+                | (
+                    (col("year") < 2020)
+                    & (col("func1").startswith("11 ") & col("econ1").startswith("5 "))
+                ),
                 "social assistance",
             ),
         )
@@ -392,7 +399,6 @@ def boost_silver():
                                 (~col("func1").startswith("11 "))
                                 & (~col("func1").startswith("19 "))
                                 & (~col("func1").startswith("20 "))
-                                & (col("exp_type_lower") != "inversion")
                             )
                         )
                     )
