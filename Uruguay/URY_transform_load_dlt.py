@@ -47,6 +47,7 @@ def boost_silver():
     return (
         dlt.read(f"ury_boost_bronze")
         .withColumn("econ2_lower", lower(col("econ2")))
+        .withColumn("exp_type_lower", lower(col("exp_type")))
         .withColumn("admin0", lit("Central"))  # No subnational data available
         .withColumn("geo1", lit("Central Scope"))  # No subnational data available
         .withColumn("is_foreign", col("SOURCE_FIN1").startswith("20 "))
@@ -197,7 +198,7 @@ def boost_silver():
         .withColumn(
             "econ_sub",
             when(
-                (col("exp_type") == "Personal")
+                (col("exp_type_lower") == "personal")
                 & (col("econ2_lower") != "06 beneficios al personal")
                 & (col("econ2_lower") != "07 beneficios familiares")
                 & (
@@ -205,9 +206,9 @@ def boost_silver():
                 ),
                 "basic wages",
             )
-            .when(col("exp_type") == "Personal", "allowances")
+            .when(col("exp_type_lower") == "personal", "allowances")
             .when(
-                (lower(col("exp_type")) == "inversion")
+                (col("exp_type_lower") == "inversion")
                 & col("source_fin1").startswith("20 "),
                 "capital expenditure (foreign spending)",
             )
@@ -290,10 +291,10 @@ def boost_silver():
         .withColumn(
             "econ",
             when(col("econ1").startswith("6 "), "Interest on debt")
-            .when(col("exp_type") == "Personal", "Wage bill")
+            .when(col("exp_type_lower") == "personal", "Wage bill")
             .when(
                 (
-                    (lower(col("exp_type")) == "inversion")
+                    (col("exp_type_lower") == "inversion")
                     & (
                         col("econ2_lower")
                         != "02 transferencias corrientes al sector privado"
@@ -308,7 +309,10 @@ def boost_silver():
             .when(
                 col("econ1").startswith("1 ")
                 | col("econ1").startswith("2 ")
-                | ((col("econ1").startswith("3 ")) & (col("exp_type") != "Inversion")),
+                | (
+                    (col("econ1").startswith("3 "))
+                    & (col("exp_type_lower") != "inversion")
+                ),
                 "Goods and services",
             )
             .when(
@@ -353,43 +357,43 @@ def boost_silver():
                 col("econ_sub").isin("pensions", "social assistance"), "Social benefits"
             )
             .when(
-                (
-                    (col("year") < 2019)
-                    & (
-                        (
-                            (
-                                col("econ2_lower")
-                                == "01 transferencias corrientes al sector publico"
-                            )
-                            | (
-                                col("econ2_lower")
-                                == "51 transferencias corrientes al sector publico"
-                            )
-                        )
+                (col("exp_type_lower") != "inversion")
+                & (
+                    (
+                        (col("year") < 2019)
                         & (
-                            (~col("func1").startswith("11 "))
-                            & (col("exp_type") != "Inversion")
+                            (
+                                (
+                                    col("econ2_lower")
+                                    == "01 transferencias corrientes al sector publico"
+                                )
+                                | (
+                                    col("econ2_lower")
+                                    == "51 transferencias corrientes al sector publico"
+                                )
+                            )
+                            & ((~col("func1").startswith("11 ")))
                         )
                     )
-                )
-                | (
-                    (col("year") >= 2019)
-                    & (
-                        (
-                            (
-                                col("econ2_lower")
-                                == "01 transferencias corrientes al sector publico"
-                            )
-                            | (
-                                col("econ2_lower")
-                                == "51 transferencias corrientes al sector publico"
-                            )
-                        )
+                    | (
+                        (col("year") >= 2019)
                         & (
-                            (~col("func1").startswith("11 "))
-                            & (~col("func1").startswith("19 "))
-                            & (~col("func1").startswith("20 "))
-                            & (col("exp_type") != "Inversion")
+                            (
+                                (
+                                    col("econ2_lower")
+                                    == "01 transferencias corrientes al sector publico"
+                                )
+                                | (
+                                    col("econ2_lower")
+                                    == "51 transferencias corrientes al sector publico"
+                                )
+                            )
+                            & (
+                                (~col("func1").startswith("11 "))
+                                & (~col("func1").startswith("19 "))
+                                & (~col("func1").startswith("20 "))
+                                & (col("exp_type_lower") != "inversion")
+                            )
                         )
                     )
                 ),
