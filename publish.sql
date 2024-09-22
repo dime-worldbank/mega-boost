@@ -9,5 +9,7 @@ SET
     'subcategory' = 'Financial Management',
     'frequency' = 'Annually',
     'collection' = 'Financial Management (FM)',
-    'source' = 'BOOST'
+    'source' = 'BOOST',
+    'domain' = 'Budget',
+    'subdomain' = 'Budget & Cost Accounting'
   )
