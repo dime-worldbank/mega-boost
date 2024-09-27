@@ -3,6 +3,7 @@ ALTER TABLE
   prd_mega.boost.boost_gold
 SET
   TAGS (
+    'name' = 'BOOST Harmonized',
     'subject' = 'Finance',
     'classification' = 'Official Use Only',
     'category' = 'Public Sector',
