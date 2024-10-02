@@ -438,7 +438,7 @@ def col_central_boost_silver_from_raw():
     .filter(~(lower(col('econ2')) == "adquisición de activos financieros"))
     .filter(~col('econ3').startswith('03-03-05-001') & ~col('econ3').startswith('03-03-05-002'))
     .withColumn('pension',
-      upper(col("func1")).like('%PENSIONES%') | upper(col("econ3")).like('%(DE PENSIONES)%')
+      upper(col("admin1")).like('%PENSIONES%') | upper(col("econ3")).like('%(DE PENSIONES)%')
     )
     .withColumn('subsidy',
       upper(col("econ3")).like('%SUBSIDIO%')
@@ -534,7 +534,7 @@ def col_subnat_boost_silver_from_raw():
         )
         .withColumn("econ",
             when(
-                col("econ2") == 'GASTOS DE PERSONAL', 'Wage bill'
+                (col("econ2") == 'GASTOS DE PERSONAL') | col('econ2').startswith('SERVICIOS PERSONALES'), 'Wage bill'
             ).when(
                 col("econ2").isin('ADQUISICIÓN DE BIENES', 'ADQUISICIÓN DE SERVICIOS', 'ADQUISICION DE BIENES Y SERVICIOS'), 'Goods and services'
             ).when(
