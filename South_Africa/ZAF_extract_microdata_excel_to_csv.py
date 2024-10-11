@@ -77,20 +77,3 @@ test['Admin1'].unique()
 # COMMAND ----------
 
 transfers = [str(t).lower() for t in transfers]
-
-# COMMAND ----------
-
-transfers = [t for t in transfers if t.startswith('south')]
-
-
-# COMMAND ----------
-
-transfers
-
-# COMMAND ----------
-
-test.columns
-
-# COMMAND ----------
-
-

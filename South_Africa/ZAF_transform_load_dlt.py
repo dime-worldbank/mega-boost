@@ -14,7 +14,9 @@ from pyspark.sql.functions import (
     regexp_extract,
     substring,
     coalesce,
+    monotonically_increasing_id,
 )
+from pyspark.sql.types import DoubleType
 
 # Note DLT requires the path to not start with /dbfs
 TOP_DIR = "/mnt/DAP/data/BOOSTProcessed"
@@ -41,7 +43,9 @@ def boost_bronze():
     )
     for old_col_name in bronze_df.columns:
         new_col_name = old_col_name.replace(" ", "_")
-        bronze_df = bronze_df.withColumnRenamed(old_col_name, new_col_name)
+        bronze_df = bronze_df.withColumnRenamed(old_col_name, new_col_name).withColumn(
+            "id", monotonically_increasing_id()
+        )
     return bronze_df
 
 
@@ -50,6 +54,10 @@ def boost_silver():
     return (
         (
             dlt.read(f"zaf_boost_bronze")
+            .filter(
+                (col("Economic_Level_1") != "Payments for financial assets")
+                & (col("Economic_Level_2") != "Provinces and municipalities")
+            )
             .withColumn("econ1", coalesce(col("Economic_Level_1"), lit("")))
             .withColumn("econ2", coalesce(col("Economic_Level_2"), lit("")))
             .withColumn("econ3", coalesce(col("Economic_Level_3"), lit("")))
@@ -100,10 +108,6 @@ def boost_silver():
             "func_sub",
             when(
                 (
-                    (col("econ1") != "Payments for financial assets")
-                    & (col("econ2") != "Provinces and municipalities")
-                )
-                & (
                     (col("program") == "02 superior court services")
                     | (col("program") == "02 court services")
                 ),
@@ -111,10 +115,6 @@ def boost_silver():
             )
             .when(
                 (
-                    (col("econ1") != "Payments for financial assets")
-                    & (col("econ2") != "Provinces and municipalities")
-                )
-                & (
                     (col("program") == "02 visible policing")
                     | (col("program") == "02 incarceration")
                 ),
@@ -122,50 +122,40 @@ def boost_silver():
             )
             .when(
                 (
-                    (col("econ1") != "Payments for financial assets")
-                    & (col("econ2") != "Provinces and municipalities")
-                )
-                & (
                     (col("func_sub_lower") == "agriculture and rural development")
                     | (col("func_sub_lower") == "agriculture")
                 ),
                 "agriculture",
             )
             .when(
-                ((col("econ1") != "Payments for financial assets"))
-                & (
-                    (
-                        col("program").isin(
-                            "04 road transport",
-                            "2. transport infrastructure",
-                            "roads infrastructure",
-                        )
+                (
+                    col("program").isin(
+                        "04 road transport",
+                        "2. transport infrastructure",
+                        "roads infrastructure",
                     )
-                    | (
-                        col("func_sub_lower").isin(
-                            "public works, roads and transport", "road transport"
-                        )
+                )
+                | (
+                    col("func_sub_lower").isin(
+                        "public works, roads and transport", "road transport"
                     )
-                    | (col("transfers").startswith("south african national roads"))
-                ),
+                )
+                | (col("transfers").startswith("south african national roads")),
                 "roads",
             )
             .when(
-                ((col("econ1") != "Payments for financial assets"))
-                & (
+                (
                     (col("func_lower") == "03 rail Transport")
                     | (col("func_lower") == "05 gautrain")
                 ),
                 "railroads",
             )
             .when(
-                ((col("econ1") != "Payments for financial assets"))
-                & ((col("program") == "05 civil aviation")),
+                (col("program") == "05 civil aviation"),
                 "air transport",
             )
             .when(
-                (col("econ1") != "Payments for financial assets")
-                & (
+                (
                     (
                         (col("Admin0_temp") == "Municipalities")
                         & (col("func_sub_lower") == "water")
@@ -178,15 +168,12 @@ def boost_silver():
                 "water and sanitation",
             )
             .when(
-                (col("econ1") != "Payments for financial assets")
-                & (col("econ2") != "Provinces and municipalities")
-                & (col("program") == "03 university education"),
+                (col("program") == "03 university education"),
                 "tertiary education",
             )
             .when(
                 (
-                    (col("econ1") != "Payments for financial assets")
-                    & (
+                    (
                         (
                             (col("Admin0_temp") == "Central")
                             & (
@@ -213,56 +200,46 @@ def boost_silver():
             "func",
             when(
                 (
-                    (col("econ1") != "Payments for financial assets")
-                    & (col("econ2") != "Provinces and municipalities")
-                    & (
-                        col("program").isin(
-                            "03 landward defence",
-                            "04 air defence",
-                            "05 maritime defence",
-                            "07 defence intelligence",
-                        )
+                    col("program").isin(
+                        "03 landward defence",
+                        "04 air defence",
+                        "05 maritime defence",
+                        "07 defence intelligence",
                     )
                 ),
                 "Defence",
             )
             # public order and safety
             .when(
-                col("func_sub_lower").isin("public safety", "judiciary"),
+                col("func_sub").isin("public safety", "judiciary"),
                 "Public order and safety",
             ).when(
-                (
-                    (col("econ1") != "Payments for financial assets")
-                    & (col("func_lower").startswith("economic"))
-                ),
+                ((col("func_lower").startswith("economic"))),
                 "Economic affairs",
             )
             # environment protection
             .when(
                 (
-                    (col("econ1") != "Payments for financial assets")
-                    & (
+                    (
                         (
-                            (
-                                (col("program").startswith("04 climate"))
-                                | (col("program").startswith("02 enviro"))
-                                | (col("program").startswith("03 enviro"))
-                                | (col("program").startswith("04 enviro"))
-                                | (col("program").startswith("06 enviro"))
-                                | (col("program").startswith("07 enviro"))
-                                | (col("program").startswith("08 enviro"))
-                                | (col("program").startswith("09 enviro"))
-                                | (
-                                    col("program").isin(
-                                        "05 forestry and natural resources management",
-                                        "07 chemicals and waste management",
-                                    )
+                            (col("program").startswith("04 climate"))
+                            | (col("program").startswith("02 enviro"))
+                            | (col("program").startswith("03 enviro"))
+                            | (col("program").startswith("04 enviro"))
+                            | (col("program").startswith("06 enviro"))
+                            | (col("program").startswith("07 enviro"))
+                            | (col("program").startswith("08 enviro"))
+                            | (col("program").startswith("09 enviro"))
+                            | (
+                                col("program").isin(
+                                    "05 forestry and natural resources management",
+                                    "07 chemicals and waste management",
                                 )
                             )
-                            & (~col("admin1").startswith("32"))
                         )
-                        | (col("admin1").startswith("32"))
+                        & (~col("Department").startswith("32"))
                     )
+                    | (col("Department").startswith("32"))
                 ),
                 "Environmental protection",
             )
@@ -272,9 +249,7 @@ def boost_silver():
             )
             .when(
                 (
-                    (col("econ1") != "Payments for financial assets")
-                    & (col("econ2") != "Provinces and municipalities")
-                    & (
+                    (
                         col("func_sub_lower").isin(
                             "health",
                             "clinics",
@@ -285,9 +260,7 @@ def boost_silver():
             )
             .when(
                 (
-                    (col("econ1") != "Payments for financial assets")
-                    & (col("econ2") != "Provinces and municipalities")
-                    & (
+                    (
                         col("func_sub_lower").isin(
                             "basic education",
                             "education",
@@ -298,16 +271,14 @@ def boost_silver():
             )
             .when(
                 (
-                    (col("econ1") != "Payments for financial assets")
-                    & (col("econ2") != "Provinces and municipalities")
-                    & (
+                    (
                         col("func_sub_lower").isin(
                             "social development",
-                            "Social protection",
+                            "social protection",
                         )
                     )
                 ),
-                "Social Protection",
+                "Social protection",
             )
             # general public services
             .otherwise("General public services"),
@@ -315,75 +286,61 @@ def boost_silver():
         .withColumn(
             "econ_sub",
             when(
-                (col("econ1") != "Payments for financial assets")
-                & (col("econ3") != "Social contributions"),
+                (col("econ3") == "Social contributions"),
                 "social benefits (pension contributions)",
             )
             .when(
-                (col("econ1") != "Payments for financial assets")
-                & (col("econ3").isin("Property payments", "Operating leases")),
+                col("econ3").isin("Property payments", "Operating leases"),
                 "basic services",
             )
             .when(
-                (col("econ1") != "Payments for financial assets")
-                & (col("econ3") == "Contractors"),
+                (col("econ3") == "Contractors"),
                 "employment contracts",
             )
             .when(
-                (col("econ1") != "Payments for financial assets")
-                & (col("econ2") == "Public corporations and private enterprises"),
+                (col("econ2") == "Public corporations and private enterprises"),
                 "subsidies to production",
             )
             .when(
+                (col("transfers") == "old age"),
+                "pensions",
+            )
+            .when(
                 (
-                    (col("econ1") != "Payments for financial assets")
-                    & (col("econ2") != "Provinces and municipalities")
+                    (col("econ3") != "Property payments")
+                    & (col("econ3") != "Operating leases")
+                    & (col("econ3") != "Social contributions")
+                    & (col("econ3") != "Contractors")
+                    & (col("econ2") != "Public corporations and private enterprises")
                     & (
-                        col("func_sub_lower").isin(
-                            "social development",
-                            "social protection",
+                        (col("func_sub_lower") == "social protection")
+                        | (
+                            (col("func_sub_lower") == "social development")
+                            & (col("transfers") != "old age")
                         )
                     )
                 ),
                 "social assistance",
-            )
-            .when(
-                (
-                    (col("econ1") != "Payments for financial assets")
-                    & (col("econ2") != "Provinces and municipalities")
-                    & (col("transfers") == "old age")
-                ),
-                "pensions",
             ),
         )
         .withColumn(
             "econ",
             # wage bill
             when(
-                (
-                    (col("econ1") != "Payments for financial assets")
-                    & (col("econ2") == "Compensation of employees")
-                ),
-                "wage bill",
+                ((col("econ2") == "Compensation of employees")),
+                "Wage bill",
             )
             .when(
-                (
-                    (col("econ1") != "Payments for financial assets")
-                    & (col("econ1") == "Payments for capital assets")
-                ),
-                "capital expenditures",
+                ((col("econ1") == "Payments for capital assets")),
+                "Capital expenditures",
             )
             .when(
-                (
-                    (col("econ1") != "Payments for financial assets")
-                    & (col("econ2") == "Goods and services")
-                ),
+                ((col("econ2") == "Goods and services")),
                 "Goods and services",
             )
             .when(
                 (
-                    (col("econ1") != "Payments for financial assets")
-                    & (
+                    (
                         col("econ2").isin(
                             "Non-profit institutions",
                             "Public corporations and private enterprises",
@@ -392,14 +349,9 @@ def boost_silver():
                 ),
                 "Subsidies",
             )
-            # social benefits
-            .when(
-                col("econ_sub").isin("social assistance", "pensions"), "Social benefits"
-            )
             .when(
                 (
-                    (col("econ1") != "Payments for financial assets")
-                    & (
+                    (
                         col("econ2").isin(
                             "Departmental agencies and accounts",
                             "Higher education institutions",
@@ -413,8 +365,7 @@ def boost_silver():
             )
             .when(
                 (
-                    (col("econ1") != "Payments for financial assets")
-                    & (
+                    (
                         col("econ3")
                         == "Interest (Incl. interest on unitary payments (PPP))"
                     )
@@ -431,13 +382,13 @@ def boost_silver():
 def boost_gold():
     return (
         dlt.read(f"zaf_boost_silver")
-        .filter(col("econ1") != "Payments for financial assets")  # debt repayment
         .withColumn("country_name", lit("South Africa"))
         .select(
+            "id",
             "country_name",
             "year",
-            col("budget").alias("approved"),
-            col("actuals").alias("executed"),
+            col("budget").alias("approved").cast(DoubleType()),
+            col("actuals").alias("executed").cast(DoubleType()),
             "admin0",
             "admin1",
             "geo1",
