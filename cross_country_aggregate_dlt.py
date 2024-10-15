@@ -25,6 +25,7 @@ schema = StructType([
     StructField("executed", DoubleType(), True, {'comment': 'Actual amount spent in current local currency by the end of the fiscal year.'})
 ])
 
+@dlt.expect_or_drop("executed not null", "executed IS NOT NULL")
 @dlt.table(
     name='boost_gold',
     comment="This dataset includes BOOST budget and expenditure data for multiple countries across various years, with information presented at the most granular level possible to ensure maximum analytical flexibility. Each entry is harmonized to include standardized labels for common BOOST features, such as functional and economic categories.",
