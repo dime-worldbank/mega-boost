@@ -57,7 +57,6 @@ def boost_silver():
             .filter(
                 (col("Economic_Level_1") != "Payments for financial assets")
                 & (col("Economic_Level_2") != "Provinces and municipalities")
-                & (col("year") < 2023) # the year 2023 executed data is not available yet.
             )
             .withColumn("econ1", coalesce(col("Economic_Level_1"), lit("")))
             .withColumn("econ2", coalesce(col("Economic_Level_2"), lit("")))
