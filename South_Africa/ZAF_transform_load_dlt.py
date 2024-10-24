@@ -13,8 +13,7 @@ from pyspark.sql.functions import (
     regexp_replace,
     regexp_extract,
     substring,
-    coalesce,
-    monotonically_increasing_id,
+    coalesce
 )
 from pyspark.sql.types import DoubleType
 
@@ -41,11 +40,6 @@ def boost_bronze():
         .option("inferSchema", "true")
         .load(COUNTRY_MICRODATA_DIR)
     )
-    for old_col_name in bronze_df.columns:
-        new_col_name = old_col_name.replace(" ", "_")
-        bronze_df = bronze_df.withColumnRenamed(old_col_name, new_col_name).withColumn(
-            "id", monotonically_increasing_id()
-        )
     return bronze_df
 
 
@@ -63,9 +57,8 @@ def boost_silver():
             .withColumn("econ3", coalesce(col("Economic_Level_3"), lit("")))
             .withColumn("func_lower", coalesce(lower(col("Function_group")), lit("")))
             .withColumn("func_sub_lower", coalesce(lower(col("Budget_group")), lit("")))
-            .withColumn("admin0", coalesce(col("Admin1"), lit("")))
             .withColumn("admin0_temp", coalesce(col("Admin1"), lit("")))
-            .withColumn("admin1", coalesce(col("Department"), lit("")))
+            .withColumn("Department", coalesce(col("Department"), lit("")))
             .withColumn("year", col("Year").cast("int"))
             .withColumn("program", lower(col("Programme")))
             .withColumn(
@@ -80,28 +73,17 @@ def boost_silver():
         .withColumn(
             "admin0",
             when(
-                (
-                    (col("admin0_temp") == "Municipalities")
-                    | (col("admin0_temp") == "Provinces")
-                ),
+                col("admin0_temp").isin("Provinces", "Municipalities"),
                 "Regional",
-            ).when((col("admin0_temp") == "Central"), "Central"),
+            ).otherwise("Central"),
         )
         .withColumn(
             "admin1",
-            when(col("admin0") == "Central", "Central Scope").when(
-                col("admin0") == "Regional", col("admin1")
-            ),
-        )
-        .withColumn(
-            "geo1",
-            when(col("admin0").isNull(), "Central Scope")
-            .when(
-                col("admin0") == "Central",
+            when(
+                col("admin0_temp").isin("Provinces", "Municipalities"),
+                col("Department"),
+            ).otherwise(
                 "Central Scope",
-            )
-            .otherwise(
-                col("admin1"),
             ),
         )
         .withColumn(
@@ -387,21 +369,16 @@ def boost_gold():
         dlt.read(f"zaf_boost_silver")
         .withColumn("country_name", lit("South Africa"))
         .select(
-            "id",
             "country_name",
             "year",
             col("budget").alias("approved").cast(DoubleType()),
             col("actuals").alias("executed").cast(DoubleType()),
             "admin0",
             "admin1",
-            "geo1",
+            col("admin1").alias("geo1"),
             "func",
             "func_sub",
             "econ",
             "econ_sub",
         )
     )
-
-# COMMAND ----------
-
-

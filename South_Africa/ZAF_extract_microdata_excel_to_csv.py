@@ -17,10 +17,10 @@ df = pd.read_excel(filename, sheet_name=sheet, header=0)
 # Handle unnamed or null named columns
 header = [col_name for col_name in df.columns if is_named_column(col_name)]
 df = df[header]
-df.columns = [col.strip() for col in header]
+df.columns = [col.strip().replace(' ', '_') for col in header]
     
 # Normalize cells
 df = df.applymap(normalize_cell)
 df = df.dropna(how='all')
 
-# df.to_csv(csv_file_path, index=False, encoding='utf-8')
+df.to_csv(csv_file_path, index=False, encoding='utf-8')
