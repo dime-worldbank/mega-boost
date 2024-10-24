@@ -312,12 +312,15 @@ def boost_silver():
                     & (col("econ3") != "Social contributions")
                     & (col("econ3") != "Contractors")
                     & (col("econ2") != "Public corporations and private enterprises")
+                    & (col("econ2") != "Non-profit institutions")
+                    & (col("econ2") != "Compensation of employees")
+                    & (col("econ2") != "Goods and services")
+                    & (col("econ1") != "Payments for capital assets")
+                    & (col("econ2") != "Departmental agencies and accounts")
+                    & (col("econ2") != "Higher education institutions")
                     & (
                         (col("func_sub_lower") == "social protection")
-                        | (
-                            (col("func_sub_lower") == "social development")
-                            & (col("transfers") != "old age")
-                        )
+                        | ((col("func_sub_lower") == "social development"))
                     )
                 ),
                 "social assistance",
