@@ -5,7 +5,7 @@ from pyspark.sql.window import Window
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DoubleType, BooleanType
 
 # Adding a new country requires adding the country here
-country_codes = ['moz', 'pry', 'ken', 'pak', 'bfa', 'col', 'cod', 'nga', 'tun', 'btn', 'bgd', 'alb', 'ury']
+country_codes = ['moz', 'pry', 'ken', 'pak', 'bfa', 'col', 'cod', 'nga', 'tun', 'btn', 'bgd', 'alb', 'ury', "zaf"]
 
 schema = StructType([
     StructField("country_name", StringType(), True, {'comment': 'The name of the country for which the budget data is recorded (e.g., "Kenya", "Brazil").'}),
@@ -25,6 +25,7 @@ schema = StructType([
     StructField("executed", DoubleType(), True, {'comment': 'Actual amount spent in current local currency by the end of the fiscal year.'})
 ])
 
+@dlt.expect_or_drop("executed/approved not null nor 0", "(executed IS NOT NULL AND executed != 0) OR (approved IS NOT NULL AND approved != 0)")
 @dlt.table(
     name='boost_gold',
     comment="This dataset includes BOOST budget and expenditure data for multiple countries across various years, with information presented at the most granular level possible to ensure maximum analytical flexibility. Each entry is harmonized to include standardized labels for common BOOST features, such as functional and economic categories.",

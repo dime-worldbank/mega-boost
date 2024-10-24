@@ -86,7 +86,7 @@ def boost_silver():
                         when((col('econ3').startswith('600') & 
                                col('econ5').substr(1, 7).isin(['6001005', '6001003', '6001006', '6001009', '6001099', '6001008', '6001014', '6001007', '6001012', '6001004'])), 'allowances')
                         # basic wages
-                        .when(col('econ3').startswith('600') | col('econ3').startswith('601'), 'bsaic wages')
+                        .when(col('econ3').startswith('600') | col('econ3').startswith('601'), 'basic wages')
                         # pension contributions
                         .when(col('econ3').startswith('601'), 'social benefits (pension contributions)') # note this will be zero since it is subsumed into above category
                         # capital expenditures (foreign funded)

@@ -2,7 +2,7 @@
 import dlt
 import unicodedata
 from pyspark.sql.functions import substring, col, lit, when, udf, trim, regexp_replace, initcap, concat, lower
-from pyspark.sql.types import StringType
+from pyspark.sql.types import StringType, DoubleType
 
 # Note DLT requires the path to not start with /dbfs
 TOP_DIR = "/mnt/DAP/data/BOOSTProcessed"
@@ -105,9 +105,9 @@ def boost_bronze_cen():
                 .otherwise('Other expenses')
             ).select(
                 col('YEAR').alias('year'),
-                col('APPROVED').alias('approved'),
-                col('MODIFIED').alias('revised'),
-                col('COMMITTED').alias('executed'), 
+                col('APPROVED').alias('approved').cast(DoubleType()),
+                col('MODIFIED').alias('revised').cast(DoubleType()),
+                col('COMMITTED').alias('executed').cast(DoubleType()), 
                 'geo1',
                 'is_transfer', 'is_foreign', 'admin0', 'admin1', 'admin2', 'ECON1', 'ECON2', 'ECON4', 'ECON5', 'ECON6', 'FUNCTION2', 'FUNCTION3','PROGRAM1', 'hospital', 'func', 'func_sub', 'econ', 'econ_sub', 'sheet'
             )
@@ -167,9 +167,9 @@ def boost_bronze_municipal():
             ).withColumn('hospital', lit(None).cast("string")
             ).select(
                 col('YEAR').alias('year'),
-                'approved',
-                col('MODIFIED').alias('revised'),
-                col('PAID').alias('executed'),
+                col('approved').cast(DoubleType()),
+                col('MODIFIED').alias('revised').cast(DoubleType()),
+                col('PAID').alias('executed').cast(DoubleType()),
                 'geo1',
                 'is_transfer', 'is_foreign', 'admin0', 'admin1', 'admin2', 'ECON1', 'ECON2', 'ECON4', 'ECON5', 'ECON6', 'FUNCTION2', 'FUNCTION3','PROGRAM1', 'hospital',  'func', 'func_sub', 'econ', 'econ_sub', 'sheet'             
             )
