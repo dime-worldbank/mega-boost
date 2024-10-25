@@ -22,7 +22,7 @@ def get_cci_metadata(prune=False):
         if sheet_name not in xls.sheet_names:
             sheet_name = 'Approved'
 
-        df = pd.read_excel(filename, sheet_name=sheet_name, na_values=['..'])
+        df = xls.parse(sheet_name=sheet_name, na_values=['..'])
 
         meta_columns = {'Country': 'country', 'Fiscal year': 'fiscal_year'}
         country_info = df.loc[:, meta_columns.keys()]\
@@ -85,6 +85,8 @@ merged_metadata_df
 # COMMAND ----------
 
 to_process_df = merged_metadata_df[merged_metadata_df.updated_at > merged_metadata_df.updated_at_old]
+if to_process_df.empty:
+    dbutils.notebook.exit("No new data to process.")
 display(to_process_df)
 
 # COMMAND ----------

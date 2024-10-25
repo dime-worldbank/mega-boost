@@ -192,6 +192,8 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
   )
   SELECT
     t.country_name,
+    t.boost_earliest_year,
+    t.boost_latest_year,
     CASE 
         WHEN t.country_name IN (
             'Afghanistan',
@@ -229,8 +231,6 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
             'Uruguay'
         ) THEN 'Yes' ELSE 'No'
     END AS boost_public,
-    t.boost_earliest_year,
-    t.boost_latest_year,
     CASE WHEN m.country_name IS NULL THEN 'No' ELSE 'Yes' END as avail_on_mega,
     f.boost_num_func_cofog,
     bsub.boost_subnat_earliest_year,
