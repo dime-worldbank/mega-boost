@@ -13,7 +13,7 @@ from pyspark.sql.functions import (
     regexp_replace,
     regexp_extract,
     substring,
-    coalesce
+    coalesce,
 )
 from pyspark.sql.types import DoubleType
 
@@ -79,10 +79,7 @@ def boost_silver():
         )
         .withColumn(
             "admin1",
-            when(
-                col("admin0_temp").isin("Provinces", "Municipalities"),
-                col("Department"),
-            ).otherwise(
+            when(col("admin0") == "Regional", col("Department"),).otherwise(
                 "Central Scope",
             ),
         )
