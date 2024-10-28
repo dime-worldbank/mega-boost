@@ -13,6 +13,12 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
     GROUP by
       1
   ),
+  mega_coverage AS (
+    SELECT
+      DISTINCT country_name
+    FROM
+      boost.expenditure_by_country_year
+  ),
   func_coverage AS (
     SELECT
       country_name,
@@ -188,6 +194,44 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
     t.country_name,
     t.boost_earliest_year,
     t.boost_latest_year,
+    CASE 
+        WHEN t.country_name IN (
+            'Afghanistan',
+            'Albania',
+            'Armenia',
+            'Benin',
+            'Brazil',
+            'Burkina Faso',
+            'Burundi',
+            'Chile',
+            'Croatia',
+            'Colombia',
+            'Dominican Republic',
+            'Guatemala',
+            'Haiti',
+            'Kenya',
+            'Kiribati',
+            'Liberia',
+            'Mali',
+            'Mauritania',
+            'Mexico',
+            'Moldova',
+            'Niger',
+            'Paraguay',
+            'Peru',
+            'Poland',
+            'Senegal',
+            'Seychelles',
+            'Solomon Islands',
+            'South Africa',
+            'Togo',
+            'Tunisia',
+            'Uganda',
+            'Ukraine',
+            'Uruguay'
+        ) THEN 'Yes' ELSE 'No'
+    END AS boost_public,
+    CASE WHEN m.country_name IS NULL THEN 'No' ELSE 'Yes' END as avail_on_mega,
     f.boost_num_func_cofog,
     bsub.boost_subnat_earliest_year,
     bsub.boost_subnat_latest_year,
@@ -220,6 +264,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
     egsw.energy_generation_solar_wind_latest_year
   FROM
     time_coverage t
+    LEFT JOIN mega_coverage m on t.country_name = m.country_name
     LEFT JOIN func_coverage f on t.country_name = f.country_name
     LEFT JOIN pefa2016 p16 on t.country_name = p16.country_name
     LEFT JOIN pefa2011 p11 on t.country_name = p11.country_name

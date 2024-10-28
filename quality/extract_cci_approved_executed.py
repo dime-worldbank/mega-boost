@@ -13,14 +13,17 @@ def get_cci_metadata(prune=False):
     countries = spark.table('indicator.country').toPandas()
     
     for filename in tqdm(files):
-        try:
-            for sheet_name in ['Approved', 'Executed']: # quick & dirty way to make sure both sheets exit
-                df = pd.read_excel(filename, sheet_name=sheet_name, na_values=['..'])
-        except ValueError as e:
-            print(f"Error reading {sheet_name} from {filename}")
-            print(e)
+        xls = pd.ExcelFile(filename)
+        if 'Executed' not in xls.sheet_names and 'Approved' not in xls.sheet_names:
+            print(f"Neither 'Executed' nor 'Approved' sheet found in {filename}")
             continue
-        
+
+        sheet_name = 'Executed'
+        if sheet_name not in xls.sheet_names:
+            sheet_name = 'Approved'
+
+        df = xls.parse(sheet_name=sheet_name, na_values=['..'])
+
         meta_columns = {'Country': 'country', 'Fiscal year': 'fiscal_year'}
         country_info = df.loc[:, meta_columns.keys()]\
                          .dropna().drop_duplicates()\
@@ -82,6 +85,8 @@ merged_metadata_df
 # COMMAND ----------
 
 to_process_df = merged_metadata_df[merged_metadata_df.updated_at > merged_metadata_df.updated_at_old]
+if to_process_df.empty:
+    dbutils.notebook.exit("No new data to process.")
 display(to_process_df)
 
 # COMMAND ----------
@@ -99,7 +104,12 @@ def process_country(meta_row):
     Path(csv_dir).mkdir(parents=True, exist_ok=True)
     
     for sheet_name in ['Approved', 'Executed']:
-        df = pd.read_excel(filename, sheet_name=sheet_name, na_values=['..'])
+        try:
+            df = pd.read_excel(filename, sheet_name=sheet_name, na_values=['..'])
+        except ValueError as e:
+            print(f"Error reading {sheet_name} from {filename}")
+            print(e)
+            continue
         
         first_year_col = next(col for col in df.columns if str(col).startswith('2'))
         first_year_col_index = df.columns.get_loc(first_year_col)
