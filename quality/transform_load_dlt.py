@@ -96,48 +96,39 @@ def quality_functional_silver():
 
 # COMMAND ----------
 
-@dlt.table(name=f"quality_economic_silver")
+@dlt.table(name=f'quality_economic_silver')
 def quality_economic_silver():
-    bronze = dlt.read("quality_cci_bronze")
+    bronze = dlt.read('quality_cci_bronze')
     year_cols = list(col_name for col_name in bronze.columns if col_name.isnumeric())
-    quality_econ = (
-        bronze.filter(F.col("category_code").startswith("EXP_ECON_"))
-        .withColumn(
-            "econ",
-            F.when(F.col("category_code") == "EXP_ECON_WAG_BIL_EXE", "Wage bill")
-            .when(
-                F.col("category_code") == "EXP_ECON_CAP_EXP_EXE", "Capital expenditures"
+    return (bronze
+        .filter(F.col('category_code').startswith('EXP_ECON_'))
+        .withColumn('econ',
+            F.when(
+                F.col("category_code") == 'EXP_ECON_WAG_BIL_EXE' , "Wage bill"
+            ).when(
+                F.col("category_code") == 'EXP_ECON_CAP_EXP_EXE' , "Capital expenditures"
+            ).when(
+                F.col("category_code") == 'EXP_ECON_USE_GOO_SER_EXE' , "Goods and services"
+            ).when(
+                F.col("category_code") == 'EXP_ECON_SUB_EXE' , "Subsidies"
+            ).when(
+                F.col("category_code") == 'EXP_ECON_SOC_BEN_EXE' , "Social benefits"
+            ).when(
+                F.col("category_code") == 'EXP_ECON_OTH_GRA_EXE' , "Other grants and transfers"
+            ).when(
+                F.col("category_code") == 'EXP_ECON_OTH_EXP_EXE' , "Other expenses"
+            ).when(
+                F.col("category_code") == 'EXP_ECON_INT_DEB_EXE' , "Interest on debt"
             )
-            .when(
-                F.col("category_code") == "EXP_ECON_USE_GOO_SER_EXE",
-                "Goods and services",
-            )
-            .when(F.col("category_code") == "EXP_ECON_SUB_EXE", "Subsidies")
-            .when(F.col("category_code") == "EXP_ECON_SOC_BEN_EXE", "Social benefits")
-            .when(
-                F.col("category_code") == "EXP_ECON_OTH_GRA_EXE",
-                "Other grants and transfers",
-            )
-            .when(F.col("category_code") == "EXP_ECON_OTH_EXP_EXE", "Other expenses")
-            .when(F.col("category_code") == "EXP_ECON_INT_DEB_EXE", "Interest on debt"),
         )
-        .filter(F.col("econ").isNotNull())
-        .melt(
-            ids=["country_name", "approved_or_executed", "econ"],
-            values=year_cols,
-            variableColumnName="year",
-            valueColumnName="amount",
+        .filter(F.col('econ').isNotNull())
+        .melt(ids=["country_name", "approved_or_executed", "econ"], 
+            values=year_cols, 
+            variableColumnName="year", 
+            valueColumnName="amount"
         )
-        .filter(F.col("amount").isNotNull())
+        .filter(F.col('amount').isNotNull())
     )
-    invalid_rows = (
-        quality_econ.filter(F.col("amount") == 0)
-        .groupBy("country_name", "econ", "year")
-        .count()
-        .filter(F.col("count") == 2)
-    )
-
-    return quality_econ.join(invalid_rows, ["country_name", "econ", "year"], "leftanti")
 
 # COMMAND ----------
 
