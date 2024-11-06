@@ -7,7 +7,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       min(year) as boost_earliest_year,
       max(year) as boost_latest_year
     FROM
-      boost_intermediate.quality_total_silver
+      boost_intermediate.quality_total_gold
     WHERE
       approved_or_executed = 'Executed'
     GROUP by
@@ -24,7 +24,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       country_name,
       count(distinct func) as boost_num_func_cofog
     FROM
-      boost_intermediate.quality_functional_silver
+      boost_intermediate.quality_functional_gold
     WHERE
       approved_or_executed = 'Executed'
     GROUP BY
@@ -162,7 +162,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       min(year) as boost_subnat_earliest_year,
       max(year) as boost_subnat_latest_year
     FROM
-      boost_intermediate.quality_total_subnat_silver
+      boost_intermediate.quality_total_subnat_gold
     WHERE
       amount is not null
     GROUP BY
