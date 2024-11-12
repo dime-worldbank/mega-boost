@@ -31,8 +31,8 @@ def boost_bronze_cen():
             .withColumn("transfer", col("transfer").cast("string"))
             .withColumn("econ2", col("econ2").cast("string"))
             .filter(
-                ((col('year')<2017) & (lower(col('transfer'))=='excluye consolidables') & (~col('econ2').rlike('^(28|32|34)'))) |
-                ((col('year')>2016) & (~(col('econ1').isin('Financiamiento', 'Consolidable'))))
+                ((col('year')<2017) & (lower(col('transfer'))=='excluye consolidables') & (~col('econ2').rlike('^(28|32|34|30)'))) |
+                ((col('year')>2016) & (~(lower(col('econ1')).isin('financiamiento', 'consolidable'))))
             )
     )
 
@@ -44,11 +44,11 @@ def boost_bronze_municipal():
            .options(**CSV_READ_OPTIONS)
            .option("inferSchema", "true")
            .load(f'{COUNTRY_MICRODATA_DIR}/Mun.csv')
-            .withColumn("econ0", col("econ0").cast("string"))
-            .withColumn("econ1", col("econ1").cast("string"))
-            .withColumn("econ2", col("econ2").cast("string"))
-            .withColumn("econ3", col("econ3").cast("string"))
-            .withColumn("econ4", col("econ4").cast("string"))
+            .withColumn("econ0", when(col("econ0").isNull(), "").otherwise(col("econ0").cast("string")))
+            .withColumn("econ1", when(col("econ1").isNull(), "").otherwise(col("econ1").cast("string")))
+            .withColumn("econ2", when(col("econ2").isNull(), "").otherwise(col("econ2").cast("string")))
+            .withColumn("econ3", when(col("econ3").isNull(), "").otherwise(col("econ3").cast("string")))
+            .withColumn("econ4", when(col("econ4").isNull(), "").otherwise(col("econ4").cast("string")))
            .filter((col('econ0') == '2 Gasto') & (lower(col('econ1')) != 'gastos por actividades de financiacion'))
            .withColumnRenamed('accrued', 'executed')
     )
@@ -57,11 +57,11 @@ def boost_bronze_municipal():
            .options(**CSV_READ_OPTIONS)
            .option("inferSchema", "true")
            .load(f'{COUNTRY_MICRODATA_DIR}/Mun2.csv')
-            .withColumn("ECON0", col("ECON0").cast("string"))
-            .withColumn("ECON1", col("ECON1").cast("string"))
-            .withColumn("ECON2", col("ECON2").cast("string"))
-            .withColumn("ECON3", col("ECON3").cast("string"))
-            .withColumn("ECON4", col("ECON4").cast("string"))
+            .withColumn("ECON0", when(col("ECON0").isNull(), "").otherwise(col("ECON0").cast("string")))
+            .withColumn("ECON1", when(col("ECON1").isNull(), "").otherwise(col("ECON1").cast("string")))
+            .withColumn("ECON2", when(col("ECON2").isNull(), "").otherwise(col("ECON2").cast("string")))
+            .withColumn("ECON3", when(col("ECON3").isNull(), "").otherwise(col("ECON3").cast("string")))
+            .withColumn("ECON4", when(col("ECON4").isNull(), "").otherwise(col("ECON4").cast("string")))
            .filter((col('ECON0') == '2 Gasto') & (lower(col('ECON1')) != 'gastos por actividades de financiacion'))
            .withColumnRenamed('ACCRUED', 'executed')
     )
@@ -76,9 +76,9 @@ def boost_silver():
         ).withColumn(
             'sheet', lit('Cen')
         ).withColumn(
-            'admin0', lit('Central')
+            'admin0_tmp', lit('Central')
         ).withColumn(
-            'admin1', lit('Central Scope')
+            'admin1_tmp', lit('Central Scope')
         ).withColumn('geo1', lit('')
         ).withColumn('func_sub',
             when(col('admin1').rlike('^(03|10)'), 'judiciary')
@@ -86,20 +86,26 @@ def boost_silver():
             # No breakdown of education spending into primary, secondary etc
             # No breakdown of health expenditure into primary, secondary etc
             # agriculture
-            .when((col('admin1').startswith('13') & (lower(col('admin2'))!='05 corporacion nacional forestal')), 'agriculture')
+            .when((col('year')<2020) & (col('admin1').startswith('13') & (lower(col('admin2'))!='05 corporacion nacional forestal')), 'agriculture')
+            .when((col('year')>2019) & (col('admin1').startswith('13') & (~col('admin2').startswith('1305'))), 'agriculture')
+            # roads
+            .when(col('road_transport')=='road', 'road')
             # railroads
-            .when((col('program1').rlike('^(190102|190103)') | (col('program1').isin("02 S.Y Adm.Gral.Transporte-Empresa Ferrocarriles Del Estado","03 TRANSANTIAGO"))), 'railroads')
+            .when((col('program1').rlike('^(190102|190103)') | (lower(col('program1')).isin("02 S.Y Adm.Gral.Transporte-Empresa Ferrocarriles Del Estado".lower(),"03 TRANSANTIAGO".lower()))), 'railroads')
             # water transport
-            .when(col('program1') == '06 D.G.O.P.-Direccion De Obras Portuarias', 'water transport')
+            .when(lower(col('program1')) == '06 D.G.O.P.-Direccion De Obras Portuarias'.lower(), 'water transport')
             # air transport
-            .when(col('program1') == '07 D.G.O.P.-Direccion De Aeropuertos', 'air transport')
+            .when(lower(col('program1')) == '07 D.G.O.P.-Direccion De Aeropuertos'.lower(), 'air transport')
+            # energy
+            .when((((col('admin1').startswith('17'))&(lower(col('admin2')).isin("04 comision chilena de energia nuclear","05 comision nacional de energia")))|
+                  (col('admin1').startswith('24'))), 'energy')
+
         ).withColumn('func',
             when(col('admin1').startswith('11'), 'Defence')
             .when(col('func_sub').isin('judiciary', 'public safety'), "Public order and safety")
             .when((
-                col('admin1').rlike('^(07|17)') |
-                col('func_sub').isin('agriculture', 'railroads', 'water transport', 'air transport') |
-                (col('road_transport')=='road')
+                ((col('admin1').rlike('^(07|17)') & (~lower(col('admin2')).isin("04 comision chilena de energia nuclear", "05 comision nacional de energia")))) |
+                col('func_sub').isin('agriculture', 'road', 'railroads', 'water transport', 'air transport', 'energy')             
                 ), 'Economic affairs')
             .when((
                 col('admin2').rlike('^(1305|2501|2502|2503)') | 
@@ -121,7 +127,7 @@ def boost_silver():
             # social assistance
             when(lower(col('econ3')) == '02 prestaciones de asistencia social', 'social assistance')
             # pensions
-            .when(lower(col('econ3')) == '01 Prestaciones Previsionales', 'pensions')
+            .when(lower(col('econ3')) == '01 prestaciones previsionales', 'pensions')
         ).withColumn('econ',
             # wage bill
             when(col('econ2').startswith('21'), 'Wage bill')
@@ -152,6 +158,7 @@ def boost_silver():
         ).withColumn('func',
             when(lower(col('service2'))=='area de salud', 'Health')
             .when(trim(lower(col('service2')))=='area de educacion', 'Education')
+            .otherwise('General public services')
         ).withColumn('econ',
             # wage bill
             when(col('econ2').startswith('21'), 'Wage bill')
@@ -160,9 +167,10 @@ def boost_silver():
             # goods and services
             .when(col('econ2').startswith('22'), 'Goods and services')
             # subsidies
-            .when(((col('econ2')=='24 transferencias corrientes') & (col('econ3') == '01 al sector privado')), 'Subsidies')
+            .when(((lower(col('econ2'))=='24 transferencias corrientes') & (lower(col('econ3')) == '01 al sector privado')), 'Subsidies')
             # interest on debt
             .when(lower(col('econ3')).isin('03 intereses deuda interna', '05 otros gastos financieros deuda interna'), 'Interest on debt')
+            .otherwise('Other expenses')
         )
     return cen.unionByName(mun, allowMissingColumns=True)
 
@@ -174,10 +182,10 @@ def boost_gold():
                 'year',
                 'approved',
                 col('modified').alias('revised'),
-                col('executed').cast('int'),
+                'executed',
                 'geo1',
-                'admin0',
-                'admin1',
+                col('admin0_tmp').alias('admin0'),
+                col('admin1_tmp').alias('admin1'),
                 'admin2',
                 'func_sub',
                 'func',
