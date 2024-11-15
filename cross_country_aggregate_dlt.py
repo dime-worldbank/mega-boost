@@ -41,7 +41,7 @@ def boost_gold():
                 current_df = current_df.withColumn(col_name, F.lit(None))
 
         for col_name in ["approved", "executed"]:
-            assert col_name in current_df.columns, "Column '{col_name}' must be present in the table '{table_name}"
+            assert col_name in current_df.columns, f"Column '{col_name}' must be present in the table '{table_name}"
             col_type = current_df.schema[col_name].dataType
             assert isinstance(col_type, DoubleType), \
                 f"Table '{table_name} column '{col_name}' must be a DoubleType, but got {col_type}"
