@@ -153,7 +153,7 @@ def boost_silver():
         ).withColumn(
             'sheet', lit('Mun')
         ).withColumn(
-            'admin0', lit('Regional')
+            'admin0_tmp', lit('Regional')
         ).withColumn('geo1', lit('')
         ).withColumn('func',
             when(lower(col('service2'))=='area de salud', 'Health')
@@ -179,7 +179,7 @@ def boost_gold():
     return (dlt.read(f'chl_boost_silver')
         .withColumn('country_name', lit(COUNTRY))
         .select('country_name',
-                'year',
+                col('year').cast("integer"),
                 'approved',
                 col('modified').alias('revised'),
                 'executed',
