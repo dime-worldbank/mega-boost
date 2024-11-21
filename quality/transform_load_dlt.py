@@ -55,6 +55,20 @@ def quality_total_silver():
 
 # COMMAND ----------
 
+@dlt.table(name=f'quality_total_gold')
+def quality_total_gold():
+    quality_total_silver = dlt.read('quality_total_silver')
+    no_budget_and_spending_rows = (
+        quality_total_silver.filter(F.col("amount") == 0)
+        .groupBy("country_name", "year")
+        .count()
+        .filter(F.col("count") == 2)
+    )
+
+    return quality_total_silver.join(no_budget_and_spending_rows, ["country_name", "year"], "leftanti")
+
+# COMMAND ----------
+
 @dlt.table(name=f'quality_functional_silver')
 def quality_functional_silver():
     udf_capitalize  = F.udf(lambda x: str(x).capitalize(), StringType())
@@ -96,6 +110,20 @@ def quality_functional_silver():
 
 # COMMAND ----------
 
+@dlt.table(name=f'quality_functional_gold')
+def quality_functional_gold():
+    quality_functional_silver = dlt.read('quality_functional_silver')
+    no_budget_and_spending_func_rows = (
+        quality_functional_silver.filter(F.col("amount") == 0)
+        .groupBy("country_name", "func", "year")
+        .count()
+        .filter(F.col("count") == 2)
+    )
+
+    return quality_functional_silver.join(no_budget_and_spending_func_rows, ["country_name", "func", "year"], "leftanti")
+
+# COMMAND ----------
+
 @dlt.table(name=f'quality_economic_silver')
 def quality_economic_silver():
     bronze = dlt.read('quality_cci_bronze')
@@ -132,6 +160,19 @@ def quality_economic_silver():
 
 # COMMAND ----------
 
+@dlt.table(name=f'quality_economic_gold')
+def quality_economic_gold():
+    quality_econ_silver = dlt.read('quality_economic_silver')
+    no_budget_and_spending_econ_rows = (
+        quality_econ_silver.filter(F.col("amount") == 0)
+        .groupBy("country_name", "econ", "year")
+        .count()
+        .filter(F.col("count") == 2)
+    )
+    return quality_econ_silver.join(no_budget_and_spending_econ_rows, ["country_name", "econ",  "year"], "leftanti")
+
+# COMMAND ----------
+
 # Exploratory for Manuel. Remove if they are not going to use
 @dlt.table(name=f'quality_judiciary_silver')
 def quality_judiciary_silver():
@@ -145,6 +186,21 @@ def quality_judiciary_silver():
             valueColumnName="amount"
         )
         .filter(F.col('amount').isNotNull())
+    )
+
+# COMMAND ----------
+
+@dlt.table(name=f"quality_judiciary_gold")
+def quality_judiciary_gold():
+    quality_judiciary_silver = dlt.read('quality_judiciary_silver')
+    no_budget_and_spending_rows = (
+        quality_judiciary_silver.filter(F.col("amount") == 0)
+        .groupBy("country_name", "year")
+        .count()
+        .filter(F.col("count") == 2)
+    )
+    return quality_judiciary_silver.join(
+        no_budget_and_spending_rows, ["country_name", "year"], "leftanti"
     )
 
 # COMMAND ----------
@@ -166,6 +222,21 @@ def quality_total_subnat_silver():
 
 # COMMAND ----------
 
+@dlt.table(name=f"quality_total_subnat_gold")
+def quality_total_subnat_gold():
+    quality_total_subnat_silver = dlt.read("quality_total_subnat_silver")
+    no_budget_and_spending_rows = (
+        quality_total_subnat_silver.filter(F.col("amount") == 0)
+        .groupBy("country_name", "year")
+        .count()
+        .filter(F.col("count") == 2)
+    )
+    return quality_total_subnat_silver.join(
+        no_budget_and_spending_rows, ["country_name", "year"], "leftanti"
+    )
+
+# COMMAND ----------
+
 @dlt.table(name=f'quality_total_foreign_silver')
 def quality_total_foreign_silver():
     bronze = dlt.read('quality_cci_bronze')
@@ -178,4 +249,19 @@ def quality_total_foreign_silver():
             valueColumnName="amount"
         )
         .filter(F.col('amount').isNotNull())
+    )
+
+# COMMAND ----------
+
+@dlt.table(name=f"quality_total_foreign_gold")
+def quality_total_foreign_gold():
+    quality_total_foreign_silver = dlt.read("quality_total_foreign_silver")
+    no_budget_and_spending_rows = (
+        quality_total_foreign_silver.filter(F.col("amount") == 0)
+        .groupBy("country_name", "year")
+        .count()
+        .filter(F.col("count") == 2)
+    )
+    return quality_total_foreign_silver.join(
+        no_budget_and_spending_rows, ["country_name", "year"], "leftanti"
     )

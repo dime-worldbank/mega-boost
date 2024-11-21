@@ -39,8 +39,10 @@ def boost_2019_onward_silver():
         .withColumn(
             'geo1',
             when(
+                col("GEO1") == 'Dhaka', col("GEO1")
+            ).when(
                 # necessary for coercing other values to None
-                regexp_extract(col("GEO1"), r'\d', 0) != '',
+                regexp_extract(col("GEO1"), r'\d{2}', 0) != '',
                 regexp_replace(col("GEO1"), r"\d+ ", "") # remove leading numbers
             ).otherwise('Central Scope')
         ).withColumn(
@@ -160,7 +162,7 @@ def boost_2015_to_2018_silver():
             'geo1', 
             when(
                 # necessary for coercing other values to None
-                regexp_extract(col("GEO1"), r'\d', 0) != '',
+                regexp_extract(col("GEO1"), r'\d{2}', 0) != '',
                 regexp_replace(col("GEO1"), r"\d+ ", "") # remove leading numbers
             ).otherwise('Central Scope')
         ).withColumn(
@@ -331,8 +333,10 @@ def boost_2008_to_2014_silver():
         ).withColumn(
             'geo1', 
             when(
+                col('GEO1') == 'khulna', 'Khulna'
+            ).when(
                 # necessary for coercing other values to None
-                regexp_extract(col("GEO1"), r'\d', 0) != '',
+                regexp_extract(col("GEO1"), r'\d{2}', 0) != '',
                 regexp_replace(col("GEO1"), r"\d+ ", "") # remove leading numbers
             ).otherwise('Central Scope')
         ).withColumn(
