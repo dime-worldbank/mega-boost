@@ -240,7 +240,7 @@ def boost_silver():
 def boost_gold():
     return (dlt.read(f'chl_boost_silver')
         .withColumn('country_name', lit(COUNTRY))
-        #.filter(col('year') > 2008)
+        .filter(col('year') > 2008)
         .select('country_name',
                 col('year').cast("integer"),
                 'approved',
