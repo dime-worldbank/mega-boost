@@ -10,7 +10,7 @@ import os
 from tqdm import tqdm
 import unicodedata
 
-TOP_DIR = "/dbfs/mnt/DAP/data/BOOSTProcessed"
+TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
 INPUT_DIR = f"{TOP_DIR}/Documents/input/Countries"
 RAW_INPUT_DIR = f"{TOP_DIR}/Documents/input/Data from authorities"
 WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
