@@ -4,8 +4,7 @@ from pyspark.sql.types import StructType
 import dlt
 from pyspark.sql.functions import col, lower, initcap, trim, regexp_replace, when, lit, substring, expr, coalesce
 
-# Note DLT requires the path to not start with /dbfs
-TOP_DIR = "/mnt/DAP/data/BOOSTProcessed"
+TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
 WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
 COUNTRY = 'Burkina Faso'
 COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/microdata_csv/{COUNTRY}'

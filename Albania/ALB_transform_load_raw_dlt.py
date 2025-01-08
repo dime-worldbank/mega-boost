@@ -7,7 +7,7 @@ from pyspark.sql.types import StringType
 
 
 # Note DLT requires the path to not start with /dbfs
-TOP_DIR = "/mnt/DAP/data/BOOSTProcessed"
+TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
 WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
 COUNTRY = 'Albania'
 RAW_COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/raw_microdata_csv/{COUNTRY}'

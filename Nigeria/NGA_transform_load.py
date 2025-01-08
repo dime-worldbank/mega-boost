@@ -2,8 +2,7 @@
 import dlt
 from pyspark.sql.functions import substring, col, lit, when, element_at, split, upper, expr, trim, regexp_replace, coalesce
 
-# Note DLT requires the path to not start with /dbfs
-TOP_DIR = "/mnt/DAP/data/BOOSTProcessed"
+TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
 INPUT_DIR = f"{TOP_DIR}/Documents/input/Countries"
 WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
 COUNTRY = 'Nigeria'
