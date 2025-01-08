@@ -9,7 +9,7 @@ import numpy as np
 SHEET_NAME = 'Data_Expenditures'
 MIN_NUM_OF_ROWS = 829223
 START_YEAR = 2010
-END_YEAR = 2023
+END_YEAR = 2022
 COUNTRY = 'Albania'
 
 microdata_csv_dir = prepare_microdata_csv_dir(COUNTRY)

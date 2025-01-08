@@ -4,6 +4,8 @@ from pyspark.sql import functions as F
 from pyspark.sql.window import Window
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DoubleType, BooleanType
 
+intermediate_schema = 'sboost4'
+
 # Adding a new country requires adding the country here
 country_codes = ['moz', 'pry', 'ken', 'pak', 'bfa', 'col', 'cod', 'nga', 'tun', 'btn', 'bgd', 'alb', 'ury', "zaf"]
 
@@ -34,7 +36,7 @@ schema = StructType([
 def boost_gold():
     unioned_df = None
     for code in country_codes:
-        table_name = f'boost_intermediate.{code}_boost_gold'
+        table_name = f'prd_mega.{intermediate_schema}.{code}_boost_gold'
         current_df = spark.table(table_name)
         for col_name in ["func", "func_sub", "econ", "econ_sub", "admin0", "admin1", "admin2", "geo1", "revised", "is_foreign"]:
             if col_name not in current_df.columns:
@@ -398,7 +400,7 @@ def quality_boost_country():
     assert boost_countries.count() == len(country_codes),\
         f'expect all BOOST countries ({country_codes_upper}) to be present in indicator.country table ({boost_countries.select("country_code").collect()})'
 
-    quality_cci_total = (spark.table('boost_intermediate.quality_total_gold')
+    quality_cci_total = (spark.table(f'prd_mega.{intermediate_schema}.quality_total_gold')
         .filter(F.col('approved_or_executed') == 'Executed')
         .filter(~excluded_country_year_conditions)
         .join(boost_countries, on=['country_name'], how="right")
@@ -459,7 +461,7 @@ def quality_boost_admin1_central_scope():
 @dlt.expect_or_fail('country has func agg for year', 'expenditure IS NOT NULL')
 def quality_boost_func():
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
-    quality_cci_func = (spark.table('boost_intermediate.quality_functional_gold')
+    quality_cci_func = (spark.table(f'prd_mega.{intermediate_schema}.quality_functional_gold')
         .filter(F.col('approved_or_executed') == 'Executed')
         .filter(~excluded_country_year_conditions)
         .join(boost_countries, on=['country_name'], how="right")
@@ -475,7 +477,7 @@ def quality_boost_func_exact():
     # This doesn't check by year on purpose as new years may be added to pipeline
     # without the CCI excel being updated.
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
-    quality_cci_func = (spark.table('boost_intermediate.quality_functional_gold')
+    quality_cci_func = (spark.table(f'prd_mega.{intermediate_schema}.quality_functional_gold')
         .groupBy('country_name', 'func')
         .agg(F.count('*').alias('cci_row_count'))
         .join(boost_countries, on=['country_name'], how="right")
@@ -491,7 +493,7 @@ def quality_boost_func_exact():
 @dlt.expect_or_fail('country has econ agg for year', 'expenditure IS NOT NULL')
 def quality_boost_econ():
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
-    quality_cci_econ = (spark.table('boost_intermediate.quality_economic_gold')
+    quality_cci_econ = (spark.table(f'prd_mega.{intermediate_schema}.quality_economic_gold')
         .filter(F.col('approved_or_executed') == 'Executed')
         .filter(~excluded_country_year_conditions)
         .join(boost_countries, on=['country_name'], how="right")
@@ -505,7 +507,7 @@ def quality_boost_econ():
 @dlt.expect_or_fail('country has no unknown econ agg', 'cci_row_count IS NOT NULL')
 def quality_boost_econ_unknown():
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
-    quality_cci_econ = (spark.table('boost_intermediate.quality_economic_gold')
+    quality_cci_econ = (spark.table(f'prd_mega.{intermediate_schema}.quality_economic_gold')
         .groupBy('country_name', 'econ')
         .agg(F.count('*').alias('cci_row_count'))
         .join(boost_countries, on=['country_name'], how="right")
@@ -521,7 +523,7 @@ def quality_boost_econ_unknown():
 @dlt.expect_or_fail('country has foreign agg', 'row_count IS NOT NULL')
 def quality_boost_foreign():
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
-    quality_cci_foreign = (spark.table('boost_intermediate.quality_total_foreign_gold')
+    quality_cci_foreign = (spark.table(f'prd_mega.{intermediate_schema}.quality_total_foreign_gold')
         .groupBy('country_name')
         .agg(F.count('*').alias('cci_row_count'))
         .join(boost_countries, on=['country_name'], how="inner")

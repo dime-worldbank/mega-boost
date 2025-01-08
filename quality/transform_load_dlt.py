@@ -3,7 +3,7 @@ import dlt
 import pyspark.sql.functions as F
 from pyspark.sql.types import StructType, StructField, StringType, FloatType
 
-TOP_DIR = "/mnt/DAP/data/BOOSTProcessed"
+TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
 INPUT_DIR = f"{TOP_DIR}/Documents/input/Countries"
 WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
 CCI_CSV_DIR = f'{WORKSPACE_DIR}/cci_csv'
@@ -31,7 +31,7 @@ def quality_cci_bronze():
       .options(**CSV_READ_OPTIONS)
       .schema(schema)
       .load(f'{CCI_CSV_DIR}/*/')
-      .withColumn("path_splitted", F.split(F.input_file_name(), "/"))
+      .withColumn("path_splitted", F.split(F.col("_metadata.file_path"), "/"))
       .withColumn("approved_or_executed", F.regexp_replace(F.element_at(F.col("path_splitted"), -1), "\.csv", ""))
       .withColumn("country_code", F.element_at(F.col("path_splitted"), -2))
       .join(countries, on=["country_code"], how="left")
