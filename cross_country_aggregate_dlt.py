@@ -4,7 +4,7 @@ from pyspark.sql import functions as F
 from pyspark.sql.window import Window
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DoubleType, BooleanType
 
-intermediate_schema = 'sboost4'
+intermediate_schema = 'boost_intermediate'
 
 # Adding a new country requires adding the country here
 country_codes = ['moz', 'pry', 'ken', 'pak', 'bfa', 'col', 'cod', 'nga', 'tun', 'btn', 'bgd', 'alb', 'ury', "zaf", 'chl']
