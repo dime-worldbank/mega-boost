@@ -4,11 +4,9 @@ import unicodedata
 from pyspark.sql.functions import (
     substring, col, lit, when, udf, trim, regexp_replace, initcap, concat, lower, create_map, coalesce
 )
-from pyspark.sql.types import StringType
 
 # Note: DLT requires the path to not start with /dbfs
 TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
-#TOP_DIR = "/mnt/DAP/data/BOOSTProcessed"
 INPUT_DIR = f"{TOP_DIR}/Documents/input/Countries"
 WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
 COUNTRY = 'Chile'
@@ -39,9 +37,10 @@ region_mapping = {
     "XV": "Arica y Parinacota",
     "XVI": "Ñuble",
 }
-region_mapping_expr = create_map(
-    [item for key, val in region_mapping.items() for item in (lit(key), lit(val))]
-)
+region_mapping_list = []
+for key, val in region_mapping.items():
+    region_mapping_list.extend([lit(key), lit(val)])
+region_mapping_expr = create_map(region_mapping_list)
 
 
 @dlt.table(name='chl_boost_bronze_cen')
