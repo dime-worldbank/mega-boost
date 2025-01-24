@@ -386,7 +386,8 @@ def health_private_expenditure_by_country_year():
 excluded_country_year_conditions = (
     (F.col('country_name') == 'Burkina Faso') & (F.col('year') == 2016) |
     (F.col('country_name') == 'Bangladesh') & (F.col('year') == 2008) |
-    (F.col('country_name') == 'Kenya') & (F.col('year').isin(list(range(2006, 2016))))
+    (F.col('country_name') == 'Kenya') & (F.col('year').isin(list(range(2006, 2016)))) |
+    (F.col('country_name') == 'Chile') & (F.col('year') < 2009)
 )
 
 @dlt.table(name='quality_boost_country')
