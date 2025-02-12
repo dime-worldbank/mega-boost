@@ -40,24 +40,116 @@ def boost_bronze():
 
 @dlt.table(name='lbr_boost_silver')
 def boost_silver():
-    df = (dlt.read('lib_boost_bronze')
-        .withColumn("econ0", coalesce(col("econ0").cast("string"), lit("")))
-        .withColumn("econ1", coalesce(col("econ1").cast("string"), lit("")))
-        .withColumn("econ2", coalesce(col("econ2").cast("string"), lit("")))
-        .withColumn("econ3", coalesce(col("econ3").cast("string"), lit("")))
-        .withColumn("econ4", coalesce(col("econ4").cast("string"), lit("")))
-        .withColumn("Region", coalesce(col("Region").cast("string"), lit("")))
-        .filter((col('econ0') == '2 Gasto') & (lower(col('econ1')) != 'gastos por actividades de financiacion'))
-        .withColumnRenamed('accrued', 'executed')
-        .withColumnRenamed('Servicio', 'service')
-        .withColumnRenamed('Region', 'region'))
+    return (dlt.read('lbr_boost_bronze')
+        .withColumn("Econ0-Account_Class", coalesce(col("Econ0-Account_Class").cast("string"), lit("")))
+        .withColumn("Econ1", coalesce(col("Econ1").cast("string"), lit("")))
+        .withColumn("Econ2-Sub_Item", coalesce(col("Econ2-Sub_Item").cast("string"), lit("")))
+        .withColumn("Econ3-Sub_Sub_Item", coalesce(col("Econ3-Sub_Sub_Item").cast("string"), lit("")))
+        .withColumn("Econ4-Sub_Sub_Sub_Item", coalesce(col("Econ4-Sub_Sub_Sub_Item").cast("string"), lit("")))
+        .withColumn("Geo1-County", coalesce(col("Geo1-County").cast("string"), lit("")))
+        .filter((col('Econ0-Account_Class') == '4 Liabilities') & (lower(col('Econ1')) != '32 Financial assets'))
+        .withColumnRenamed('Econ0-Account_Class', 'econ0')
+        .withColumnRenamed('Econ1', 'Econ1')
+        .withColumnRenamed('Econ2-Sub_Item', 'Econ2')
+        .withColumnRenamed('Econ3-Sub_Sub_Item', 'Econ3')
+        .withColumnRenamed('Econ4-Sub_Sub_Sub_Item', 'Econ4')
+        .withColumnRenamed('Geo1-County', 'geo1')
+        .withColumnRenamed('Adm1-Ministry', 'admin1')
+        .withColumnRenamed('Adm2-Department', 'admin2')
+        .withColumnRenamed('Func1-Division', 'Func1')
+        .withColumnRenamed('Func3-Functions', 'Func3')
+        .withColumnRenamed('Bud_class', 'budget')
+        .withColumnRenamed('WAGES', 'wages')
+        .withColumn('admin0',
+            when(col('geo1').startswith('00'), 'Central')
+            .otherwise('Regional')
+        ).withColumn('func_sub',
+            # judiciary breakdown
+            when(((col("Func1").startswith('03')) & 
+                (col('Func3').startswith('0330'))), "allowances in judiciary")
+            # public safety
+            .when(col("Func1").startswith('03'), "public safety" ) # important for this to be after judiciary
+            # education expenditure breakdown
+            .when(((col('Func1').startswith('09')) &
+                (col('Func2').startswith('091'))), 'primary education')
+            .when(((col('Func1').startswith('09')) &
+                (col('Func2').startswith('092'))), 'secondary education')
+            .when(((col('Func1').startswith('09')) & 
+                (col('Func2').startswith('094'))), 'tertiary education')
+            # health expenditure breakdown
+            .when(col('Func2').startswith('07411'), 'primary and secondary health')
+            .when(((col('Func2').startswith('07311')) | 
+                   (col('Func2').startswith('07321'))), 'tertiary and quaternary health')
+        ).withColumn('func',
+            when(col('Func1').startswith("01"), "General public services")
+            .when(col('Func1').startswith("02"), "Defence")
+            .when(col("func_sub").isin("judiciary", "public safety") , "Public order and safety")
+            .when(col('Func1').startswith("04"), "Economic affairs")
+            .when(col('Func1').startswith("05"), "Environmental protection")
+            .when(col('Func1').startswith("06"), "Housing and community amenities")
+            .when(col('Func1').startswith("07"), "Health")
+            .when(col('Func1').startswith("08"), "Recreation, culture and religion")
+            .when(col('Func1').startswith("09"), "Education")
+            .when(col('Func1').startswith("10"), "Social protection")
+        ).withColumn( 'econ_sub',
+            # allowances
+            when(((col('Econ1').startswith('21')) &
+                   (col('wages').eq('ALLOWANCES'))), 'allowances')
+            # pensions
+            .when(((col('Econ2').startswith('212')) &
+                   (~col('admin2').startswith('10401'))), 'pensions')
+            # capital expenditure (foreign funded)
+            .when(((col('budget').startswith('4')) &
+                   (~col('admin2').startswith('10401')) &
+                   (~col('Econ1').startswith('21')) &
+                   (~col('FUND').eq('Foreign'))), 'capital expenditure (foreign spending)')
+            # recurrent maintenance
+            .when((col('Econ3').startswith('2215')), 'recurrent maintenance')
 
-    return df
+            # social assistance
+            .when(((col('Func1').startswith('10')) &
+                   (~col('admin2').startswith('10401'))), 'capital expenditure (foreign spending)')
+            # basic wages - No formula
+            
+            # basic services
+            .when(((col('Econ3').startswith('2213')) | 
+                   (col('Econ3').startswith('2218'))), 'basic services')
+            # employment contracts - None
+            
+            # subsidies to production - None
+            .when(col('Econ1').startswith('25'), 'subsidies to production') # same as the value for subsidies
 
+        ).withColumn('econ',
+            # social benefits
+            when(((col('Econ1').startswith('21')) &
+                   (~col('Econ0').startswith('4')) &
+                  (~col('Econ1').startswith('32'))), 'Social benefits') # should come before other econ categories
+            # capital expendiatures
+            .when(((col('budget').startswith('4')) &
+                   (~col('admin2').startswith('10401')) &
+                   (~col('Econ1').startswith('21'))), 'Capital expenditures')
+            # wage bill
+            .when(((col('Econ1').startswith('21')) &
+                   (~col('Econ0').startswith('4')) &
+                   (~col('Econ1').startswith('32'))), 'Wage bill')     
+            # goods and services
+            .when((col('Econ1').startswith('22') & 
+                   col('budget').startswith('1')), 'Goods and services')
+            # subsidies
+            .when(col('Econ1').startswith('24') & 
+                   (col('budget').startswith('1')), 'Subsidies')
+            # interest on debt
+            .when(col('Econ1').startswith('24') & 
+                   (~col('admin2').startswith('10401')), 'Interest on debt')           
+            # other expenses
+            .otherwise('Other expenses')
+            # other grants?
+        )
+    )
 
 @dlt.table(name=f'lbr_boost_gold')
 def boost_gold():
-    return (dlt.read(f'lib_boost_silver')
+    return (dlt.read(f'lbr_boost_silver')
         .withColumn('country_name', lit(COUNTRY))
         .filter(col('year') > 2008)
         .select('country_name',
@@ -66,8 +158,8 @@ def boost_gold():
                 col('modified').alias('revised'),
                 'executed',
                 'geo1',
-                col('admin0_tmp').alias('admin0'),
-                col('admin1_tmp').alias('admin1'),
+                'admin0',
+                'admin1',
                 'admin2',
                 'func_sub',
                 'func',
