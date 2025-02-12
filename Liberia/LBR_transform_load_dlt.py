@@ -47,6 +47,7 @@ def boost_silver():
         .withColumn("Econ3-Sub_Sub_Item", coalesce(col("Econ3-Sub_Sub_Item").cast("string"), lit("")))
         .withColumn("Econ4-Sub_Sub_Sub_Item", coalesce(col("Econ4-Sub_Sub_Sub_Item").cast("string"), lit("")))
         .withColumn("Geo1-County", coalesce(col("Geo1-County").cast("string"), lit("")))
+        .withColumn("FUND", coalesce(col("FUND").cast("string"), lit("")))
         .filter((col('Econ0-Account_Class') == '4 Liabilities') & (lower(col('Econ1')) != '32 Financial assets'))
         .withColumnRenamed('Econ0-Account_Class', 'econ0')
         .withColumnRenamed('Econ1', 'Econ1')
@@ -60,9 +61,12 @@ def boost_silver():
         .withColumnRenamed('Func3-Functions', 'Func3')
         .withColumnRenamed('Bud_class', 'budget')
         .withColumnRenamed('WAGES', 'wages')
+        .withColumnRenamed('F_Year', 'year')
         .withColumn('admin0',
             when(col('geo1').startswith('00'), 'Central')
             .otherwise('Regional')
+        ).withColumn('geo1',
+            when(col('geo1').startswith('00'), 'Central Scope')
         ).withColumn('func_sub',
             # judiciary breakdown
             when(((col("Func1").startswith('03')) & 
@@ -94,7 +98,7 @@ def boost_silver():
         ).withColumn( 'econ_sub',
             # allowances
             when(((col('Econ1').startswith('21')) &
-                   (col('wages').eq('ALLOWANCES'))), 'allowances')
+                   (col('wages') == 'ALLOWANCES')), 'allowances')
             # pensions
             .when(((col('Econ2').startswith('212')) &
                    (~col('admin2').startswith('10401'))), 'pensions')
@@ -102,7 +106,7 @@ def boost_silver():
             .when(((col('budget').startswith('4')) &
                    (~col('admin2').startswith('10401')) &
                    (~col('Econ1').startswith('21')) &
-                   (~col('FUND').eq('Foreign'))), 'capital expenditure (foreign spending)')
+                   (col('FUND') != 'Foreign')), 'capital expenditure (foreign spending)')
             # recurrent maintenance
             .when((col('Econ3').startswith('2215')), 'recurrent maintenance')
 
@@ -154,9 +158,9 @@ def boost_gold():
         .filter(col('year') > 2008)
         .select('country_name',
                 col('year').cast("integer"),
-                'approved',
-                col('modified').alias('revised'),
-                'executed',
+                col('Original_appr').alias('approved'),
+                col('Actual').alias('executed'),
+                col('Revised_appr').alias('revised'),
                 'geo1',
                 'admin0',
                 'admin1',
