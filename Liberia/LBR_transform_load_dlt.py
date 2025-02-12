@@ -67,6 +67,7 @@ def boost_silver():
             .otherwise('Regional')
         ).withColumn('geo1',
             when(col('geo1').startswith('00'), 'Central Scope')
+            .otherwise(regexp_replace(col('geo1'), r'^[^ ]* ', ''))
         ).withColumn('func_sub',
             # judiciary breakdown
             when(((col("Func1").startswith('03')) & 
