@@ -66,16 +66,16 @@ def boost_gold():
 
 @dlt.table(name=f'cpi_factor')
 def cpi_factor():
-    earliest_years = (dlt.read('boost_gold')
+    earliest_years = (dlt.read('prd_mega.boost.boost_gold')
         .groupBy("country_name")
         .agg(F.min("year").alias("year"))
     )
-    base_cpis = (earliest_years.join(spark.table('indicator.consumer_price_index'), on=["country_name", "year"], how="inner")
+    base_cpis = (earliest_years.join(spark.table('prd_mega.indicator.consumer_price_index'), on=["country_name", "year"], how="inner")
         .select(F.col('year').alias('base_cpi_year'),
                 'country_name',
                 F.col('cpi').alias('base_cpi'))
     )
-    return (spark.table('indicator.consumer_price_index')
+    return (spark.table('prd_mega.indicator.consumer_price_index')
         .join(base_cpis, on=["country_name"], how="inner")
         .withColumn("cpi_factor", F.col("cpi") / F.col('base_cpi'))
         .select('country_name', "year", "cpi_factor")
@@ -83,15 +83,15 @@ def cpi_factor():
 
 @dlt.table(name=f'expenditure_by_country_year')
 def expenditure_by_country_year():
-    boost_gold = dlt.read('boost_gold')
+    boost_gold = dlt.read('prd_mega.boost.boost_gold')
     year_ranges = (boost_gold
         .groupBy("country_name")
         .agg(F.min("year").alias("earliest_year"), 
              F.max("year").alias("latest_year"))
     )
-    cpi_factors = dlt.read('cpi_factor')
+    cpi_factors = dlt.read('prd_mega.boost.cpi_factor')
 
-    pop = (spark.table('indicator.population')
+    pop = (spark.table('prd_mega.indicator.population')
         .select("country_name", "year", "population"))
 
     return (boost_gold
@@ -122,8 +122,8 @@ def expenditure_by_country_year():
 @dlt.table(name="pov_expenditure_by_country_year")
 def pov_expenditure():
     return (
-        spark.table("indicator.poverty").join(
-            dlt.read("expenditure_by_country_year"),
+        spark.table("prd_mega.indicator.poverty").join(
+            dlt.read("prd_mega.boost.expenditure_by_country_year"),
             on=["year", "country_name"],
             how="right",
         )
@@ -133,15 +133,15 @@ def pov_expenditure():
 
 @dlt.table(name=f'expenditure_by_country_geo1_func_year')
 def expenditure_by_country_geo1_func_year():
-    boost_gold = dlt.read('boost_gold')
+    boost_gold = dlt.read('prd_mega.boost.boost_gold')
     year_ranges = (boost_gold
         .groupBy("country_name")
         .agg(F.min("year").alias("earliest_year"), 
              F.max("year").alias("latest_year"))
     )
-    cpi_factors = dlt.read('cpi_factor')
+    cpi_factors = dlt.read('prd_mega.boost.cpi_factor')
 
-    subnat_pop = spark.table('indicator.subnational_population')
+    subnat_pop = spark.table('prd_mega.indicator.subnational_population')
     pop = (subnat_pop.groupBy("country_name", "year")
         .agg(F.sum("population").alias("population"))
         .withColumn("adm1_name", F.lit("Central Scope")) #TODO: update all adm1_name to geo1 after migration off PowerBI
@@ -203,11 +203,11 @@ def expenditure_by_country_geo1_func_year():
 
 @dlt.table(name=f'expenditure_and_outcome_by_country_geo1_func_year')
 def expenditure_and_outcome_by_country_geo1_func_year():
-    outcome_df = spark.table('indicator.global_data_lab_hd_index')
+    outcome_df = spark.table('prd_mega.indicator.global_data_lab_hd_index')
     exp_window = Window.partitionBy("country_name", "year", "func").orderBy(F.col("per_capita_real_expenditure").desc())
     outcome_window = Window.partitionBy("country_name", "year", "func").orderBy(F.col("outcome_index").desc())
 
-    return (dlt.read('expenditure_by_country_geo1_func_year')
+    return (dlt.read('prd_mega.boost.expenditure_by_country_geo1_func_year')
         .join(
             outcome_df, on=["country_name", "adm1_name", "year"], how="inner"
         ).withColumn('outcome_index', 
@@ -227,7 +227,7 @@ def expenditure_and_outcome_by_country_geo1_func_year():
 
 @dlt.table(name=f'expenditure_by_country_geo1_year')
 def expenditure_by_country_geo1_year():
-    return (dlt.read(f'expenditure_by_country_geo1_func_year')
+    return (dlt.read(f'prd_mega.boost.expenditure_by_country_geo1_func_year')
         .groupBy("country_name", "adm1_name", "adm1_name_for_map", "year")
         .agg(
             F.sum("expenditure").alias("expenditure"),
@@ -241,11 +241,11 @@ def expenditure_by_country_geo1_year():
 
 @dlt.table(name=f'expenditure_by_country_admin_func_sub_econ_sub_year')
 def expenditure_by_country_admin_func_sub_econ_sub_year():
-    with_decentralized = (dlt.read('boost_gold')
+    with_decentralized = (dlt.read('prd_mega.boost.boost_gold')
         .groupBy("country_name", "year", "admin0", "admin1", "admin2", "func", "func_sub", "econ", "econ_sub").agg(
             F.sum("executed").alias("expenditure")
         )
-        .join(dlt.read('cpi_factor'), on=["country_name", "year"], how="inner")
+        .join(dlt.read('prd_mega.boost.cpi_factor'), on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
     )
 
@@ -259,11 +259,11 @@ def expenditure_by_country_admin_func_sub_econ_sub_year():
 
 @dlt.table(name=f'expenditure_by_country_admin0_func_sub_year')
 def expenditure_by_country_admin_func_sub_econ_sub_year():
-    with_decentralized = (dlt.read('boost_gold')
+    with_decentralized = (dlt.read('prd_mega.boost.boost_gold')
         .groupBy("country_name", "year", "admin0", "func", "func_sub").agg(
             F.sum("executed").alias("expenditure")
         )
-        .join(dlt.read('cpi_factor'), on=["country_name", "year"], how="inner")
+        .join(dlt.read('prd_mega.boost.cpi_factor'), on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
         .filter(F.col("real_expenditure").isNotNull())
     )
@@ -278,10 +278,10 @@ def expenditure_by_country_admin_func_sub_econ_sub_year():
     
 @dlt.table(name=f'expenditure_by_country_func_econ_year')
 def expenditure_by_country_func_econ_year():
-    pop = (spark.table('indicator.population')
+    pop = (spark.table('prd_mega.indicator.population')
         .select("country_name", "year", "population"))
     
-    return (dlt.read('expenditure_by_country_admin_func_sub_econ_sub_year')
+    return (dlt.read('prd_mega.boost.expenditure_by_country_admin_func_sub_econ_sub_year')
         .groupBy("country_name", "year", "func", "econ")
         .agg(
             F.sum("expenditure").alias("expenditure"),
@@ -302,7 +302,7 @@ def expenditure_by_country_func_econ_year():
 # because we need decentralized exp which uses admin0
 @dlt.table(name=f'expenditure_by_country_func_year')
 def expenditure_by_country_func_year():
-    return (dlt.read('expenditure_by_country_func_econ_year')
+    return (dlt.read('prd_mega.boost.expenditure_by_country_func_econ_year')
         .groupBy("country_name", "year", "func").agg(
             F.sum("expenditure").alias("expenditure"),
             F.sum("real_expenditure").alias("real_expenditure"),
@@ -321,7 +321,7 @@ def expenditure_by_country_func_year():
 
 @dlt.table(name=f'expenditure_by_country_econ_year')
 def expenditure_by_country_econ_year():
-    return (dlt.read('expenditure_by_country_func_econ_year')
+    return (dlt.read('prd_mega.boost.expenditure_by_country_func_econ_year')
         .groupBy("country_name", "year", "econ").agg(
             F.sum("expenditure").alias("expenditure"),
             F.sum("real_expenditure").alias("real_expenditure"),
@@ -340,7 +340,7 @@ def expenditure_by_country_econ_year():
 
 @dlt.table(name=f'edu_private_expenditure_by_country_year')
 def edu_private_expenditure_by_country_year():
-    edu_pub_exp = (dlt.read('expenditure_by_country_func_year')
+    edu_pub_exp = (dlt.read('prd_mega.boost.expenditure_by_country_func_year')
         .filter(F.col('func') == "Education")
         .select(
             "country_name",
@@ -350,8 +350,8 @@ def edu_private_expenditure_by_country_year():
         )
     )
 
-    cpi_factors = dlt.read('cpi_factor')
-    edu_exp = (spark.table('indicator.edu_spending')
+    cpi_factors = dlt.read('prd_mega.boost.cpi_factor')
+    edu_exp = (spark.table('prd_mega.indicator.edu_spending')
         .join(cpi_factors, on=["country_name", "year"], how="inner")
         .withColumn(
             "real_edu_spending_current_lcu_icp",
@@ -374,8 +374,8 @@ def edu_private_expenditure_by_country_year():
 
 @dlt.table(name=f'health_private_expenditure_by_country_year')
 def health_private_expenditure_by_country_year():
-    cpi_factors = dlt.read('cpi_factor')
-    return (spark.table('indicator.health_expenditure')
+    cpi_factors = dlt.read('prd_mega.boost.cpi_factor')
+    return (spark.table('prd_mega.indicator.health_expenditure')
         .withColumn('oop_expenditure_current_lcu', F.col('che') * F.col('oop_percent_che') / 100)
         .join(cpi_factors, on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("oop_expenditure_current_lcu") / F.col("cpi_factor"))
@@ -394,12 +394,12 @@ excluded_country_year_conditions = (
 @dlt.expect_or_fail('country has total agg for year', 'expenditure IS NOT NULL')
 def quality_boost_country():
     country_codes_upper = [c.upper() for c in country_codes]
-    boost_countries = (spark.table('indicator.country')
+    boost_countries = (spark.table('prd_mega.indicator.country')
         .filter(F.col('country_code').isin(country_codes_upper))
         .select('country_code', 'country_name')
     )
     assert boost_countries.count() == len(country_codes),\
-        f'expect all BOOST countries ({country_codes_upper}) to be present in indicator.country table ({boost_countries.select("country_code").collect()})'
+        f'expect all BOOST countries ({country_codes_upper}) to be present in prd_mega.indicator.country table ({boost_countries.select("country_code").collect()})'
 
     quality_cci_total = (spark.table(f'prd_mega.{intermediate_schema}.quality_total_gold')
         .filter(F.col('approved_or_executed') == 'Executed')
@@ -407,7 +407,7 @@ def quality_boost_country():
         .join(boost_countries, on=['country_name'], how="right")
     )
 
-    return (dlt.read('expenditure_by_country_year')
+    return (dlt.read('prd_mega.boost.expenditure_by_country_year')
         .join(quality_cci_total, on=['country_name', 'year'], how="right")
     )
 
@@ -416,13 +416,13 @@ def quality_boost_country():
 def quality_boost_subnat():
     no_subnat_countries = ['Uruguay']
     boost_countries = (
-        dlt.read('quality_boost_country')
+        dlt.read('prd_mega.boost.quality_boost_country')
         .filter(~F.col('country_name').isin(no_subnat_countries))
         .select('country_name')
         .distinct()
     )
 
-    return (dlt.read('expenditure_by_country_geo1_year')
+    return (dlt.read('prd_mega.boost.expenditure_by_country_geo1_year')
         .groupBy('country_name')
         .agg(F.count('*').alias('row_count'))
         .join(boost_countries, on=['country_name'], how="right")
@@ -433,13 +433,13 @@ def quality_boost_subnat():
 def quality_boost_geo1_central_scope():
     no_geo1_central_scope_countries = ['Uruguay', 'Nigeria']
     boost_countries = (
-        dlt.read('quality_boost_country')
+        dlt.read('prd_mega.boost.quality_boost_country')
         .filter(~F.col('country_name').isin(no_geo1_central_scope_countries))
         .select('country_name')
         .distinct()
     )
 
-    return (dlt.read('expenditure_by_country_geo1_year')
+    return (dlt.read('prd_mega.boost.expenditure_by_country_geo1_year')
         .filter(F.col('adm1_name') == 'Central Scope')
         .groupBy('country_name')
         .agg(F.count('*').alias('row_count'))
@@ -449,26 +449,25 @@ def quality_boost_geo1_central_scope():
 @dlt.table(name='quality_boost_admin1_central_scope')
 @dlt.expect_or_fail('country admin1 has central scope', 'row_count IS NOT NULL')
 def quality_boost_admin1_central_scope():
-    boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
+    boost_countries = dlt.read('prd_mega.boost.quality_boost_country').select('country_name').distinct()
 
-    return (dlt.read('boost_gold')
+    return (dlt.read('prd_mega.boost.boost_gold')
         .filter(F.col('admin1') == 'Central Scope')
         .groupBy('country_name')
         .agg(F.count('*').alias('row_count'))
-        .join(boost_countries, on=['country_name'], how="right")
-    )
+        .join(boost_countries, on=['country_name'], how="right"))
 
 @dlt.table(name='quality_boost_func')
 @dlt.expect_or_fail('country has func agg for year', 'expenditure IS NOT NULL')
 def quality_boost_func():
-    boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
+    boost_countries = dlt.read('prd_mega.boost.quality_boost_country').select('country_name').distinct()
     quality_cci_func = (spark.table(f'prd_mega.{intermediate_schema}.quality_functional_gold')
         .filter(F.col('approved_or_executed') == 'Executed')
         .filter(~excluded_country_year_conditions)
         .join(boost_countries, on=['country_name'], how="right")
     )
     return (
-        dlt.read('expenditure_by_country_func_year')
+        dlt.read('prd_mega.boost.expenditure_by_country_func_year')
         .join(quality_cci_func, on=['country_name', 'func', 'year'], how="right")
     )
 
@@ -477,14 +476,14 @@ def quality_boost_func():
 def quality_boost_func_exact():
     # This doesn't check by year on purpose as new years may be added to pipeline
     # without the CCI excel being updated.
-    boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
+    boost_countries = dlt.read('prd_mega.boost.quality_boost_country').select('country_name').distinct()
     quality_cci_func = (spark.table(f'prd_mega.{intermediate_schema}.quality_functional_gold')
         .groupBy('country_name', 'func')
         .agg(F.count('*').alias('cci_row_count'))
         .join(boost_countries, on=['country_name'], how="right")
     )
     return (
-        dlt.read('expenditure_by_country_func_year')
+        dlt.read('prd_mega.boost.expenditure_by_country_func_year')
         .groupBy('country_name', 'func')
         .agg(F.count('*').alias('row_count'))
         .join(quality_cci_func, on=['country_name', 'func'], how="left")
@@ -493,28 +492,28 @@ def quality_boost_func_exact():
 @dlt.table(name='quality_boost_econ')
 @dlt.expect_or_fail('country has econ agg for year', 'expenditure IS NOT NULL')
 def quality_boost_econ():
-    boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
+    boost_countries = dlt.read('prd_mega.boost.quality_boost_country').select('country_name').distinct()
     quality_cci_econ = (spark.table(f'prd_mega.{intermediate_schema}.quality_economic_gold')
         .filter(F.col('approved_or_executed') == 'Executed')
         .filter(~excluded_country_year_conditions)
         .join(boost_countries, on=['country_name'], how="right")
     )
     return (
-        dlt.read('expenditure_by_country_econ_year')
+        dlt.read('prd_mega.boost.expenditure_by_country_econ_year')
         .join(quality_cci_econ, on=['country_name', 'econ', 'year'], how="right")
     )
 
 @dlt.table(name='quality_boost_econ_unknown')
 @dlt.expect_or_fail('country has no unknown econ agg', 'cci_row_count IS NOT NULL')
 def quality_boost_econ_unknown():
-    boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
+    boost_countries = dlt.read('prd_mega.boost.quality_boost_country').select('country_name').distinct()
     quality_cci_econ = (spark.table(f'prd_mega.{intermediate_schema}.quality_economic_gold')
         .groupBy('country_name', 'econ')
         .agg(F.count('*').alias('cci_row_count'))
         .join(boost_countries, on=['country_name'], how="right")
     )
     return (
-        dlt.read('expenditure_by_country_econ_year')
+        dlt.read('prd_mega.boost.expenditure_by_country_econ_year')
         .groupBy('country_name', 'econ')
         .agg(F.count('*').alias('row_count'))
         .join(quality_cci_econ, on=['country_name', 'econ'], how="left")
@@ -523,14 +522,14 @@ def quality_boost_econ_unknown():
 @dlt.table(name='quality_boost_foreign')
 @dlt.expect_or_fail('country has foreign agg', 'row_count IS NOT NULL')
 def quality_boost_foreign():
-    boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
+    boost_countries = dlt.read('prd_mega.boost.quality_boost_country').select('country_name').distinct()
     quality_cci_foreign = (spark.table(f'prd_mega.{intermediate_schema}.quality_total_foreign_gold')
         .groupBy('country_name')
         .agg(F.count('*').alias('cci_row_count'))
         .join(boost_countries, on=['country_name'], how="inner")
     )
     return (
-        dlt.read('expenditure_by_country_year')
+        dlt.read('prd_mega.boost.expenditure_by_country_year')
         .filter(F.col('foreign_funded_expenditure').isNotNull())
         .groupBy('country_name')
         .agg(F.count('*').alias('row_count'))
