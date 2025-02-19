@@ -68,28 +68,44 @@ def boost_silver():
         ).withColumn('geo1',
             when(col('geo1').startswith('00'), 'Central Scope')
             .otherwise(regexp_replace(col('geo1'), r'^[^ ]* ', ''))
+
         ).withColumn('func_sub',
-            # judiciary breakdown
+            # judiciary
             when(((col("Func1").startswith('03')) & 
-                (col('Func3').startswith('0330'))), "allowances in judiciary")
+                (col('Func3').startswith('0330')) &
+                (~col('admin2').startswith('10401')) ), "judiciary")
             # public safety
-            .when(col("Func1").startswith('03'), "public safety" ) # important for this to be after judiciary
-            # education expenditure breakdown
-            .when(((col('Func1').startswith('09')) &
-                (col('Func2').startswith('091'))), 'primary education')
-            .when(((col('Func1').startswith('09')) &
-                (col('Func2').startswith('092'))), 'secondary education')
-            .when(((col('Func1').startswith('09')) & 
-                (col('Func2').startswith('094'))), 'tertiary education')
+            .when(((col("Func1").startswith('03')) & 
+                (~col('Func3').startswith('033')) &
+                (~col('admin2').startswith('10401')) ), "public safety" ) # important for this to be after judiciary
+            # agriculture
+            .when((~(col('admin2').startswith('10401')) | 
+                   (col('Func2').startswith('042'))), 'agriculture')
+            # transport
+            .when((col('Func2').startswith('045')), 'transport')
+            # roads
+            .when((~(col('admin2').startswith('10401')) | 
+                   (col('Func3').startswith('0451'))), 'roads')
+            # air transport
+            .when((col('admin1').startswith('429')), 'air transport')
+            # energy
+            .when((~(col('admin2').startswith('10401')) | 
+                   (col('Func2').startswith('043'))), 'energy')
+            # telecoms
+            .when((col('admin1').startswith('418')), 'telecoms')
             # health expenditure breakdown
-            .when(col('Func2').startswith('07411'), 'primary and secondary health')
-            .when(((col('Func2').startswith('07311')) | 
-                   (col('Func2').startswith('07321'))), 'tertiary and quaternary health')
+            .when(((col('Func2').startswith('07 ')) | 
+                   (col('Func2').startswith('074'))), 'primary and secondary health')
+            .when(col('Func2').startswith('073'), 'tertiary and quaternary health')
+            
+            # education expenditure breakdown (primary, secondary, tertiary, quarterary) - None
+            
         ).withColumn('func',
-            when(col('Func1').startswith("01"), "General public services")
-            .when(col('Func1').startswith("02"), "Defence")
+            when(((col('Func1').startswith("01")) & 
+                  (~col('admin2').startswith('10401'))), "General public services")
+            .when(col('Func1').startswith("02"), "Defense")
             .when(col("func_sub").isin("judiciary", "public safety") , "Public order and safety")
-            .when(col('Func1').startswith("04"), "Economic affairs")
+            .when(col('Func1').startswith("04"), "Economic affairs") # Here named Economic relations
             .when(col('Func1').startswith("05"), "Environmental protection")
             .when(col('Func1').startswith("06"), "Housing and community amenities")
             .when(col('Func1').startswith("07"), "Health")
@@ -97,38 +113,34 @@ def boost_silver():
             .when(col('Func1').startswith("09"), "Education")
             .when(col('Func1').startswith("10"), "Social protection")
         ).withColumn( 'econ_sub',
+            # basic wages - No formula
+
             # allowances
             when(((col('Econ1').startswith('21')) &
-                   (col('wages') == 'ALLOWANCES')), 'allowances')
-            # pensions
-            .when(((col('Econ2').startswith('212')) &
-                   (~col('admin2').startswith('10401'))), 'pensions')
-            # capital expenditure (foreign funded)
+                   (col('wages') == 'ALLOWANCES') &
+                   (~col('admin2').startswith('10401'))), 'allowances')
+            # pension contributions
+            .when(((col('Econ0').startswith('2')) &
+                   (col('Econ2').startswith('212'))), 'social benefits (pension contributions)')
+            # capital expenditure (foreign spending)
             .when(((col('budget').startswith('4')) &
                    (~col('admin2').startswith('10401')) &
                    (~col('Econ1').startswith('21')) &
                    (col('FUND') != 'Foreign')), 'capital expenditure (foreign spending)')
-            # recurrent maintenance
-            .when((col('Econ3').startswith('2215')), 'recurrent maintenance')
-
-            # social assistance
-            .when(((col('Func1').startswith('10')) &
-                   (~col('admin2').startswith('10401'))), 'capital expenditure (foreign spending)')
-            # basic wages - No formula
-            
             # basic services
             .when(((col('Econ3').startswith('2213')) | 
                    (col('Econ3').startswith('2218'))), 'basic services')
-            # employment contracts - None
-            
-            # subsidies to production - None
-            .when(col('Econ1').startswith('25'), 'subsidies to production') # same as the value for subsidies
-
+            # recurrent maintenance
+            .when((col('Econ3').startswith('2215')), 'recurrent maintenance')
+            # social assistance
+            .when(((col('Func1').startswith('10')) &
+                   (~col('admin2').startswith('10401'))), 'social assistance')
+            # pensions
+            .when(((col('Econ0').startswith('2')) &
+                   (col('Econ2').startswith('271'))), 'pensions')    
         ).withColumn('econ',
             # social benefits
-            when(((col('Econ1').startswith('21')) &
-                   (~col('Econ0').startswith('4')) &
-                  (~col('Econ1').startswith('32'))), 'Social benefits') # should come before other econ categories
+            when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits') # should come before other econ categories
             # capital expendiatures
             .when(((col('budget').startswith('4')) &
                    (~col('admin2').startswith('10401')) &
@@ -141,14 +153,20 @@ def boost_silver():
             .when((col('Econ1').startswith('22') & 
                    col('budget').startswith('1')), 'Goods and services')
             # subsidies
-            .when(col('Econ1').startswith('24') & 
-                   (col('budget').startswith('1')), 'Subsidies')
+            .when(col('Econ1').startswith('25'), 'Subsidies')
             # interest on debt
             .when(col('Econ1').startswith('24') & 
-                   (~col('admin2').startswith('10401')), 'Interest on debt')           
+                   (~col('admin2').startswith('10401')), 'Interest on debt')    
+            # Other grants and transfers
+            .when((((col('Econ1').startswith('13')) |
+                   (col('Econ1').startswith('26'))) &
+                   (~col('Func1').startswith('10')) &
+                   (~col('Econ0').startswith('4')) &
+                   (~col('Econ1').startswith('32')) &
+                   (~col('admin2').startswith('10401')) &
+                   (col('budget').startswith('1')), 'other grants and transfers')
             # other expenses
             .otherwise('Other expenses')
-            # other grants?
         )
     )
 
