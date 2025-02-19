@@ -120,13 +120,13 @@ def boost_silver():
                    (col('wages') == 'ALLOWANCES') &
                    (~col('admin2').startswith('10401'))), 'allowances')
             # pension contributions
-            .when(((col('Econ0').startswith('2')) &
+            .when((~col('admin2').startswith('10401') &
                    (col('Econ2').startswith('212'))), 'social benefits (pension contributions)')
             # capital expenditure (foreign spending)
             .when(((col('budget').startswith('4')) &
                    (~col('admin2').startswith('10401')) &
                    (~col('Econ1').startswith('21')) &
-                   (col('FUND') != 'Foreign')), 'capital expenditure (foreign spending)')
+                   (col('FUND') == 'Foreign')), 'capital expenditure (foreign spending)')
             # basic services
             .when(((col('Econ3').startswith('2213')) | 
                    (col('Econ3').startswith('2218'))), 'basic services')
@@ -139,21 +139,21 @@ def boost_silver():
             .when(((col('Econ0').startswith('2')) &
                    (col('Econ2').startswith('271'))), 'pensions')    
         ).withColumn('econ',
-            # social benefits
-            when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits') # should come before other econ categories
-            # capital expendiatures
-            .when(((col('budget').startswith('4')) &
-                   (~col('admin2').startswith('10401')) &
-                   (~col('Econ1').startswith('21'))), 'Capital expenditures')
             # wage bill
             .when(((col('Econ1').startswith('21')) &
                    (~col('Econ0').startswith('4')) &
                    (~col('Econ1').startswith('32'))), 'Wage bill')     
+            # capital expendiatures
+            .when(((col('budget').startswith('4')) &
+                   (~col('admin2').startswith('10401')) &
+                   (~col('Econ1').startswith('21'))), 'Capital expenditures')
             # goods and services
             .when((col('Econ1').startswith('22') & 
                    col('budget').startswith('1')), 'Goods and services')
             # subsidies
             .when(col('Econ1').startswith('25'), 'Subsidies')
+            # social benefits
+            when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
             # interest on debt
             .when(col('Econ1').startswith('24') & 
                    (~col('admin2').startswith('10401')), 'Interest on debt')    
