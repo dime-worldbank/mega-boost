@@ -14,11 +14,12 @@ country_codes = ['moz', 'pry', 'ken', 'pak', 'bfa', 'col', 'cod', 'nga', 'tun', 
 schema = StructType([
     StructField("country_name", StringType(), True, {'comment': 'The name of the country for which the budget data is recorded (e.g., "Kenya", "Brazil").'}),
     StructField("year", IntegerType(), True, {'comment': 'The fiscal year for the budget data (e.g., 2023, 2024).'}),
-    StructField("adm1_name", StringType(), True, {'comment': 'Alias for admin1 to denote first sub-national administrative level where money was spent.'}),
     StructField("admin0", StringType(), True, {'comment': 'Who spent the money at the highest administrative level (either "Central" or "Regional").'}),
     StructField("admin1", StringType(), True, {'comment': 'Who spent the money at the first sub-national administrative level (e.g., state or province name).'}),
     StructField("admin2", StringType(), True, {'comment': 'Who spent the money at the second sub-national administrative level (e.g., government agency/ministry name or district).'}),
+    StructField("geo0", StringType(), True, {'comment': 'Is the money geographically or centrally allocated (either "Central" or "Regional") regardless of the spender'}),
     StructField("geo1", StringType(), True, {'comment': 'Geographically, at which first sub-national administrative level the money was spent.'}),
+    StructField("adm1_name", StringType(), True, {'comment': 'Legacy alias for geo1'}),
     StructField("func", StringType(), True, {'comment': 'Functional classification of the budget (e.g., Health, Education).'}),
     StructField("func_sub", StringType(), True, {'comment': 'Sub-functional classification under the main COFOG function (e.g., primary education, secondary education).'}),
     StructField("econ", StringType(), True, {'comment': 'Economic classification of the budget (e.g., Wage bill, Goods and services).'}),
@@ -52,12 +53,20 @@ def boost_gold():
 
         # Keep adm1_name for easy join with subnational population table
         # Alias geo1 instead of admin1 because considering outcome we care about how much was spent on (not by) a region
-        current_df = current_df.withColumn("adm1_name", F.col("geo1"))
-        
-        col_order = ['country_name', 'year',
-                     'adm1_name', 'admin0', 'admin1', 'admin2', 'geo1',
-                     'func', 'func_sub', 'econ', 'econ_sub', 'is_foreign',
-                     'approved', 'revised', 'executed']
+        current_df = (current_df
+            .withColumn("adm1_name", F.col("geo1"))
+            .withColumn("geo0",
+                F.when((F.col("geo1") == "Central Scope") | (F.col("geo1").isNull()), F.lit("Central"))
+                .otherwise(F.lit("Regional"))
+            )
+        )
+
+        col_order = [
+            'country_name', 'year',
+            'admin0', 'admin1', 'admin2', 'geo0', 'geo1', 'adm1_name',
+            'func', 'func_sub', 'econ', 'econ_sub', 'is_foreign',
+            'approved', 'revised', 'executed'
+        ]
         current_df = current_df.select(col_order)
             
         if unioned_df is None:
@@ -259,10 +268,10 @@ def expenditure_by_country_admin_func_sub_econ_sub_year():
 
     return with_decentralized.join(year_ranges, on=['country_name', 'func'], how='inner')
 
-@dlt.table(name='expenditure_by_country_admin0_func_sub_year')
-def expenditure_by_country_admin_func_sub_econ_sub_year():
+@dlt.table(name='expenditure_by_country_geo0_func_sub_year')
+def expenditure_by_country_geo0_func_sub_year():
     with_decentralized = (dlt.read('boost_gold')
-        .groupBy("country_name", "year", "admin0", "func", "func_sub").agg(
+        .groupBy("country_name", "year", "geo0", "func", "func_sub").agg(
             F.sum("executed").alias("expenditure")
         )
         .join(dlt.read('cpi_factor'), on=["country_name", "year"], how="inner")
