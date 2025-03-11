@@ -39,150 +39,112 @@ def boost_bronze():
 
 @dlt.table(name='lbr_boost_silver')
 def boost_silver():
-    return (dlt.read('lbr_boost_bronze')
-        .withColumn("Econ0", coalesce(col("Econ0").cast("string"), lit("")))
-        .withColumn("Econ1", coalesce(col("Econ1").cast("string"), lit("")))
-        .withColumn("Econ2-Sub_Item", coalesce(col("Econ2-Sub_Item").cast("string"), lit("")))
-        .withColumn("Econ3-Sub_Sub_Item", coalesce(col("Econ3-Sub_Sub_Item").cast("string"), lit("")))
-        .withColumn("Econ4-Sub_Sub_Sub_Item", coalesce(col("Econ4-Sub_Sub_Sub_Item").cast("string"), lit("")))
-        .withColumn("Geo1-County", coalesce(col("Geo1-County").cast("string"), lit("")))
-        .withColumn("FUND", coalesce(col("FUND").cast("string"), lit("")))
-        .filter((col('Econ0') != '4 Liabilities') & (col('Econ1') != '32 Financial assets'))
-        .withColumnRenamed('Econ2-Sub_Item', 'Econ2')
-        .withColumnRenamed('Econ3-Sub_Sub_Item', 'Econ3')
-        .withColumnRenamed('Econ4-Sub_Sub_Sub_Item', 'Econ4')
-        .withColumnRenamed('Geo1-County', 'geo1')
-        .withColumnRenamed('Geo2-Disctrict', 'geo2')
-        .withColumnRenamed('Adm2-Department', 'admin2')
-        .withColumnRenamed('Adm3-Section', 'admin3')
-        .withColumnRenamed('Func1-Division', 'Func1')
-        # Func2 is already named appropriately
-        .withColumnRenamed('Func3-Functions', 'Func3')
-        .withColumnRenamed('Bud_class', 'budget')
-        .withColumnRenamed('WAGES', 'wages')
-        .withColumnRenamed('F_Year', 'year')
 
-        # In Liberia's case, admin and geo data appear to be swapped
-        .withColumn('admin0',
-            when(col('geo1').startswith('00'), 'Central')
-            .otherwise('Regional')
+    df = dlt.read('lbr_boost_bronze') 
 
-        # admin1 - who spends the money
-        ).withColumn('admin1',
-            when(col('geo1').startswith('00'), 'Central Scope')
-            .otherwise(regexp_replace(col('geo1'), r'^\d+\s+', ''))
+    # Column renaming mapping
+    rename_mappings = {
+        'Econ0-Account_Class': 'Econ0',
+        'Econ2-Sub_Item': 'Econ2',
+        'Econ3-Sub_Sub_Item': 'Econ3',
+        'Econ4-Sub_Sub_Sub_Item': 'Econ4',
+        'Geo1-County': 'geo1',
+        'Geo2-Disctrict': 'geo2',
+        'Adm1-Ministry': 'admin1_source',
+        'Adm2-Department': 'admin2',
+        'Adm3-Section': 'admin3',
+        'Func1-Division': 'Func1',
+        'Func3-Functions': 'Func3',
+        'Bud_class': 'budget',
+        'WAGES': 'wages',
+        'F_Year': 'year'
+    }
 
-        # No geo data
-        
-        # Functional classifications
-        ).withColumn('func',
-            when(((col('Func1').startswith("01")) & 
-                  (~col('admin2').startswith('10401'))), "General public services")
-            .when((col('Func1').startswith("02"), "Defense") & 
-                  (col('Func1').startswith("02"), "Defense"))
-            .when(col("func_sub").isin("judiciary", "public safety") , "Public order and safety")
-            .when(col('Func1').startswith("04"), "Economic affairs") # Here named Economic relations
-            .when(col('Func1').startswith("05"), "Environmental protection")
-            .when(col('Func1').startswith("06"), "Housing and community amenities")
-            .when(col('Func1').startswith("07"), "Health")
-            .when(col('Func1').startswith("08"), "Recreation, culture and religion")
-            .when(col('Func1').startswith("09"), "Education")
-            .when(col('Func1').startswith("10"), "Social protection")
+    for old_name, new_name in rename_mappings.items():
+        df = df.withColumnRenamed(old_name, new_name)
 
-        # Sub Functional classifications 
-        ).withColumn('func_sub',
-            # judiciary
-            when(((col("Func1").startswith('03')) & 
-                (col('Func3').startswith('0330')) &
-                (~col('admin2').startswith('10401')) ), "judiciary")
-            # public safety
-            .when(((col("Func1").startswith('03')) & 
-                (~col('Func3').startswith('033')) &
-                (~col('admin2').startswith('10401')) ), "public safety" ) # important for this to be after judiciary
-            # agriculture
-            .when((~(col('admin2').startswith('10401')) | 
-                   (col('Func2').startswith('042'))), 'agriculture')
-            # transport
-            .when((col('Func2').startswith('045')), 'transport')
-            # roads
-            .when((~(col('admin2').startswith('10401')) | 
-                   (col('Func3').startswith('0451'))), 'roads')
-            # air transport
-            .when((col('admin1').startswith('429')), 'air transport')
-            # energy
-            .when((~(col('admin2').startswith('10401')) | 
-                   (col('Func2').startswith('043'))), 'energy')
-            # telecoms
-            .when((col('admin1').startswith('418')), 'telecoms')
-            # health expenditure breakdown
-            .when(((col('Func2').startswith('07 ')) | 
-                   (col('Func2').startswith('074'))), 'primary and secondary health')
-            .when(col('Func2').startswith('073'), 'tertiary and quaternary health')
-            
-            # education expenditure breakdown (primary, secondary, tertiary, quarterary) - None
-        ).withColumn( 'econ_sub',
-            # basic wages - No formula
+    # Columns to coalesce (replace NULL with an empty string)
+    columns_to_clean = [
+        "Econ0", "Econ1", "Econ2", "Econ3", 
+        "Econ4", "geo1", "FUND"
+    ]
+    for column in columns_to_clean:
+        df = df.withColumn(column, coalesce(col(column).cast("string"), lit("")))
 
-            # allowances
-            when(((col('Econ1').startswith('21')) &
-                   (col('wages') == 'ALLOWANCES') &
-                   (~col('admin2').startswith('10401'))), 'allowances')
-            # pension contributions
-            .when((~col('admin2').startswith('10401') &
-                   (col('Econ2').startswith('212'))), 'social benefits (pension contributions)')
-            # capital expenditure (foreign spending)
-            .when(((col('budget').startswith('4')) &
-                   (~col('admin2').startswith('10401')) &
-                   (~col('Econ1').startswith('21')) &
-                   (col('FUND') == 'Foreign')), 'capital expenditure (foreign spending)')
-            # basic services
-            .when(((col('Econ3').startswith('2213')) | 
-                   (col('Econ3').startswith('2218'))), 'basic services')
-            # recurrent maintenance
-            .when((col('Econ3').startswith('2215')), 'recurrent maintenance')
-            # social assistance
-            .when(((col('Func1').startswith('10')) &
-                   (~col('admin2').startswith('10401'))), 'social assistance')
-            # pensions
-            .when(((col('Econ0').startswith('2')) &
-                   (col('Econ2').startswith('271'))), 'pensions')    
-        ).withColumn('econ',
-            # wage bill
-            .when(((col('Econ1').startswith('21')) &
-                   (~col('Econ0').startswith('4')) &
-                   (~col('Econ1').startswith('32'))), 'Wage bill')     
-            # capital expendiatures
-            .when(((col('budget').startswith('4')) &
-                   (~col('admin2').startswith('10401')) &
-                   (~col('Econ1').startswith('21'))), 'Capital expenditures')
-            # goods and services
-            .when((col('Econ1').startswith('22') & 
-                   col('budget').startswith('1')), 'Goods and services')
-            # subsidies
-            .when(col('Econ1').startswith('25'), 'Subsidies')
-            # social benefits
-            when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
-            # interest on debt
-            .when(col('Econ1').startswith('24') & 
-                   (~col('admin2').startswith('10401')), 'Interest on debt')    
-            # Other grants and transfers
-            .when((((col('Econ1').startswith('13')) |
-                   (col('Econ1').startswith('26'))) &
-                   (~col('Func1').startswith('10')) &
-                   (~col('Econ0').startswith('4')) &
-                   (~col('Econ1').startswith('32')) &
-                   (~col('admin2').startswith('10401')) &
-                   (col('budget').startswith('1')), 'other grants and transfers')
-            # other expenses
-            .otherwise('Other expenses')
-            )
-        )
+    # Filtering out unwanted values at the total expenditures level 
+    df = df.filter((col('Econ0') != '4 Liabilities') & (col('Econ1') != '32 Financial assets'))
+
+    # --- Admin and Geo Data Adjustments ---
+    df = df.withColumn(
+        'admin0', when(col('geo1').startswith('00'), 'Central').otherwise('Regional')
+    ).withColumn(
+        'admin1', when(col('geo1').startswith('00'), 'Central Scope')
+                 .otherwise(regexp_replace(col('geo1'), r'^\d+\s+', ''))
     )
+
+    # --- Sub-Functional Classifications ---
+    df = df.withColumn(
+        'func_sub', when((col("Func1").startswith('03')) & (col('Func3').startswith('0330')) & (~col('admin2').startswith('10401')), "judiciary")
+                   .when((col("Func1").startswith('03')) & (~col('Func3').startswith('033')) & (~col('admin2').startswith('10401')), "public safety")
+                   .when((~col('admin2').startswith('10401')) | (col('Func2').startswith('042')), 'agriculture')
+                   .when(col('Func2').startswith('045'), 'transport')
+                   .when((~col('admin2').startswith('10401')) | (col('Func3').startswith('0451')), 'roads')
+                   .when(col('admin1_source').startswith('429'), 'air transport')
+                   .when((~col('admin2').startswith('10401')) | (col('Func2').startswith('043')), 'energy')
+                   .when(col('admin1_source').startswith('418'), 'telecoms')
+                   .when(col('Func2').startswith('07 ') | col('Func2').startswith('074'), 'primary and secondary health')
+                   .when(col('Func2').startswith('073'), 'tertiary and quaternary health')
+    )
+
+    # --- Functional Classifications ---
+    df = df.withColumn(
+        'func', when((col('Func1').startswith("01")) & (~col('admin2').startswith('10401')), "General public services")
+               .when(col('Func1').startswith("02"), "Defense")
+               .when(col("func_sub").isin("judiciary", "public safety"), "Public order and safety")
+               .when(col('Func1').startswith("04"), "Economic affairs")
+               .when(col('Func1').startswith("05"), "Environmental protection")
+               .when(col('Func1').startswith("06"), "Housing and community amenities")
+               .when(col('Func1').startswith("07"), "Health")
+               .when(col('Func1').startswith("08"), "Recreation, culture and religion")
+               .when(col('Func1').startswith("09"), "Education")
+               .when(col('Func1').startswith("10"), "Social protection")
+    )
+
+    #  --- Sub-Economic Classifications ---     
+    df = df.withColumn(
+        'econ_sub', when((col('Econ1').startswith('21')) & (col('wages') == 'ALLOWANCES') & (~col('admin2').startswith('10401')), 'allowances')
+                   .when((~col('admin2').startswith('10401')) & (col('Econ2').startswith('212')), 'social benefits (pension contributions)')
+                   .when((col('budget').startswith('4')) & (~col('admin2').startswith('10401')) & (~col('Econ1').startswith('21')) & (col('FUND') == 'Foreign'), 'capital expenditure (foreign spending)')
+                   .when((col('Econ3').startswith('2213')) | (col('Econ3').startswith('2218')), 'basic services')
+                   .when(col('Econ3').startswith('2215'), 'recurrent maintenance')
+                   .when((col('Func1').startswith('10')) & (~col('admin2').startswith('10401')), 'social assistance')
+                   .when((col('Econ0').startswith('2')) & (col('Econ2').startswith('271')), 'pensions')
+    )
+
+    #  --- Economic Classifications ---     
+    df = df.withColumn(
+        'econ', when((col('Econ1').startswith('21')) & (~col('Econ0').startswith('4')) & (~col('Econ1').startswith('32')), 'Wage bill')
+               .when((col('budget').startswith('4')) & (~col('admin2').startswith('10401')) & (~col('Econ1').startswith('21')), 'Capital expenditures')
+               .when((col('Econ1').startswith('22')) & (col('budget').startswith('1')), 'Goods and services')
+               .when(col('Econ1').startswith('25'), 'Subsidies')
+               .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
+               .when((col('Econ1').startswith('24')) & (~col('admin2').startswith('10401')), 'Interest on debt')
+               .when(((col('Econ1').startswith('13')) | (col('Econ1').startswith('26'))) & (~col('Func1').startswith('10')) & (~col('Econ0').startswith('4')) & (~col('Econ1').startswith('32')) & (~col('admin2').startswith('10401')) & (col('budget').startswith('1')), 'other grants and transfers')
+               .otherwise('Other expenses')
+    )
+
+    # --- Replacing misnomer column names ---
+    df = df.withColumn(
+        'admin2', regexp_replace(col('admin1_source'), r'^\d+\s+', '')
+    )
+
+
+    return df
 
 @dlt.table(name=f'lbr_boost_gold')
 def boost_gold():
-    # adming and geo data appear to be swapped
-    # there is no true geo data
+    # admin and geo data appear to be swapped
+    # there is no geo data
 
     return (dlt.read(f'lbr_boost_silver')
         .withColumn('country_name', lit(COUNTRY))
@@ -192,13 +154,13 @@ def boost_gold():
                 col('Original_appr').alias('approved'),
                 col('Actual').alias('executed'),
                 col('Revised_appr').alias('revised'),
-                col('geo1').alias('admin1'),
                 'admin0',
                 'admin1',
                 'admin2',
-                'func_sub',
-                'func',
                 'econ_sub',
-                'econ')
+                'econ',
+                'func_sub',
+                'func'
+                )
     )
 
