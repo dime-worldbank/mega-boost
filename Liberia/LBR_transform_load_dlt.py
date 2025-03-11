@@ -19,16 +19,6 @@ CSV_READ_OPTIONS = {
     "escape": '"',
 }
 
-region_mapping = {
-    
-}
-
-region_mapping_list = []
-for key, val in region_mapping.items():
-    region_mapping_list.extend([lit(key), lit(val)])
-region_mapping_expr = create_map(region_mapping_list)
-
-
 @dlt.table(name='lbr_boost_bronze')
 def boost_bronze():
     return (spark.read
@@ -42,14 +32,13 @@ def boost_silver():
 
     df = dlt.read('lbr_boost_bronze') 
 
-    # Column renaming mapping
+    # --- Column renaming mapping ---
     rename_mappings = {
         'Econ0-Account_Class': 'Econ0',
         'Econ2-Sub_Item': 'Econ2',
         'Econ3-Sub_Sub_Item': 'Econ3',
         'Econ4-Sub_Sub_Sub_Item': 'Econ4',
-        'Geo1-County': 'geo1',
-        'Geo2-Disctrict': 'geo2',
+        'Geo1-County': 'county',
         'Adm1-Ministry': 'ministry',
         'Adm2-Department': 'department',
         'Func1-Division': 'Func1',
@@ -62,83 +51,100 @@ def boost_silver():
     for old_name, new_name in rename_mappings.items():
         df = df.withColumnRenamed(old_name, new_name)
 
-    # Columns to coalesce (replace NULL with an empty string)
     columns_to_clean = [
         "Econ0", "Econ1", "Econ2", "Econ3", 
-        "Econ4", "geo1", "FUND"
+        "Econ4", "county", "FUND"
     ]
     for column in columns_to_clean:
         df = df.withColumn(column, coalesce(col(column).cast("string"), lit("")))
 
-    # Filtering out unwanted values at the total expenditures level 
+    # --- Global Filters ---
+    # Filtering out unwanted values at the total expenditures level
     df = df.filter((col('Econ0') != '4 Liabilities') & (col('Econ1') != '32 Financial assets'))
+
+    # used quite often, so to limit repetition
+    not_dept = ~col('department').startswith('10401') 
 
     # --- Admin and Geo Data Adjustments ---
     df = df.withColumn(
-        'admin0', when(col('geo1').startswith('00'), 'Central').otherwise('Regional')
+        'admin0', when(col('county').startswith('00'), 'Central').otherwise('Regional')
     ).withColumn(
-        'admin1', when(col('geo1').startswith('00'), 'Central Scope')
-                 .otherwise(regexp_replace(col('geo1'), r'^\d+\s+', ''))
+        'admin1', when(col('county').startswith('00'), 'Central Scope')
+                 .otherwise(regexp_replace(col('county'), r'^\d+\s+', ''))
     ).withColumn(
         'admin2', regexp_replace(col('ministry'), r'^\d+\s+', '')
     )
 
     # --- Sub-Functional Classifications ---
     df = df.withColumn(
-        'func_sub', when((col("Func1").startswith('03')) & (col('Func3').startswith('0330')) & (~col('department').startswith('10401')), "judiciary")
-                   .when((col("Func1").startswith('03')) & (~col('Func3').startswith('033')) & (~col('department').startswith('10401')), "public safety")
-                   .when((~col('department').startswith('10401')) | (col('Func2').startswith('042')), 'agriculture')
-                   .when(col('Func2').startswith('045'), 'transport')
-                   .when((~col('department').startswith('10401')) | (col('Func3').startswith('0451')), 'roads')
-                   .when(col('ministry').startswith('429'), 'air transport')
-                   .when((~col('department').startswith('10401')) | (col('Func2').startswith('043')), 'energy')
-                   .when(col('ministry').startswith('418'), 'telecoms')
-                   .when(col('Func2').startswith('07 ') | col('Func2').startswith('074'), 'primary and secondary health')
-                   .when(col('Func2').startswith('073'), 'tertiary and quaternary health')
+        'func_sub', when((col("Func1").startswith('03')) & (col('Func3').startswith('0330')) & not_dept, "judiciary")
+            .when((col("Func1").startswith('03')) & (~col('Func3').startswith('033')) & not_dept, "public safety")
+            .when(not_dept & (col('Func2').startswith('042')), 'agriculture')
+            .when(col('Func2').startswith('045'), 'transport')
+            .when(not_dept & (col('Func3').startswith('0451')), 'roads')
+            .when(col('ministry').startswith('429'), 'air transport')
+            .when(not_dept & (col('Func2').startswith('043')), 'energy')
+            .when(col('ministry').startswith('418'), 'telecoms')
+            .when(col('Func2').startswith('07 ') & col('Func2').startswith('074'), 'primary and secondary health')
+            .when(col('Func2').startswith('073'), 'tertiary and quaternary health')
     )
 
     # --- Functional Classifications ---
+    func_mapping = {
+        "02": "Defense",
+        "03": "Public order and safety",
+        "04": "Economic affairs",
+        "05": "Environmental protection",
+        "06": "Housing and community amenities",
+        "07": "Health",
+        "08": "Recreation, culture and religion",
+        "09": "Education",
+        "10": "Social protection"
+    }
+
+    func_col = None
+    for key, value in func_mapping.items():
+        # this is the general condition of each function mapping
+        condition = (col('Func1').startswith(key)) & not_dept 
+
+        func_col = func_col.when(condition & not_dept, value) if not func_col is None else when(condition, value)
+
+    func_col = func_col.otherwise("General public services") 
+    df = df.withColumn("func", func_col)
+
+    # --- Temporary columns to calculate 'basic wages' ---
     df = df.withColumn(
-        'func', when((col('Func1').startswith("01")) & (~col('department').startswith('10401')), "General public services")
-               .when(col('Func1').startswith("02"), "Defense")
-               .when(col("func_sub").isin("judiciary", "public safety"), "Public order and safety")
-               .when(col('Func1').startswith("04"), "Economic affairs")
-               .when(col('Func1').startswith("05"), "Environmental protection")
-               .when(col('Func1').startswith("06"), "Housing and community amenities")
-               .when(col('Func1').startswith("07"), "Health")
-               .when(col('Func1').startswith("08"), "Recreation, culture and religion")
-               .when(col('Func1').startswith("09"), "Education")
-               .when(col('Func1').startswith("10"), "Social protection")
+        'wage_bill', when((col('Econ1').startswith('21')) & (~col('Econ0').startswith('4')), True).otherwise(False)
     )
 
-    #  --- Sub-Economic Classifications ---     
     df = df.withColumn(
-        'econ_sub', when((col('Econ1').startswith('21')) & (col('wages') == 'ALLOWANCES') & (~col('department').startswith('10401')), 'allowances')
-                   .when((~col('department').startswith('10401')) & (col('Econ2').startswith('212')), 'social benefits (pension contributions)')
-                   .when((col('budget').startswith('4')) & (~col('department').startswith('10401')) & (~col('Econ1').startswith('21')) & (col('FUND') == 'Foreign'), 'capital expenditure (foreign spending)')
-                   .when((col('Econ3').startswith('2213')) | (col('Econ3').startswith('2218')), 'basic services')
-                   .when(col('Econ3').startswith('2215'), 'recurrent maintenance')
-                   .when((col('Func1').startswith('10')) & (~col('department').startswith('10401')), 'social assistance')
-                   .when((col('Econ0').startswith('2')) & (col('Econ2').startswith('271')), 'pensions')
+        'allowances', when((col('Econ1').startswith('21')) & (col('wages') == 'ALLOWANCES') & not_dept, True).otherwise(False)
     )
 
-    #  --- Economic Classifications ---     
+    # --- Sub-Economic Classifications ---     
     df = df.withColumn(
-        'econ', when((col('Econ1').startswith('21')) & (~col('Econ0').startswith('4')) & (~col('Econ1').startswith('32')), 'Wage bill')
-               .when((col('budget').startswith('4')) & (~col('department').startswith('10401')) & (~col('Econ1').startswith('21')), 'Capital expenditures')
+        ## How to add Spending in Basic Wages
+        'econ_sub', when(col('wage_bill') & ~col('allowances'), 'basic wages')
+            .when((col('Econ1').startswith('21')) & (col('wages') == 'ALLOWANCES') & not_dept, 'allowances')
+            .when(not_dept & (col('Econ2').startswith('212')), 'social benefits (pension contributions)')
+            .when((col('budget').startswith('4')) & not_dept & (~col('Econ1').startswith('21')) & (col('FUND') == 'Foreign'), 'capital expenditure (foreign spending)')
+            .when((col('Econ3').startswith('2213')) | (col('Econ3').startswith('2218')), 'basic services')
+            .when(col('Econ3').startswith('2215'), 'recurrent maintenance')
+            .when((col('Func1').startswith('10')) & not_dept, 'social assistance')
+            .when((col('Econ0').startswith('2')) & (col('Econ2').startswith('271')), 'pensions')
+    )
+
+    # --- Economic Classifications ---     
+    df = df.withColumn(
+        'econ', when((col('Econ1').startswith('21')) & (~col('Econ0').startswith('4')), 'Wage bill') # removed global condition
+               .when((col('budget').startswith('4')) & not_dept & (~col('Econ1').startswith('21')), 'Capital expenditures')
                .when((col('Econ1').startswith('22')) & (col('budget').startswith('1')), 'Goods and services')
                .when(col('Econ1').startswith('25'), 'Subsidies')
                .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
-               .when((col('Econ1').startswith('24')) & (~col('department').startswith('10401')), 'Interest on debt')
-               .when(((col('Econ1').startswith('13')) | (col('Econ1').startswith('26'))) & (~col('Func1').startswith('10')) & (~col('Econ0').startswith('4')) & (~col('Econ1').startswith('32')) & (~col('department').startswith('10401')) & (col('budget').startswith('1')), 'other grants and transfers')
+               .when((col('Econ1').startswith('24')) & not_dept, 'Interest on debt')
+               .when(((col('Econ1').startswith('13')) | (col('Econ1').startswith('26'))) & (~col('Func1').startswith('10')) & (~col('Econ0').startswith('4')) & not_dept & (col('budget').startswith('1')), 'other grants and transfers') # removed global condition
                .otherwise('Other expenses')
     )
-
-    # --- Replacing misnomer column names ---
-    df = df.withColumn(
-        'admin2', regexp_replace(col('ministry'), r'^\d+\s+', '')
-    )
-
 
     return df
 
