@@ -50,9 +50,8 @@ def boost_silver():
         'Econ4-Sub_Sub_Sub_Item': 'Econ4',
         'Geo1-County': 'geo1',
         'Geo2-Disctrict': 'geo2',
-        'Adm1-Ministry': 'admin1_source',
-        'Adm2-Department': 'admin2',
-        'Adm3-Section': 'admin3',
+        'Adm1-Ministry': 'ministry',
+        'Adm2-Department': 'department',
         'Func1-Division': 'Func1',
         'Func3-Functions': 'Func3',
         'Bud_class': 'budget',
@@ -80,25 +79,27 @@ def boost_silver():
     ).withColumn(
         'admin1', when(col('geo1').startswith('00'), 'Central Scope')
                  .otherwise(regexp_replace(col('geo1'), r'^\d+\s+', ''))
+    ).withColumn(
+        'admin2', regexp_replace(col('ministry'), r'^\d+\s+', '')
     )
 
     # --- Sub-Functional Classifications ---
     df = df.withColumn(
-        'func_sub', when((col("Func1").startswith('03')) & (col('Func3').startswith('0330')) & (~col('admin2').startswith('10401')), "judiciary")
-                   .when((col("Func1").startswith('03')) & (~col('Func3').startswith('033')) & (~col('admin2').startswith('10401')), "public safety")
-                   .when((~col('admin2').startswith('10401')) | (col('Func2').startswith('042')), 'agriculture')
+        'func_sub', when((col("Func1").startswith('03')) & (col('Func3').startswith('0330')) & (~col('department').startswith('10401')), "judiciary")
+                   .when((col("Func1").startswith('03')) & (~col('Func3').startswith('033')) & (~col('department').startswith('10401')), "public safety")
+                   .when((~col('department').startswith('10401')) | (col('Func2').startswith('042')), 'agriculture')
                    .when(col('Func2').startswith('045'), 'transport')
-                   .when((~col('admin2').startswith('10401')) | (col('Func3').startswith('0451')), 'roads')
-                   .when(col('admin1_source').startswith('429'), 'air transport')
-                   .when((~col('admin2').startswith('10401')) | (col('Func2').startswith('043')), 'energy')
-                   .when(col('admin1_source').startswith('418'), 'telecoms')
+                   .when((~col('department').startswith('10401')) | (col('Func3').startswith('0451')), 'roads')
+                   .when(col('ministry').startswith('429'), 'air transport')
+                   .when((~col('department').startswith('10401')) | (col('Func2').startswith('043')), 'energy')
+                   .when(col('ministry').startswith('418'), 'telecoms')
                    .when(col('Func2').startswith('07 ') | col('Func2').startswith('074'), 'primary and secondary health')
                    .when(col('Func2').startswith('073'), 'tertiary and quaternary health')
     )
 
     # --- Functional Classifications ---
     df = df.withColumn(
-        'func', when((col('Func1').startswith("01")) & (~col('admin2').startswith('10401')), "General public services")
+        'func', when((col('Func1').startswith("01")) & (~col('department').startswith('10401')), "General public services")
                .when(col('Func1').startswith("02"), "Defense")
                .when(col("func_sub").isin("judiciary", "public safety"), "Public order and safety")
                .when(col('Func1').startswith("04"), "Economic affairs")
@@ -112,30 +113,30 @@ def boost_silver():
 
     #  --- Sub-Economic Classifications ---     
     df = df.withColumn(
-        'econ_sub', when((col('Econ1').startswith('21')) & (col('wages') == 'ALLOWANCES') & (~col('admin2').startswith('10401')), 'allowances')
-                   .when((~col('admin2').startswith('10401')) & (col('Econ2').startswith('212')), 'social benefits (pension contributions)')
-                   .when((col('budget').startswith('4')) & (~col('admin2').startswith('10401')) & (~col('Econ1').startswith('21')) & (col('FUND') == 'Foreign'), 'capital expenditure (foreign spending)')
+        'econ_sub', when((col('Econ1').startswith('21')) & (col('wages') == 'ALLOWANCES') & (~col('department').startswith('10401')), 'allowances')
+                   .when((~col('department').startswith('10401')) & (col('Econ2').startswith('212')), 'social benefits (pension contributions)')
+                   .when((col('budget').startswith('4')) & (~col('department').startswith('10401')) & (~col('Econ1').startswith('21')) & (col('FUND') == 'Foreign'), 'capital expenditure (foreign spending)')
                    .when((col('Econ3').startswith('2213')) | (col('Econ3').startswith('2218')), 'basic services')
                    .when(col('Econ3').startswith('2215'), 'recurrent maintenance')
-                   .when((col('Func1').startswith('10')) & (~col('admin2').startswith('10401')), 'social assistance')
+                   .when((col('Func1').startswith('10')) & (~col('department').startswith('10401')), 'social assistance')
                    .when((col('Econ0').startswith('2')) & (col('Econ2').startswith('271')), 'pensions')
     )
 
     #  --- Economic Classifications ---     
     df = df.withColumn(
         'econ', when((col('Econ1').startswith('21')) & (~col('Econ0').startswith('4')) & (~col('Econ1').startswith('32')), 'Wage bill')
-               .when((col('budget').startswith('4')) & (~col('admin2').startswith('10401')) & (~col('Econ1').startswith('21')), 'Capital expenditures')
+               .when((col('budget').startswith('4')) & (~col('department').startswith('10401')) & (~col('Econ1').startswith('21')), 'Capital expenditures')
                .when((col('Econ1').startswith('22')) & (col('budget').startswith('1')), 'Goods and services')
                .when(col('Econ1').startswith('25'), 'Subsidies')
                .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
-               .when((col('Econ1').startswith('24')) & (~col('admin2').startswith('10401')), 'Interest on debt')
-               .when(((col('Econ1').startswith('13')) | (col('Econ1').startswith('26'))) & (~col('Func1').startswith('10')) & (~col('Econ0').startswith('4')) & (~col('Econ1').startswith('32')) & (~col('admin2').startswith('10401')) & (col('budget').startswith('1')), 'other grants and transfers')
+               .when((col('Econ1').startswith('24')) & (~col('department').startswith('10401')), 'Interest on debt')
+               .when(((col('Econ1').startswith('13')) | (col('Econ1').startswith('26'))) & (~col('Func1').startswith('10')) & (~col('Econ0').startswith('4')) & (~col('Econ1').startswith('32')) & (~col('department').startswith('10401')) & (col('budget').startswith('1')), 'other grants and transfers')
                .otherwise('Other expenses')
     )
 
     # --- Replacing misnomer column names ---
     df = df.withColumn(
-        'admin2', regexp_replace(col('admin1_source'), r'^\d+\s+', '')
+        'admin2', regexp_replace(col('ministry'), r'^\d+\s+', '')
     )
 
 
