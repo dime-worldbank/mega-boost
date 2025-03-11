@@ -37,38 +37,59 @@ def boost_bronze():
         .option("inferSchema", "true")
         .load(f'{COUNTRY_MICRODATA_DIR}/Data.csv'))
 
-
 @dlt.table(name='lbr_boost_silver')
 def boost_silver():
     return (dlt.read('lbr_boost_bronze')
-        .withColumn("Econ0-Account_Class", coalesce(col("Econ0-Account_Class").cast("string"), lit("")))
+        .withColumn("Econ0", coalesce(col("Econ0").cast("string"), lit("")))
         .withColumn("Econ1", coalesce(col("Econ1").cast("string"), lit("")))
         .withColumn("Econ2-Sub_Item", coalesce(col("Econ2-Sub_Item").cast("string"), lit("")))
         .withColumn("Econ3-Sub_Sub_Item", coalesce(col("Econ3-Sub_Sub_Item").cast("string"), lit("")))
         .withColumn("Econ4-Sub_Sub_Sub_Item", coalesce(col("Econ4-Sub_Sub_Sub_Item").cast("string"), lit("")))
         .withColumn("Geo1-County", coalesce(col("Geo1-County").cast("string"), lit("")))
         .withColumn("FUND", coalesce(col("FUND").cast("string"), lit("")))
-        .filter((col('Econ0-Account_Class') == '4 Liabilities') & (lower(col('Econ1')) != '32 Financial assets'))
-        .withColumnRenamed('Econ0-Account_Class', 'econ0')
-        .withColumnRenamed('Econ1', 'Econ1')
+        .filter((col('Econ0') != '4 Liabilities') & (col('Econ1') != '32 Financial assets'))
         .withColumnRenamed('Econ2-Sub_Item', 'Econ2')
         .withColumnRenamed('Econ3-Sub_Sub_Item', 'Econ3')
         .withColumnRenamed('Econ4-Sub_Sub_Sub_Item', 'Econ4')
         .withColumnRenamed('Geo1-County', 'geo1')
-        .withColumnRenamed('Adm1-Ministry', 'admin1')
+        .withColumnRenamed('Geo2-Disctrict', 'geo2')
         .withColumnRenamed('Adm2-Department', 'admin2')
+        .withColumnRenamed('Adm3-Section', 'admin3')
         .withColumnRenamed('Func1-Division', 'Func1')
+        # Func2 is already named appropriately
         .withColumnRenamed('Func3-Functions', 'Func3')
         .withColumnRenamed('Bud_class', 'budget')
         .withColumnRenamed('WAGES', 'wages')
         .withColumnRenamed('F_Year', 'year')
+
+        # In Liberia's case, admin and geo data appear to be swapped
         .withColumn('admin0',
             when(col('geo1').startswith('00'), 'Central')
             .otherwise('Regional')
-        ).withColumn('geo1',
-            when(col('geo1').startswith('00'), 'Central Scope')
-            .otherwise(regexp_replace(col('geo1'), r'^[^ ]* ', ''))
 
+        # admin1 - who spends the money
+        ).withColumn('admin1',
+            when(col('geo1').startswith('00'), 'Central Scope')
+            .otherwise(regexp_replace(col('geo1'), r'^\d+\s+', ''))
+
+        # No geo data
+        
+        # Functional classifications
+        ).withColumn('func',
+            when(((col('Func1').startswith("01")) & 
+                  (~col('admin2').startswith('10401'))), "General public services")
+            .when((col('Func1').startswith("02"), "Defense") & 
+                  (col('Func1').startswith("02"), "Defense"))
+            .when(col("func_sub").isin("judiciary", "public safety") , "Public order and safety")
+            .when(col('Func1').startswith("04"), "Economic affairs") # Here named Economic relations
+            .when(col('Func1').startswith("05"), "Environmental protection")
+            .when(col('Func1').startswith("06"), "Housing and community amenities")
+            .when(col('Func1').startswith("07"), "Health")
+            .when(col('Func1').startswith("08"), "Recreation, culture and religion")
+            .when(col('Func1').startswith("09"), "Education")
+            .when(col('Func1').startswith("10"), "Social protection")
+
+        # Sub Functional classifications 
         ).withColumn('func_sub',
             # judiciary
             when(((col("Func1").startswith('03')) & 
@@ -99,19 +120,6 @@ def boost_silver():
             .when(col('Func2').startswith('073'), 'tertiary and quaternary health')
             
             # education expenditure breakdown (primary, secondary, tertiary, quarterary) - None
-            
-        ).withColumn('func',
-            when(((col('Func1').startswith("01")) & 
-                  (~col('admin2').startswith('10401'))), "General public services")
-            .when(col('Func1').startswith("02"), "Defense")
-            .when(col("func_sub").isin("judiciary", "public safety") , "Public order and safety")
-            .when(col('Func1').startswith("04"), "Economic affairs") # Here named Economic relations
-            .when(col('Func1').startswith("05"), "Environmental protection")
-            .when(col('Func1').startswith("06"), "Housing and community amenities")
-            .when(col('Func1').startswith("07"), "Health")
-            .when(col('Func1').startswith("08"), "Recreation, culture and religion")
-            .when(col('Func1').startswith("09"), "Education")
-            .when(col('Func1').startswith("10"), "Social protection")
         ).withColumn( 'econ_sub',
             # basic wages - No formula
 
@@ -167,11 +175,15 @@ def boost_silver():
                    (col('budget').startswith('1')), 'other grants and transfers')
             # other expenses
             .otherwise('Other expenses')
+            )
         )
     )
 
 @dlt.table(name=f'lbr_boost_gold')
 def boost_gold():
+    # adming and geo data appear to be swapped
+    # there is no true geo data
+
     return (dlt.read(f'lbr_boost_silver')
         .withColumn('country_name', lit(COUNTRY))
         .filter(col('year') > 2008)
@@ -180,7 +192,7 @@ def boost_gold():
                 col('Original_appr').alias('approved'),
                 col('Actual').alias('executed'),
                 col('Revised_appr').alias('revised'),
-                'geo1',
+                col('geo1').alias('admin1'),
                 'admin0',
                 'admin1',
                 'admin2',
