@@ -217,13 +217,14 @@ def expenditure_and_outcome_by_country_geo1_func_year():
     outcome_df = spark.table(f'{catalog}.{indicator_schema}.global_data_lab_hd_index')
     exp_window = Window.partitionBy("country_name", "year", "func").orderBy(F.col("per_capita_real_expenditure").desc())
     outcome_window = Window.partitionBy("country_name", "year", "func").orderBy(F.col("outcome_index").desc())
+    geo1_func_df = dlt.read('expenditure_by_country_geo1_func_year')
 
-    return (dlt.read('expenditure_by_country_geo1_func_year')
+    ranked_df = (geo1_func_df
         .join(
             outcome_df, on=["country_name", "adm1_name", "year"], how="inner"
         ).withColumn('outcome_index', 
             F.when(
-                F.col('func') == 'Education', F.col('education_index')
+                F.col('func') == 'Education', F.col('attendance_6to17yo')
             ).when(
                 F.col('func') == 'Health', F.col('health_index')
             )
@@ -233,8 +234,18 @@ def expenditure_and_outcome_by_country_geo1_func_year():
             F.rank().over(exp_window)
         ).withColumn("rank_outcome_index",
             F.rank().over(outcome_window)
+        ).select(
+            "country_name",
+            "adm1_name",
+            "year",
+            "func",
+            "outcome_index",
+            "rank_per_capita_real_exp",
+            "rank_outcome_index",
         )
     )
+
+    return geo1_func_df.join(ranked_df, on=["country_name", "adm1_name", "year", "func"], how="left")
 
 @dlt.table(name=f'expenditure_by_country_geo1_year')
 def expenditure_by_country_geo1_year():
