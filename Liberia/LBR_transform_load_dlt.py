@@ -131,7 +131,6 @@ def boost_silver():
 
     # --- Sub-Economic Classifications ---     
     df = df.withColumn(
-        ## How to add Spending in Basic Wages
         'econ_sub', when((col('econ') == 'Wage bill') & allowances_filter, 'allowances')
             .when((col('econ') == 'Wage bill') & ~allowances_filter, 'basic wages')
             .when(not_dept & (col('Econ2').startswith('212')), 'social benefits (pension contributions)')
