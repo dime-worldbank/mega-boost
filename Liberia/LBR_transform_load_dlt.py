@@ -75,20 +75,6 @@ def boost_silver():
         'admin2', regexp_replace(col('ministry'), r'^\d+\s+', '')
     )
 
-    # --- Sub-Functional Classifications ---
-    df = df.withColumn(
-        'func_sub', when((col("Func1").startswith('03')) & (col('Func3').startswith('0330')) & not_dept, "judiciary")
-            .when((col("Func1").startswith('03')) & (~col('Func3').startswith('033')) & not_dept, "public safety")
-            .when(not_dept & (col('Func2').startswith('042')), 'agriculture')
-            .when(col('Func2').startswith('045'), 'transport')
-            .when(not_dept & (col('Func3').startswith('0451')), 'roads')
-            .when(col('ministry').startswith('429'), 'air transport')
-            .when(not_dept & (col('Func2').startswith('043')), 'energy')
-            .when(col('ministry').startswith('418'), 'telecoms')
-            .when(col('Func2').startswith('07 ') & col('Func2').startswith('074'), 'primary and secondary health')
-            .when(col('Func2').startswith('073'), 'tertiary and quaternary health')
-    )
-
     # --- Functional Classifications ---
     func_mapping = {
         "02": "Defense",
@@ -111,6 +97,20 @@ def boost_silver():
 
     func_col = func_col.otherwise("General public services") 
     df = df.withColumn("func", func_col)
+
+    # --- Sub-Functional Classifications ---
+    df = df.withColumn(
+        'func_sub', when((col("Func1").startswith('03')) & (col('Func3').startswith('0330')) & not_dept, "judiciary")
+            .when((col("Func1").startswith('03')) & (~col('Func3').startswith('033')) & not_dept, "public safety")
+            .when(not_dept & (col('Func2').startswith('042')), 'agriculture')
+            .when(col('Func2').startswith('045'), 'transport')
+            .when(not_dept & (col('Func3').startswith('0451')), 'roads')
+            .when(col('ministry').startswith('429'), 'air transport')
+            .when(not_dept & (col('Func2').startswith('043')), 'energy')
+            .when(col('ministry').startswith('418'), 'telecoms')
+            .when(col('Func2').startswith('07 ') & col('Func2').startswith('074'), 'primary and secondary health')
+            .when(col('Func2').startswith('073'), 'tertiary and quaternary health')
+    )
 
     # --- Temporary columns to calculate 'basic wages' ---
     df = df.withColumn(
