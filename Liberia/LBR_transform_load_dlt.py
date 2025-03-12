@@ -45,6 +45,7 @@ def boost_silver():
         'Func3-Functions': 'Func3',
         'Bud_class': 'budget',
         'WAGES': 'wages',
+        'FUND': 'fund',
         'F_Year': 'year'
     }
 
@@ -141,6 +142,12 @@ def boost_silver():
             .when(pensions_filter, 'pensions')
     )
 
+    # --- Foreign Classification ---
+    df = df.withColumn(
+        'is_foreign', (col('fund') == 'Foreign')
+    )
+
+
     return df
 
 @dlt.table(name=f'lbr_boost_gold')
@@ -161,7 +168,8 @@ def boost_gold():
                 'econ_sub',
                 'econ',
                 'func_sub',
-                'func'
+                'func',
+                'is_foreign'
                 )
     )
 
