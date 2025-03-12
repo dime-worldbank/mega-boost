@@ -5,7 +5,6 @@ from pyspark.sql.functions import (
     substring, col, lit, when, udf, trim, regexp_replace, initcap, concat, lower, create_map, coalesce
 )
 
-# Note: DLT requires the path to not start with /dbfs
 TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
 INPUT_DIR = f"{TOP_DIR}/Documents/input/Countries"
 WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
@@ -29,7 +28,6 @@ def boost_bronze():
 
 @dlt.table(name='lbr_boost_silver')
 def boost_silver():
-
     df = dlt.read('lbr_boost_bronze') 
 
     # --- Column renaming mapping ---
@@ -117,7 +115,7 @@ def boost_silver():
     # --- Econ and sub econ reused filters ---
     pensions_filter = (col('Econ0').startswith('2')) & (col('Econ2').startswith('271'))
     social_assistance_filter = ((col('Func1').startswith('10')) & not_dept)
-    allowances_filter = ((col('wages') == 'ALLOWANCES') & not_dept)
+    allowances_filter = ((col('Econ2').startswith('211')) & not_dept)
 
     # --- Economic Classifications ---     
     df = df.withColumn(
