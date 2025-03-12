@@ -111,28 +111,11 @@ def boost_silver():
             .when(col('Func2').startswith('07 ') & col('Func2').startswith('074'), 'primary and secondary health')
             .when(col('Func2').startswith('073'), 'tertiary and quaternary health')
     )
-
-    # --- Temporary columns to calculate 'basic wages' ---
-    df = df.withColumn(
-        'wage_bill', when((col('Econ1').startswith('21')) & (~col('Econ0').startswith('4')), True).otherwise(False)
-    )
-
-    df = df.withColumn(
-        'allowances', when((col('Econ1').startswith('21')) & (col('wages') == 'ALLOWANCES') & not_dept, True).otherwise(False)
-    )
-
-    # --- Sub-Economic Classifications ---     
-    df = df.withColumn(
-        ## How to add Spending in Basic Wages
-        'econ_sub', when(col('wage_bill') & ~col('allowances'), 'basic wages')
-            .when((col('Econ1').startswith('21')) & (col('wages') == 'ALLOWANCES') & not_dept, 'allowances')
-            .when(not_dept & (col('Econ2').startswith('212')), 'social benefits (pension contributions)')
-            .when((col('budget').startswith('4')) & not_dept & (~col('Econ1').startswith('21')) & (col('FUND') == 'Foreign'), 'capital expenditure (foreign spending)')
-            .when((col('Econ3').startswith('2213')) | (col('Econ3').startswith('2218')), 'basic services')
-            .when(col('Econ3').startswith('2215'), 'recurrent maintenance')
-            .when((col('Func1').startswith('10')) & not_dept, 'social assistance')
-            .when((col('Econ0').startswith('2')) & (col('Econ2').startswith('271')), 'pensions')
-    )
+    
+    # --- Econ and sub econ reused filters ---
+    pensions_filter = (col('Econ0').startswith('2')) & (col('Econ2').startswith('271'))
+    social_assistance_filter = ((col('Func1').startswith('10')) & not_dept)
+    allowances_filter = ((col('wages') == 'ALLOWANCES') & not_dept)
 
     # --- Economic Classifications ---     
     df = df.withColumn(
@@ -140,10 +123,22 @@ def boost_silver():
                .when((col('budget').startswith('4')) & not_dept & (~col('Econ1').startswith('21')), 'Capital expenditures')
                .when((col('Econ1').startswith('22')) & (col('budget').startswith('1')), 'Goods and services')
                .when(col('Econ1').startswith('25'), 'Subsidies')
-               .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
+               .when(pensions_filter | social_assistance_filter, 'Social benefits')
                .when((col('Econ1').startswith('24')) & not_dept, 'Interest on debt')
                .when(((col('Econ1').startswith('13')) | (col('Econ1').startswith('26'))) & (~col('Func1').startswith('10')) & (~col('Econ0').startswith('4')) & not_dept & (col('budget').startswith('1')), 'other grants and transfers') # removed global condition
                .otherwise('Other expenses')
+    )
+
+    # --- Sub-Economic Classifications ---     
+    df = df.withColumn(
+        ## How to add Spending in Basic Wages
+        'econ_sub', when((col('econ') == 'Wage bill') & allowances_filter, 'allowances')
+            .when((col('econ') == 'Wage bill') & ~allowances_filter, 'basic wages')
+            .when(not_dept & (col('Econ2').startswith('212')), 'social benefits (pension contributions)')
+            .when((col('Econ3').startswith('2213')) | (col('Econ3').startswith('2218')), 'basic services')
+            .when(col('Econ3').startswith('2215'), 'recurrent maintenance')
+            .when(social_assistance_filter, 'social assistance')
+            .when(pensions_filter, 'pensions')
     )
 
     return df
