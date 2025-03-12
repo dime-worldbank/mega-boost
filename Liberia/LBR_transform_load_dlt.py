@@ -66,6 +66,7 @@ def boost_silver():
     not_dept = ~col('department').startswith('10401') 
 
     # --- Admin and Geo Data Adjustments ---
+    # admin and geo data appear to be swapped
     df = df.withColumn(
         'admin0', when(col('county').startswith('00'), 'Central').otherwise('Regional')
     ).withColumn(
@@ -144,7 +145,6 @@ def boost_silver():
 
 @dlt.table(name=f'lbr_boost_gold')
 def boost_gold():
-    # admin and geo data appear to be swapped
     # there is no geo data
 
     return (dlt.read(f'lbr_boost_silver')
