@@ -26,7 +26,3 @@ for sheet in tqdm(disaggregated_data_sheets):
     df = df.applymap(normalize_cell)
     df = df.dropna(how='all')
     df.to_csv(csv_file_path, index=False, encoding='utf-8')
-
-# COMMAND ----------
-
-
