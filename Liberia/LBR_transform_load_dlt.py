@@ -100,15 +100,14 @@ def boost_silver():
 
     # --- Sub-Functional Classifications ---
     df = df.withColumn(
-        'func_sub', when((col("Func1").startswith('03')) & (col('Func3').startswith('0330')) & not_dept, "judiciary")
-            .when((col("Func1").startswith('03')) & (~col('Func3').startswith('033')) & not_dept, "public safety")
+        'func_sub', when((col("func") == "Public order and safety"), when(col('Func2').startswith('033'), "judiciary").otherwise("public safety"))
             .when(not_dept & (col('Func2').startswith('042')), 'agriculture')
             .when(col('Func2').startswith('045'), 'transport')
             .when(not_dept & (col('Func3').startswith('0451')), 'roads')
             .when(col('ministry').startswith('429'), 'air transport')
             .when(not_dept & (col('Func2').startswith('043')), 'energy')
             .when(col('ministry').startswith('418'), 'telecoms')
-            .when(col('Func2').startswith('07 ') & col('Func2').startswith('074'), 'primary and secondary health')
+            .when(col('Func2').startswith('07 ') | col('Func2').startswith('074'), 'primary and secondary health')
             .when(col('Func2').startswith('073'), 'tertiary and quaternary health')
     )
     
@@ -131,8 +130,7 @@ def boost_silver():
 
     # --- Sub-Economic Classifications ---     
     df = df.withColumn(
-        'econ_sub', when((col('econ') == 'Wage bill') & allowances_filter, 'allowances')
-            .when((col('econ') == 'Wage bill') & ~allowances_filter, 'basic wages')
+        'econ_sub', when((col('econ') == 'Wage bill'), when(allowances_filter, 'allowances').otherwise('basic wages'))
             .when(not_dept & (col('Econ2').startswith('212')), 'social benefits (pension contributions)')
             .when((col('Econ3').startswith('2213')) | (col('Econ3').startswith('2218')), 'basic services')
             .when(col('Econ3').startswith('2215'), 'recurrent maintenance')
@@ -145,13 +143,15 @@ def boost_silver():
         'is_foreign', (col('fund') == 'Foreign')
     )
 
+    # --- Geo ---
+    df = df.withColumn(
+        'geo1', lit("")
+    )
 
     return df
 
 @dlt.table(name=f'lbr_boost_gold')
 def boost_gold():
-    # there is no geo data
-
     return (dlt.read(f'lbr_boost_silver')
         .withColumn('country_name', lit(COUNTRY))
         .filter(col('year') > 2008)
@@ -167,7 +167,8 @@ def boost_gold():
                 'econ',
                 'func_sub',
                 'func',
-                'is_foreign'
+                'is_foreign',
+                'geo1'
                 )
     )
 
