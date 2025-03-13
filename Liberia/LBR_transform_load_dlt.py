@@ -145,7 +145,7 @@ def boost_silver():
 
     # --- Geo ---
     df = df.withColumn(
-        'geo1', lit("")
+        'geo1', col('admin1')
     )
 
     return df
