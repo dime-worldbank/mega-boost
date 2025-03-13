@@ -88,15 +88,15 @@ def boost_silver():
         "10": "Social protection"
     }
 
-    func_col = None
+    func_filter = None
     for key, value in func_mapping.items():
         # this is the general condition of each function mapping
         condition = (col('Func1').startswith(key)) & not_dept 
 
-        func_col = func_col.when(condition & not_dept, value) if not func_col is None else when(condition, value)
+        func_filter = func_filter.when(condition & not_dept, value) if not func_filter is None else when(condition, value)
 
-    func_col = func_col.otherwise("General public services") 
-    df = df.withColumn("func", func_col)
+    func_filter = func_filter.otherwise("General public services") 
+    df = df.withColumn("func", func_filter)
 
     # --- Sub-Functional Classifications ---
     df = df.withColumn(
