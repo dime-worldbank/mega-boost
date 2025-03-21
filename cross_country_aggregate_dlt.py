@@ -264,12 +264,13 @@ def expenditure_by_country_geo1_year():
 @dlt.table(name=f'expenditure_by_country_admin_func_sub_econ_sub_year')
 def expenditure_by_country_admin_func_sub_econ_sub_year():
     with_decentralized = (dlt.read('boost_gold')
+        .withColumn("is_foreign", F.when(F.col("is_foreign").isNull(), False).otherwise(F.col("is_foreign")))
         .groupBy("country_name", "year", "admin0", "admin1", "admin2", "func", "func_sub", "econ", "econ_sub", "is_foreign").agg(
-            F.sum("executed").alias("expenditure")
+            F.sum("executed").alias("expenditure"),
+            F.sum("approved").alias("budget")
         )
         .join(dlt.read(f'cpi_factor'), on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
-        .withColumn("is_foreign", F.when(F.col("is_foreign").isNull(), False).otherwise(F.col("is_foreign")))
     )
 
     year_ranges = (with_decentralized
@@ -316,8 +317,8 @@ def expenditure_by_country_func_econ_year():
                 F.when(F.col("admin0") == "Central", F.col("expenditure"))
             ).alias("central_expenditure"),
             F.sum(
-                F.when(~F.col("is_foreign"), F.col("expenditure"))
-            ).alias("domestic_funded_expenditure")
+                F.when(~F.col("is_foreign"), F.col("budget"))
+            ).alias("domestic_funded_budget")
         )
         .join(pop, on=["country_name", "year"], how="inner")
         .withColumn("per_capita_expenditure", F.col("expenditure") / F.col("population"))
