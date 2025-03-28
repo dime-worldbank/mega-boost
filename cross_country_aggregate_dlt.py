@@ -319,6 +319,7 @@ def expenditure_by_country_func_econ_year():
             F.sum(
                 F.when(~F.col("is_foreign"), F.col("budget"))
             ).alias("domestic_funded_budget")
+            F.sum("budget").alias("budget"),
         )
         .join(pop, on=["country_name", "year"], how="inner")
         .withColumn("per_capita_expenditure", F.col("expenditure") / F.col("population"))
