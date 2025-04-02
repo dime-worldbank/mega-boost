@@ -33,7 +33,3 @@ for sheet in tqdm(disaggregated_data_sheets):
     
     # Write to CSV
     df.to_csv(csv_file_path, index=False, encoding='utf-8')
-
-# COMMAND ----------
-
-
