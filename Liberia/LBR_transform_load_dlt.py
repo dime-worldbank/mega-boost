@@ -77,29 +77,37 @@ def boost_silver():
 
     # --- Functional Classifications ---
     func_mapping = {
-        "02": "Defense",
-        "03": "Public order and safety",
-        "04": "Economic affairs",
-        "05": "Environmental protection",
-        "06": "Housing and community amenities",
-        "07": "Health",
-        "08": "Recreation, culture and religion",
-        "09": "Education",
-        "10": "Social protection"
+        "02": ["Defence",False],
+        "03": ["Public order and safety",False],
+        "04": ["Economic affairs",False],
+        "05": ["Environmental protection",True],
+        "06": ["Housing and community amenities",False],
+        "07": ["Health",True],
+        "08": ["Recreation, culture and religion",False],
+        "09": ["Education",True],
+        "10": ["Social protection",False]
     }
 
     func_filter = None
-    for key, value in func_mapping.items():
-        # this is the general condition of each function mapping
-        condition = (col('Func1').startswith(key)) & not_dept 
+    for key, value_list in func_mapping.items():
+        base_condition = (col('Func1').startswith(key))
+        alt_condition_flag = value_list[1]
+        condition_value = value_list[0]
+        
+        condition_1 = base_condition & not_dept 
+        condition_2 = base_condition & col('Econ0').startswith('2')
 
-        func_filter = func_filter.when(condition & not_dept, value) if not func_filter is None else when(condition, value)
-
+        if alt_condition_flag == False:
+            func_filter = func_filter.when(condition_1, condition_value) if not func_filter is None else when(condition_1, condition_value)
+        else:
+            func_filter = func_filter.when(condition_2, condition_value) if not func_filter is None else when(condition_2, condition_value)
+        
     func_filter = func_filter.otherwise("General public services") 
     df = df.withColumn("func", func_filter)
 
     # --- Sub-Functional Classifications ---
     df = df.withColumn(
+        # --- nested when
         'func_sub', when((col("func") == "Public order and safety"), when(col('Func2').startswith('033'), "judiciary").otherwise("public safety"))
             .when(not_dept & (col('Func2').startswith('042')), 'agriculture')
             .when(col('Func2').startswith('045'), 'transport')
@@ -113,29 +121,51 @@ def boost_silver():
     
     # --- Econ and sub econ reused filters ---
     pensions_filter = (col('Econ0').startswith('2')) & (col('Econ2').startswith('271'))
-    social_assistance_filter = ((col('Func1').startswith('10')) & not_dept)
+    social_assistance_filter = ((col('Func1').startswith('10')) & col('Econ0').startswith('2')) # 2013 - ...
     allowances_filter = ((col('Econ2').startswith('211')) & not_dept)
-
-    # --- Economic Classifications ---     
-    df = df.withColumn(
-        'econ', when((col('Econ1').startswith('21')) & (~col('Econ0').startswith('4')), 'Wage bill') # removed global condition
-               .when((col('budget').startswith('4')) & not_dept & (~col('Econ1').startswith('21')), 'Capital expenditures')
-               .when((col('Econ1').startswith('22')) & (col('budget').startswith('1')), 'Goods and services')
-               .when(col('Econ1').startswith('25'), 'Subsidies')
-               .when(pensions_filter | social_assistance_filter, 'Social benefits')
-               .when((col('Econ1').startswith('24')) & not_dept, 'Interest on debt')
-               .when(((col('Econ1').startswith('13')) | (col('Econ1').startswith('26'))) & (~col('Func1').startswith('10')) & (~col('Econ0').startswith('4')) & not_dept & (col('budget').startswith('1')), 'other grants and transfers') # removed global condition
-               .otherwise('Other expenses')
-    )
+    wage_filter = (col('Econ1').startswith('21'))
 
     # --- Sub-Economic Classifications ---     
     df = df.withColumn(
-        'econ_sub', when((col('econ') == 'Wage bill'), when(allowances_filter, 'allowances').otherwise('basic wages'))
+        'econ_sub', when(social_assistance_filter, 'social assistance')
+            .when(wage_filter, when(allowances_filter, 'allowances').otherwise('basic wages'))
+            .when(pensions_filter, 'pensions')
             .when(not_dept & (col('Econ2').startswith('212')), 'social benefits (pension contributions)')
             .when((col('Econ3').startswith('2213')) | (col('Econ3').startswith('2218')), 'basic services')
             .when(col('Econ3').startswith('2215'), 'recurrent maintenance')
-            .when(social_assistance_filter, 'social assistance')
-            .when(pensions_filter, 'pensions')
+    )
+
+    # --- Economic Classifications ---     
+    df = df.withColumn(
+        'econ', when(wage_filter, 'Wage bill')
+               .when(
+                   (col('econ_sub') == 'social assistance') | (col('econ_sub') == 'pensions'), 'Social benefits')
+               
+               .when(
+                   (col('budget').startswith('4')) 
+                   & not_dept 
+                   & (~col('Econ1').startswith('21'))
+                   , 'Capital expenditures')
+               .when(
+                   (col('Econ1').startswith('22')) 
+                   & (col('budget').startswith('1'))
+                   , 'Goods and services')
+               .when(
+                   col('Econ1').startswith('25'), 
+                   'Subsidies')
+               
+               .when(
+                   (col('Econ1').startswith('24')) 
+                   & not_dept
+                   , 'Interest on debt')
+               .when(
+                    (col('Econ1').startswith('13') | col('Econ1').startswith('26')) & 
+                    ~col('Func1').startswith('10') & 
+                    col('budget').startswith('1') &  
+                    not_dept,
+                    'Other grants and transfers'
+                )
+               .otherwise('Other expenses')
     )
 
     # --- Foreign Classification ---
@@ -145,7 +175,7 @@ def boost_silver():
 
     # --- Geo ---
     df = df.withColumn(
-        'geo1', col('admin1')
+        'geo1', lower(col('admin1'))
     )
 
     return df
