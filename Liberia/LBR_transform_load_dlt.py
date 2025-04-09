@@ -32,19 +32,19 @@ def boost_silver():
 
     # --- Column renaming mapping ---
     rename_mappings = {
-        'Econ0-Account_Class': 'Econ0',
-        'Econ2-Sub_Item': 'Econ2',
-        'Econ3-Sub_Sub_Item': 'Econ3',
-        'Econ4-Sub_Sub_Sub_Item': 'Econ4',
-        'Geo1-County': 'county',
-        'Adm1-Ministry': 'ministry',
-        'Adm2-Department': 'department',
-        'Func1-Division': 'Func1',
-        'Func3-Functions': 'Func3',
-        'Bud_class': 'budget',
+        'econ0': 'Econ0',
+        'econ1': 'Econ1',
+        'econ2': 'Econ2',
+        'econ3': 'Econ3',
+        'econ4': 'Econ4',
+        'geo1': 'Geo1',
+        'admin1': 'Admin1',
+        'admin2': 'Admin2',
+        'func1': 'Func1',
+        'func2': 'Func2',
+        'budget_class': 'budget',
         'WAGES': 'wages',
         'FUND': 'fund',
-        'F_Year': 'year'
     }
 
     for old_name, new_name in rename_mappings.items():
@@ -52,9 +52,10 @@ def boost_silver():
 
     columns_to_clean = [
         "Econ0", "Econ1", "Econ2", "Econ3", 
-        "Econ4", "county", "FUND"
+        "Econ4", "Geo1", "FUND"
     ]
     for column in columns_to_clean:
+        print(df.columns)
         df = df.withColumn(column, coalesce(col(column).cast("string"), lit("")))
 
     # --- Global Filters ---
@@ -62,17 +63,17 @@ def boost_silver():
     df = df.filter((col('Econ0') != '4 Liabilities') & (col('Econ1') != '32 Financial assets'))
 
     # used quite often, so to limit repetition
-    not_dept = ~col('department').startswith('10401') 
+    not_dept = ~col('Admin2').startswith('10401') 
 
     # --- Admin and Geo Data Adjustments ---
     # admin and geo data appear to be swapped
     df = df.withColumn(
-        'admin0', when(col('county').startswith('00'), 'Central').otherwise('Regional')
+        'admin0', when(col('Geo1').startswith('00'), 'Central').otherwise('Regional')
     ).withColumn(
-        'admin1', when(col('county').startswith('00'), 'Central Scope')
-                 .otherwise(regexp_replace(col('county'), r'^\d+\s+', ''))
+        'admin1', when(col('Geo1').startswith('00'), 'Central Scope')
+                 .otherwise(regexp_replace(col('Geo1'), r'^\d+\s+', ''))
     ).withColumn(
-        'admin2', regexp_replace(col('ministry'), r'^\d+\s+', '')
+        'admin2', regexp_replace(col('Admin1'), r'^\d+\s+', '')
     )
 
     # --- Functional Classifications ---
@@ -107,14 +108,13 @@ def boost_silver():
 
     # --- Sub-Functional Classifications ---
     df = df.withColumn(
-        # --- nested when
         'func_sub', when((col("func") == "Public order and safety"), when(col('Func2').startswith('033'), "judiciary").otherwise("public safety"))
             .when(not_dept & (col('Func2').startswith('042')), 'agriculture')
             .when(col('Func2').startswith('045'), 'transport')
             .when(not_dept & (col('Func3').startswith('0451')), 'roads')
-            .when(col('ministry').startswith('429'), 'air transport')
+            .when(col('Admin1').startswith('429'), 'air transport')
             .when(not_dept & (col('Func2').startswith('043')), 'energy')
-            .when(col('ministry').startswith('418'), 'telecoms')
+            .when(col('Admin1').startswith('418'), 'telecoms')
             .when(col('Func2').startswith('07 ') | col('Func2').startswith('074'), 'primary and secondary health')
             .when(col('Func2').startswith('073'), 'tertiary and quaternary health')
     )
@@ -137,10 +137,8 @@ def boost_silver():
 
     # --- Economic Classifications ---     
     df = df.withColumn(
-        'econ', when(wage_filter, 'Wage bill')
-               .when(
-                   (col('econ_sub') == 'social assistance') | (col('econ_sub') == 'pensions'), 'Social benefits')
-               
+        'econ', when(col('Econ2').startswith(2) 
+                    & col('Econ1').startswith("21"))
                .when(
                    (col('budget').startswith('4')) 
                    & not_dept 
@@ -165,6 +163,7 @@ def boost_silver():
                     not_dept,
                     'Other grants and transfers'
                 )
+               .when(col('econ_sub') == 'social assistance' | col('econ_sub') == 'pensions', 'Social Benefits')
                .otherwise('Other expenses')
     )
 
