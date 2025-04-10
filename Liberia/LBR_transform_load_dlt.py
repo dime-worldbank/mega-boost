@@ -38,25 +38,28 @@ def boost_silver():
         'econ3': 'Econ3',
         'econ4': 'Econ4',
         'geo1': 'Geo1',
+        'geo2': 'Geo2',
         'admin1': 'Admin1',
         'admin2': 'Admin2',
+        'admin3': 'Admin3',
         'func1': 'Func1',
-        'func2': 'Func2',
+        'func214': 'Func3',
+        'Func226': 'Func2',
         'budget_class': 'budget',
         'WAGES': 'wages',
-        'FUND': 'fund',
+        'FUND25': 'fund',
     }
 
     for old_name, new_name in rename_mappings.items():
         df = df.withColumnRenamed(old_name, new_name)
-
+    
     columns_to_clean = [
         "Econ0", "Econ1", "Econ2", "Econ3", 
         "Econ4", "Geo1", "FUND"
     ]
-    for column in columns_to_clean:
-        print(df.columns)
-        df = df.withColumn(column, coalesce(col(column).cast("string"), lit("")))
+    # for column in columns_to_clean:
+    #     print(df.columns)
+    #     df = df.withColumn(column, coalesce(col(column).cast("string"), lit("")))
 
     # --- Global Filters ---
     # Filtering out unwanted values at the total expenditures level
@@ -137,25 +140,26 @@ def boost_silver():
 
     # --- Economic Classifications ---     
     df = df.withColumn(
-        'econ', when(col('Econ2').startswith(2) 
-                    & col('Econ1').startswith("21"))
+        'econ', when(col('Econ2').startswith("2") 
+                    & col('Econ1').startswith("21"), 
+                    'Wage bill')
                .when(
                    (col('budget').startswith('4')) 
                    & not_dept 
                    & (~col('Econ1').startswith('21'))
                    , 'Capital expenditures')
                .when(
+                   col('Econ1').startswith('25'), 
+                   'Subsidies')
+               .when(
                    (col('Econ1').startswith('22')) 
                    & (col('budget').startswith('1'))
                    , 'Goods and services')
                .when(
-                   col('Econ1').startswith('25'), 
-                   'Subsidies')
-               
-               .when(
-                   (col('Econ1').startswith('24')) 
-                   & not_dept
+                   (col('year').cast('int') < 2018), 
+                    when(col('Econ1').startswith('24')
                    , 'Interest on debt')
+                        .otherwise(when(col('Econ4').startswith('423104'), 'Interest on debt')))
                .when(
                     (col('Econ1').startswith('13') | col('Econ1').startswith('26')) & 
                     ~col('Func1').startswith('10') & 
@@ -163,7 +167,10 @@ def boost_silver():
                     not_dept,
                     'Other grants and transfers'
                 )
-               .when(col('econ_sub') == 'social assistance' | col('econ_sub') == 'pensions', 'Social Benefits')
+               .when(
+                   (col('econ_sub') == 'social assistance') 
+                   | (col('econ_sub') == 'pensions'), 
+                   'Social Benefits')
                .otherwise('Other expenses')
     )
 
@@ -177,6 +184,11 @@ def boost_silver():
         'geo1', lower(col('admin1'))
     )
 
+    # --- Country ---
+    df = df.withColumn(
+        'country_name', lit(COUNTRY)
+    )
+
     return df
 
 @dlt.table(name=f'lbr_boost_gold')
@@ -186,9 +198,9 @@ def boost_gold():
         .filter(col('year') > 2008)
         .select('country_name',
                 col('year').cast("integer"),
-                col('Original_appr').alias('approved'),
-                col('Actual').alias('executed'),
-                col('Revised_appr').alias('revised'),
+                col('approved'),
+                col('actual').alias('executed'),
+                col('revised'),
                 'admin0',
                 'admin1',
                 'admin2',
@@ -200,4 +212,8 @@ def boost_gold():
                 'geo1'
                 )
     )
+
+
+# COMMAND ----------
+
 
