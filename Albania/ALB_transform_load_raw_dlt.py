@@ -54,6 +54,7 @@ def boost_bronze():
             .options(**CSV_READ_OPTIONS)
             .option("inferSchema", "true")
             .load(f'{COUNTRY_MICRODATA_DIR}/Data_Expenditures.csv')
+            .filter(col("year") < 2023)
     )
 
 
