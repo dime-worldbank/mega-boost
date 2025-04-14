@@ -2,7 +2,7 @@
 import dlt
 import json
 import unicodedata
-from pyspark.sql.functions import col, lower, regexp_extract, regexp_replace, when, lit, substring, expr, floor, concat, udf, lpad
+from pyspark.sql.functions import col, lower, regexp_extract, regexp_replace, when, lit, substring, expr, floor, concat, udf, lpad, monotonically_increasing_id
 from pyspark.sql.types import StringType
 from glob import glob
 
@@ -36,16 +36,16 @@ def replacement_udf(column_name):
 @dlt.table(name=f'alb_2023_onward_boost_bronze')
 def boost_2023_onward_bronze():
     file_paths = glob(f"{RAW_COUNTRY_MICRODATA_DIR}/*.csv")
-        bronze_df = (
+    bronze_df = (
          spark.read.format("csv")
          .options(**CSV_READ_OPTIONS)
          .option("inferSchema", "true")
          .load(file_paths)
      )
-     bronze_df = bronze_df.withColumn("year", col("year").cast("int")).withColumn(
+    bronze_df = bronze_df.withColumn("year", col("year").cast("int")).withColumn(
          "id", concat(lit("alb_1_"), monotonically_increasing_id())
      )
-     bronze_df = bronze_df.dropna(how="all")
+    bronze_df = bronze_df.dropna(how="all")
     return bronze_df
 
 
@@ -361,6 +361,7 @@ def alb_2022_and_before_boost_gold():
              "func",
              "econ_sub",
              "econ",
+             )
          )
 
 
@@ -400,16 +401,16 @@ def alb_boost_gold():
 def alb_2022_and_before_boost_publish():
     alb_gold = dlt.read(f'alb_2022_and_before_boost_gold')
     alb_bronze = dlt.read('alb_2022_and_before_boost_bronze')
-    prefix = "bronze_"
-    for column in alb_bronze.columns:
-        alb_bronze = alb_bronze.withColumnRenamed(column, prefix + column)
-    return alb_gold.join(alb_bronze, on=[alb_gold['id'] == alb_bronze['bronze_id']], how='left')
+    prefix = "boost_"
+    for column in alb_gold.columns:
+        alb_gold = alb_gold.withColumnRenamed(column, prefix + column)
+    return alb_gold.join(alb_bronze, on=[alb_gold['boost_id'] == alb_bronze['id']], how='left')
  
 @dlt.table(name='alb_2023_onward_boost_publish')
 def alb_2023_onward_boost_publish():
     alb_gold = dlt.read(f'alb_2023_onward_boost_gold')
     alb_bronze = dlt.read('alb_2023_onward_boost_bronze')
-    prefix = "bronze_"
-    for column in alb_bronze.columns:
-        alb_bronze = alb_bronze.withColumnRenamed(column, prefix + column)
-    return alb_gold.join(alb_bronze, on=[alb_gold['id'] == alb_bronze['bronze_id']], how='left')
+    prefix = "boost_"
+    for column in alb_gold.columns:
+        alb_gold = alb_gold.withColumnRenamed(column, prefix + column)
+    return alb_gold.join(alb_bronze, on=[alb_gold['boost_id'] == alb_bronze['id']], how='left')
