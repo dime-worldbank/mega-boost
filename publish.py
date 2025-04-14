@@ -19,7 +19,12 @@ countries = spark.sql(f"""
     ORDER BY country_name
 """).collect()
 
-coverage_countries = ', '.join(sorted([row['country_name'] for row in countries]))
+coverage_countries = ', '.join(
+    sorted([ # Handle comma in country name, e.g. Congo, Dem. Rep.
+        f'"{row["country_name"]}"' if ',' in row["country_name"] else row["country_name"]
+        for row in countries
+    ])
+)
 print(f'Coverage countries: {coverage_countries}')
 
 # COMMAND ----------
@@ -37,12 +42,14 @@ ALTER TABLE {TARGET_TABLE} SET TAGS (
     'domain' = 'Budget',
     'subdomain' = 'Budget & Cost Accounting',
     'destinations' = 'dataexplorer, ddh',
-    'exception' = '7.Member Countries/Third Party Confidence',
+    'exception' = '7. Member Countries/Third Party Confidence',
     'license' = 'Creative Commons Attribution-Non Commercial 4.0',
     'topics' = 'Economic Growth, Macroeconomic and Structural Policies, Public Sector Management',
-    'coverage_start' = '{coverage_start}',
-    'coverage_end' = '{coverage_end}',
-    'coverage_countries' = '{coverage_countries}'
+    'coverage_year_start' = '{coverage_start}',
+    'coverage_year_end' = '{coverage_end}',
+    'coverage_countries' = '{coverage_countries}',
+    'team_lead' = 'mmastruzzi@worldbank.org',
+    'collaborators' = 'icapita@worldbank.org, agirongordillo@worldbank.org, sbhupatiraju@worldbank.org, ysuzuki2@worldbank.org, elysenko@worldbank.org, wlu4@worldbank.org'
 );
 """
 
