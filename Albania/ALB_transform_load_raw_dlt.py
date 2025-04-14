@@ -5,6 +5,7 @@ import unicodedata
 from pyspark.sql.functions import col, lower, regexp_extract, regexp_replace, when, lit, substring, expr, floor, concat, udf, lpad, monotonically_increasing_id
 from pyspark.sql.types import StringType
 from glob import glob
+from distutils.util import strtobool
 
 # Note DLT requires the path to not start with /dbfs
 TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
@@ -13,6 +14,7 @@ COUNTRY = 'Albania'
 COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/microdata_csv/{COUNTRY}'
 RAW_COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/raw_microdata_csv/{COUNTRY}'
 RAW_INPUT_DIR = f"{TOP_DIR}/Documents/input/Data from authorities/"
+PUBLISH_WITH_BRONZE = strtobool(spark.conf.get("PUBLISH_WITH_BRONZE", "false"))
 
 CSV_READ_OPTIONS = {
     "header": "true",
@@ -400,6 +402,8 @@ def alb_boost_gold():
 @dlt.table(name='alb_2022_and_before_boost_publish')
 def alb_2022_and_before_boost_publish():
     alb_gold = dlt.read(f'alb_2022_and_before_boost_gold')
+    if not PUBLISH_WITH_BRONZE:
+        return alb_gold
     alb_bronze = dlt.read('alb_2022_and_before_boost_bronze')
     prefix = "boost_"
     for column in alb_gold.columns:
@@ -409,6 +413,8 @@ def alb_2022_and_before_boost_publish():
 @dlt.table(name='alb_2023_onward_boost_publish')
 def alb_2023_onward_boost_publish():
     alb_gold = dlt.read(f'alb_2023_onward_boost_gold')
+    if not PUBLISH_WITH_BRONZE:
+        return alb_gold 
     alb_bronze = dlt.read('alb_2023_onward_boost_bronze')
     prefix = "boost_"
     for column in alb_gold.columns:
