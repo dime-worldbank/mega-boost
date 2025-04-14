@@ -3,7 +3,7 @@ import dlt
 import json
 import unicodedata
 from pyspark.sql.functions import col, lower, regexp_extract, regexp_replace, when, lit, substring, expr, floor, concat, udf, lpad
-from pyspark.sql.types import StringType
+from pyspark.sql.types import StringType, DoubleType
 from glob import glob
 from functools import reduce
 
@@ -352,7 +352,7 @@ def alb_2022_and_before_boost_gold():
         .withColumn('country_name', lit(COUNTRY))
         .select('country_name',
                 'year',
-                'approved',
+                col('approved').cast(DoubleType()),
                 'revised',
                 'executed',
                 'is_foreign',
@@ -373,7 +373,7 @@ def alb_2023_onward_boost_gold():
         .withColumn('country_name', lit(COUNTRY))
         .select('country_name',
                 'year',
-                'approved',
+                col('approved').cast(DoubleType()),
                 'revised',
                 'executed',
                 'is_foreign',
