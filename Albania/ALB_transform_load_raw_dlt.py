@@ -157,7 +157,7 @@ def boost_silver():
     silver_df = silver_df.filter(col('transfer')=='Excluding transfers'
         ).withColumn('is_foreign', col('fin_source').startswith('2')
         ).withColumn('admin0', 
-            when(col('admin2').startswith('00') | col('admin2').startswith('999'), 'Central')
+            (col('counties')=='Central', 'Central')
             .otherwise('Regional')    
         ).withColumn('admin1_tmp',
             when(col('counties')=='Central', 'Central Scope')
