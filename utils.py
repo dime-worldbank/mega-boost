@@ -54,3 +54,9 @@ def dbfs_file_exists(path):
       return False
     else:
       raise
+
+# COMMAND ----------
+
+# Output export help functions
+TARGET = 'prd_mega.boost_intermediate'
+OUTPUT_DIR = f"{TOP_DIR}/Workspace/output_excel/"
