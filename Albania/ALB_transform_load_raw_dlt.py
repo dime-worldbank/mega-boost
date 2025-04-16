@@ -35,7 +35,7 @@ def replacement_udf(column_name):
     return udf(replace_value, StringType())
 
 @dlt.expect_or_drop("year_not_null", "Year IS NOT NULL")
-@dlt.table(name=f'alb_2023_onward_boost_bronze')
+@dlt.table(name=f'alb_2023_onward_boost_bronze_test')
 def boost_2023_onward_bronze():
     file_paths = glob(f"{RAW_COUNTRY_MICRODATA_DIR}/*.csv")
     bronze_df = (
@@ -52,7 +52,7 @@ def boost_2023_onward_bronze():
 
 
 @dlt.expect_or_drop("year_not_null", "YEAR IS NOT NULL")
-@dlt.table(name=f'alb_2022_and_before_boost_bronze')
+@dlt.table(name=f'alb_2022_and_before_boost_bronze_test')
 def boost_bronze():
     return (
          spark.read.format("csv")
@@ -64,9 +64,9 @@ def boost_bronze():
      )
 
 
-@dlt.table(name=f'alb_2023_onward_boost_silver')
+@dlt.table(name=f'alb_2023_onward_boost_silver_test')
 def boost_silver():
-    silver_df  = (dlt.read(f'alb_2023_onward_boost_bronze')
+    silver_df  = (dlt.read(f'alb_2023_onward_boost_bronze_test')
         ).filter(col("approved").isNull()
         ).filter(~lower(col("project").substr(1, 5)).contains("total")
         ).withColumn("admin1", substring(col("admin4").cast("string"), 1, 1)
@@ -246,9 +246,9 @@ def boost_silver():
     return silver_df
 
 
-@dlt.table(name=f'alb_2022_and_before_boost_silver')
+@dlt.table(name=f'alb_2022_and_before_boost_silver_test')
 def boost_silver():
-    return (dlt.read(f'alb_2022_and_before_boost_bronze')          
+    return (dlt.read(f'alb_2022_and_before_boost_bronze_test')          
             .filter(col('transfer') == 'Excluding transfers'
             ).withColumn('is_foreign', col('fin_source').startswith('2')
             ).withColumn('admin0', 
@@ -343,10 +343,10 @@ def boost_silver():
                         )
             )
     
-@dlt.table(name=f'alb_2022_and_before_boost_gold')
+@dlt.table(name=f'alb_2022_and_before_boost_gold_test')
 def alb_2022_and_before_boost_gold():
         return (
-         dlt.read(f"alb_2022_and_before_boost_silver")
+         dlt.read(f"alb_2022_and_before_boost_silver_test")
          .withColumn("country_name", lit(COUNTRY))
          .select(
              "id",
@@ -368,10 +368,10 @@ def alb_2022_and_before_boost_gold():
          )
 
 
-@dlt.table(name=f'alb_2023_onward_boost_gold')
+@dlt.table(name=f'alb_2023_onward_boost_gold_test')
 def alb_2023_onward_boost_gold():
      return (
-         dlt.read(f"alb_2023_onward_boost_silver")
+         dlt.read(f"alb_2023_onward_boost_silver_test")
          .withColumn("country_name", lit(COUNTRY))
          .select(
              "id",
@@ -392,32 +392,31 @@ def alb_2023_onward_boost_gold():
          )
      )
 
-@dlt.table(name="alb_boost_gold")
+@dlt.table(name="alb_boost_gold_test")
 def alb_boost_gold():
-    df_before_2023 = dlt.read("alb_2022_and_before_boost_gold")
-    df_from_2023 = dlt.read("alb_2023_onward_boost_gold")
+    df_before_2023 = dlt.read("alb_2022_and_before_boost_gold_test")
+    df_from_2023 = dlt.read("alb_2023_onward_boost_gold_test")
 
     return df_before_2023.unionByName(df_from_2023)
 
-           
-@dlt.table(name='alb_2022_and_before_boost_publish')
-def alb_2022_and_before_boost_publish():
-    alb_gold = dlt.read(f'alb_2022_and_before_boost_gold')
+
+@dlt.table(name='alb_publish_test')
+def alb_publish():
+    alb_gold_2023 = dlt.read(f'alb_2023_onward_boost_gold_test')
+    alb_gold_2022 = dlt.read('alb_2022_and_before_boost_gold_test')
+    alb_gold_union = alb_gold_2022.unionByName(alb_gold_2023)
     if not PUBLISH_WITH_BRONZE:
-        return alb_gold
-    alb_bronze = dlt.read('alb_2022_and_before_boost_bronze')
+        return alb_gold_union 
+    
+    alb_bronze_2022 = dlt.read('alb_2022_and_before_boost_bronze_test')
+    alb_bronze_2023 = dlt.read('alb_2023_onward_boost_silver_test')
+    col_list = [col for col in alb_bronze_2022.columns if col in alb_bronze_2023.columns]
+    alb_bronze_2023 = alb_bronze_2023.select(col_list)
+    alb_bronze_2022 = alb_bronze_2022.select(col_list)
+    alb_bronze_union = alb_bronze_2022.unionByName(alb_bronze_2023)
+
     prefix = "boost_"
-    for column in alb_gold.columns:
-        alb_gold = alb_gold.withColumnRenamed(column, prefix + column)
-    return alb_gold.join(alb_bronze, on=[alb_gold['boost_id'] == alb_bronze['id']], how='left')
- 
-@dlt.table(name='alb_2023_onward_boost_publish')
-def alb_2023_onward_boost_publish():
-    alb_gold = dlt.read(f'alb_2023_onward_boost_gold')
-    if not PUBLISH_WITH_BRONZE:
-        return alb_gold 
-    alb_bronze = dlt.read('alb_2023_onward_boost_bronze')
-    prefix = "boost_"
-    for column in alb_gold.columns:
-        alb_gold = alb_gold.withColumnRenamed(column, prefix + column)
-    return alb_gold.join(alb_bronze, on=[alb_gold['boost_id'] == alb_bronze['id']], how='left')
+    for column in alb_gold_union.columns:
+        alb_gold_union = alb_gold_union.withColumnRenamed(column, prefix + column)
+    return alb_gold_union.join(alb_bronze_union, on=[alb_gold_union['boost_id'] == alb_bronze_union['id']], how='left')
+
