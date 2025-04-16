@@ -397,7 +397,7 @@ def alb_boost_gold():
     df_before_2023 = dlt.read("alb_2022_and_before_boost_gold_test")
     df_from_2023 = dlt.read("alb_2023_onward_boost_gold_test")
 
-    return df_before_2023.unionByName(df_from_2023)
+    return df_before_2023.unionByName(df_from_2023).drop("id")
 
 
 @dlt.table(name='alb_publish_test')
@@ -418,5 +418,5 @@ def alb_publish():
     prefix = "boost_"
     for column in alb_gold_union.columns:
         alb_gold_union = alb_gold_union.withColumnRenamed(column, prefix + column)
-    return alb_gold_union.join(alb_bronze_union, on=[alb_gold_union['boost_id'] == alb_bronze_union['id']], how='left')
+    return alb_bronze_union.join(alb_gold_union, on=[alb_gold_union['boost_id'] == alb_bronze_union['id']], how='left').drop("id", "boost_id")
 
