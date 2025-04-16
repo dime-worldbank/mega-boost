@@ -3,8 +3,10 @@ import dlt
 import json
 import unicodedata
 from pyspark.sql.functions import col, lower, regexp_extract, regexp_replace, when, lit, substring, expr, floor, concat, udf, lpad
-from pyspark.sql.types import StringType
+from pyspark.sql.types import StringType, DoubleType
 from glob import glob
+from functools import reduce
+
 
 # Note DLT requires the path to not start with /dbfs
 TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
@@ -36,11 +38,18 @@ def replacement_udf(column_name):
 @dlt.table(name=f'alb_2023_onward_boost_bronze')
 def boost_2023_onward_bronze():
     file_paths = glob(f"{RAW_COUNTRY_MICRODATA_DIR}/*.csv")
-    bronze_df = (spark.read
-                 .format("csv")
-                 .options(**CSV_READ_OPTIONS)
-                 .option("inferSchema", "true")
-                 .load(file_paths))
+    dfs = []
+    for f in file_paths:
+        df = (spark.read
+              .format("csv")
+              .options(**CSV_READ_OPTIONS)
+              .option("inferSchema", "true")
+              .option("header", "true")
+              .load(f))
+        dfs.append(df)
+
+    bronze_df = reduce(lambda df1, df2: df1.unionByName(df2, allowMissingColumns=True), dfs)
+
     bronze_df = bronze_df.withColumn('year', col('year').cast('int'))
     bronze_df = bronze_df.dropna(how='all')
     return bronze_df
@@ -148,7 +157,7 @@ def boost_silver():
     silver_df = silver_df.filter(col('transfer')=='Excluding transfers'
         ).withColumn('is_foreign', col('fin_source').startswith('2')
         ).withColumn('admin0', 
-            when(col('admin2').startswith('00') | col('admin2').startswith('999'), 'Central')
+            when(col('counties')=='Central', 'Central')
             .otherwise('Regional')    
         ).withColumn('admin1_tmp',
             when(col('counties')=='Central', 'Central Scope')
@@ -343,7 +352,7 @@ def alb_2022_and_before_boost_gold():
         .withColumn('country_name', lit(COUNTRY))
         .select('country_name',
                 'year',
-                'approved',
+                col('approved').cast(DoubleType()),
                 'revised',
                 'executed',
                 'is_foreign',
@@ -364,7 +373,7 @@ def alb_2023_onward_boost_gold():
         .withColumn('country_name', lit(COUNTRY))
         .select('country_name',
                 'year',
-                'approved',
+                col('approved').cast(DoubleType()),
                 'revised',
                 'executed',
                 'is_foreign',

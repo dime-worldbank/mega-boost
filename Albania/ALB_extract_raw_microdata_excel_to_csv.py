@@ -79,38 +79,72 @@ def pad_left(code, length = 3):
 
 # COMMAND ----------
 
-years = [2023]
+col_names = {
+    'Gov Entity':'admin2',
+    'Gov. Entity':'admin2',
+    'Gov.Entity':'admin2',
+    'Gov':'admin2',
+    'ge':'admin2',
+    'Line Ministri':'admin3',
+    'Line Ministry':'admin3',
+    'Ministry':'admin3',
+    'lm':'admin3',
+    'Inst.':'admin4',
+    'Institution':'admin4',
+    'institution': 'admin4',
+    'Chapter':'fin_source',
+    'ch':'fin_source',
+    'program':'func3',
+    'Program':'func3',
+    'Progr':'func3',
+    'Account':'econ5',
+    'Economic Account':'econ5',
+    'eccaccount':'econ5',
+    'TDO':'admin5',
+    'tdo':'admin5',
+    'FYTD Actual':'executed',
+    'actual':'executed',
+    'Actual':'executed',
+    'Operational Budget':'revised',
+    'operationalbudget':'revised',
+    'Initial Budget':'approved',
+    'initialbudget':'approved',
+    'Project':'project',
+    'Account Description': 'Account_Description',
+    'Institution Description':'Institution_Description'
+
+}
+sheet_map = {
+    ('3 digit', 2023): ('Vendori', 0),
+    ('3 digit', 2024): ('Sheet2', 1),
+}
+
+required_col_names = [
+    'admin2', 'admin3', 'admin4', 'admin5', 'fin_source', 'func3', 'econ5', 'project', 'executed', 'revised', 'approved'
+    ]
+
+years = [2023, 2024]
 for year in years:
     expense_data_files = glob(f'{RAW_INPUT_DIR}/{COUNTRY}/{year}/*.xlsx')
     for f in expense_data_files:
         if '7 digit' in f:
-            df_7 = pd.read_excel(f, header=1)
+            df_7 = pd.read_excel(f, header=1).rename(
+                columns=lambda c: col_names.get(c.strip(), c))
             df_7 = df_7.dropna(how='all')
-            df_7.columns = ['ge', 'lm', 'institution', 'ch', 'program', 'eccaccount',  'tdo', 'project', 'actual' ]
-            df_7['econ3'] = df_7['eccaccount'].astype(str).str[:3].astype(float)
+            df_7['econ3'] = df_7['econ5'].astype(str).str[:3].astype(float)
             df_7['year'] = year
             df_7['src'] = '7 digit'
-            df_7 = df_7.sort_values(['ge', 'lm', 'institution',  'ch', 'program',  'tdo', 'project', 'year', 'econ3'])
         if '3 digit' in f:
-            df_3 = pd.read_excel(f)
+            sheet_name, header_row = sheet_map.get(('3 digit', year))
+            df_3 = pd.read_excel(f, sheet_name=sheet_name, header=header_row).rename(
+                columns=lambda c: col_names.get(c.strip(), c))
             df_3 = df_3.dropna(how='all')
-            df_3.columns = ['ge','lm','institution', 'ch','program','econ3', 'tdo','project', 'actual', 'operationalbudget', 'initialbudget']
             df_3['year'] = year
             df_3['src'] = '3 digit'
     df = pd.concat([df_7, df_3], ignore_index=True)
-    col_names = {
-        'ge':'admin2',
-        'lm':'admin3',
-        'institution': 'admin4',
-        'ch':'fin_source',
-        'program':'func3',
-        'eccaccount':'econ5',
-        'tdo':'admin5',
-        'actual':'executed',
-        'operationalbudget':'revised',
-        'initialbudget':'approved'
-    }
-    df = df.rename(columns = col_names)
+    missing_cols = [col for col in required_col_names if col not in df.columns]
+    assert not missing_cols, f"Missing required columns: {missing_cols}"
     df['counties'] = df.admin2.map(lambda x: map_to_region(pad_left(str(x).split('.')[0], length=3)))
     outfile = f'{raw_microdata_csv_dir}/{year}.csv'
+    
     df.to_csv(outfile, index=False)
