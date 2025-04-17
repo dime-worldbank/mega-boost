@@ -86,7 +86,7 @@ def boost_silver():
             .otherwise(substring(col("econ3").cast("string"), 1, 2).cast("int"))
         ).withColumn("econ4",
             when(col("econ5").isNotNull(), substring(col("econ5").cast("string"), 1, 4).cast("int"))
-        ).filter((col("econ3") != 255) & (col("econ3") >= 230)
+        ).filter((col("econ3").isNull()) | ((col("econ3") != 255) & (col("econ3") >= 230))
         ).filter(~col("econ1").isin([16, 17])
         ).withColumn("econ1",
             when(col("executed").isNull(), substring(col("econ3").cast("string"), 1, 1).cast("int"))
@@ -113,8 +113,10 @@ def boost_silver():
         ).withColumn("func1", (col("func3") / 1000).cast("int")
         ).withColumn("func1", lpad(col('func1'), 2, "0")
         ).withColumn("func2",(col("func3") / 100).cast("int")
-        ).withColumn("func2", lpad(col('func2'), 3, "0"      )        
+        ).withColumn("func2", lpad(col('func2'), 3, "0")        
+        ).withColumn("program_tmp", col("func3")
         ).withColumnRenamed("func3", "program"
+        ).withColumn("program", lpad(col("program").cast("int").cast("string"), 5, "0")
         # expense type
         ).withColumn("exp_type", lit(None).cast("integer")
         ).withColumn("exp_type", when(col("econ3").isin([600, 601]), 1).otherwise(col("exp_type"))
