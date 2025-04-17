@@ -70,7 +70,6 @@ def boost_bronze():
 @dlt.table(name=f'alb_2023_onward_boost_silver')
 def boost_silver():
     silver_df  = (dlt.read(f'alb_2023_onward_boost_bronze')
-        ).filter(col("approved").isNull()
         ).filter(~lower(col("project").substr(1, 5)).contains("total")
         ).withColumn("admin1", substring(col("admin4").cast("string"), 1, 1)
         ).withColumn("admin3", 
