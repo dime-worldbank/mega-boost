@@ -2,6 +2,7 @@
 import dlt
 import json
 import unicodedata
+from distutils.util import strtobool
 from pyspark.sql.functions import col, lower, regexp_extract, regexp_replace, when, lit, substring, expr, floor, concat, udf, lpad, monotonically_increasing_id
 from pyspark.sql.types import StringType, DoubleType
 from glob import glob
@@ -52,7 +53,7 @@ def boost_2023_onward_bronze():
     bronze_df = reduce(lambda df1, df2: df1.unionByName(df2, allowMissingColumns=True), dfs)
 
     bronze_df = bronze_df.withColumn('year', col('year').cast('int')).withColumn(
-         "id", concat(lit("alb_1_"), monotonically_increasing_id())
+         "id", concat(lit("alb_1_"), monotonically_increasing_id()))
     bronze_df = bronze_df.dropna(how='all')
     return bronze_df
 
@@ -89,7 +90,8 @@ def boost_silver():
             .otherwise(substring(col("econ3").cast("string"), 1, 2).cast("int"))
         ).withColumn("econ4",
             when(col("econ5").isNotNull(), substring(col("econ5").cast("string"), 1, 4).cast("int"))
-        ).filter((col("econ3") != 255) & (col("econ3") >= 230)
+        ).filter(
+                ((col("econ3") != 255) & (col("econ3") >= 230))
         ).filter(~col("econ1").isin([16, 17])
         ).withColumn("econ1",
             when(col("executed").isNull(), substring(col("econ3").cast("string"), 1, 1).cast("int"))
@@ -351,7 +353,7 @@ def boost_silver():
     
 @dlt.table(name=f'alb_2022_and_before_boost_gold_test')
 def alb_2022_and_before_boost_gold():
-    return (dlt.read(f'alb_2022_and_before_boost_silver')
+    return (dlt.read(f'alb_2022_and_before_boost_silver_test')
         .withColumn('country_name', lit(COUNTRY))
         .select('country_name',
                 'year',
@@ -373,7 +375,7 @@ def alb_2022_and_before_boost_gold():
 
 @dlt.table(name=f'alb_2023_onward_boost_gold_test')
 def alb_2023_onward_boost_gold():
-    return (dlt.read(f'alb_2023_onward_boost_silver')
+    return (dlt.read(f'alb_2023_onward_boost_silver_test')
         .withColumn('country_name', lit(COUNTRY))
         .select('country_name',
                 'year',
