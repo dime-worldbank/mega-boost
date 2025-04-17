@@ -139,6 +139,7 @@ for year in years:
             df_3 = pd.read_excel(f, sheet_name=sheet_name, header=header_row).rename(
                 columns=lambda c: col_names.get(c.strip(), c))
             df_3 = df_3.dropna(how='all')
+            df_3['econ3'] = df_3['econ5'] # because 'Economic Account' is mapped to econ5 by the dict above
             df_3['year'] = year
             df_3['src'] = '3 digit'
     df = pd.concat([df_7, df_3], ignore_index=True)
