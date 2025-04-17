@@ -73,7 +73,8 @@ def boost_bronze():
 
 @dlt.table(name=f'alb_2023_onward_boost_silver_test')
 def boost_silver():
-    silver_df  = (dlt.read(f'alb_2023_onward_boost_bronze')
+    silver_df  = (dlt.read(f'alb_2023_onward_boost_bronze_test')
+        ).filter(col("approved").isNull()
         ).filter(~lower(col("project").substr(1, 5)).contains("total")
         ).withColumn("admin1", substring(col("admin4").cast("string"), 1, 1)
         ).withColumn("admin3", 
@@ -159,8 +160,7 @@ def boost_silver():
         if column_name in silver_df.columns:
             silver_df = silver_df.withColumn(column_name, replacement_udf(column_name)(col(column_name)))
 
-    silver_df = silver_df.filter(col('transfer')=='Excluding transfers'
-        ).withColumn('is_foreign', col('fin_source').startswith('2')
+    silver_df = silver_df.withColumn('is_foreign', col('fin_source').startswith('2')
         ).withColumn('admin0', 
             when(col('counties')=='Central', 'Central')
             .otherwise('Regional')    
@@ -376,6 +376,7 @@ def alb_2022_and_before_boost_gold():
 @dlt.table(name=f'alb_2023_onward_boost_gold_test')
 def alb_2023_onward_boost_gold():
     return (dlt.read(f'alb_2023_onward_boost_silver_test')
+        .filter(col('transfer')=='Excluding transfers')
         .withColumn('country_name', lit(COUNTRY))
         .select('country_name',
                 'year',
