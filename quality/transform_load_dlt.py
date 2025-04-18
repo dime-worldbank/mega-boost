@@ -35,6 +35,7 @@ def quality_cci_bronze():
       .withColumn("approved_or_executed", F.regexp_replace(F.element_at(F.col("path_splitted"), -1), "\.csv", ""))
       .withColumn("country_code", F.element_at(F.col("path_splitted"), -2))
       .join(countries, on=["country_code"], how="left")
+      .filter(F.col('year') < 2024)
     )
 
 # COMMAND ----------
