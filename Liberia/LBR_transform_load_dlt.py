@@ -165,11 +165,14 @@ def boost_silver():
                    & (col('budget').startswith('1'))
                    , 'Goods and services')
                .when(
-                   (col('year').cast('integer') < 2018), 
-                    when(col('Econ1').startswith('24')
-                   , 'Interest on debt')
-                        .otherwise(when(col('Econ4').startswith('423104'), 'Interest on debt')))
-               .when(
+                (col('year').cast('integer') < 2018) & col('Econ1').startswith('24'),
+                'Interest on debt'
+                )
+                .when(
+                (col('year').cast('integer') >= 2018) & col('Econ4').startswith('423104'),
+                'Interest on debt'
+                )
+                .when(
                     (col('Econ1').startswith('13') | col('Econ1').startswith('26')) & 
                     ~col('Func1').startswith('10') & 
                     col('budget').startswith('1') &  
