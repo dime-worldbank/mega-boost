@@ -30,8 +30,16 @@ def boost_bronze():
 def boost_silver():
     df = dlt.read('lbr_boost_bronze') 
 
+    # --- Dropping unwanted columns ---
+    bad_cols = ['year']
+
+    for bad_col in bad_cols:
+        if bad_col in df.columns:
+            df = df.drop(bad_col)
+
     # --- Column renaming mapping ---
     rename_mappings = {
+        'year.1': 'year',
         'econ0': 'Econ0',
         'econ1': 'Econ1',
         'econ2': 'Econ2',
@@ -57,6 +65,7 @@ def boost_silver():
         "Econ0", "Econ1", "Econ2", "Econ3", 
         "Econ4", "Geo1", "FUND"
     ]
+
     # for column in columns_to_clean:
     #     print(df.columns)
     #     df = df.withColumn(column, coalesce(col(column).cast("string"), lit("")))
@@ -156,7 +165,7 @@ def boost_silver():
                    & (col('budget').startswith('1'))
                    , 'Goods and services')
                .when(
-                   (col('year').cast('int') < 2018), 
+                   (col('year').cast('integer') < 2018), 
                     when(col('Econ1').startswith('24')
                    , 'Interest on debt')
                         .otherwise(when(col('Econ4').startswith('423104'), 'Interest on debt')))
@@ -184,11 +193,6 @@ def boost_silver():
         'geo1', lower(col('admin1'))
     )
 
-    # --- Country ---
-    df = df.withColumn(
-        'country_name', lit(COUNTRY)
-    )
-
     return df
 
 @dlt.table(name=f'lbr_boost_gold')
@@ -196,8 +200,9 @@ def boost_gold():
     return (dlt.read(f'lbr_boost_silver')
         .withColumn('country_name', lit(COUNTRY))
         .filter(col('year') > 2008)
+        .filter(col('year') < 2024)
         .select('country_name',
-                col('year').cast("integer"),
+                col('year').cast('integer'),
                 col('approved'),
                 col('actual').alias('executed'),
                 col('revised'),
@@ -212,8 +217,4 @@ def boost_gold():
                 'geo1'
                 )
     )
-
-
-# COMMAND ----------
-
 
