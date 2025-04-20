@@ -62,13 +62,13 @@ def boost_silver():
         df = df.withColumnRenamed(old_name, new_name)
     
     columns_to_clean = [
-        "Econ0", "Econ1", "Econ2", "Econ3", 
-        "Econ4", "Geo1", "FUND"
+        "econ0", "econ1", "econ2", "econ3", 
+        "econ4", "geo1", "fund",'geo1','geo2','wages'
     ]
 
-    # for column in columns_to_clean:
-    #     print(df.columns)
-    #     df = df.withColumn(column, coalesce(col(column).cast("string"), lit("")))
+    for column in columns_to_clean:
+        print(df.columns)
+        df = df.withColumn(column, coalesce(col(column).cast("string"), lit("")))
 
     # --- Global Filters ---
     # Filtering out unwanted values at the total expenditures level
@@ -120,7 +120,8 @@ def boost_silver():
 
     # --- Sub-Functional Classifications ---
     df = df.withColumn(
-        'func_sub', when((col("func") == "Public order and safety"), when(col('Func2').startswith('033'), "judiciary").otherwise("public safety"))
+        'func_sub', when((col("func") == "Public order and safety") & (col('Func2').startswith('033')), "judiciary")
+            .when((col("func") == "Public order and safety") & (~col('Func2').startswith('033')), "public safety")
             .when(not_dept & (col('Func2').startswith('042')), 'agriculture')
             .when(col('Func2').startswith('045'), 'transport')
             .when(not_dept & (col('Func3').startswith('0451')), 'roads')
@@ -140,7 +141,8 @@ def boost_silver():
     # --- Sub-Economic Classifications ---     
     df = df.withColumn(
         'econ_sub', when(social_assistance_filter, 'social assistance')
-            .when(wage_filter, when(allowances_filter, 'allowances').otherwise('basic wages'))
+            .when(wage_filter & allowances_filter, 'allowances')
+            .when(wage_filter & ~allowances_filter, 'basic wages')
             .when(pensions_filter, 'pensions')
             .when(not_dept & (col('Econ2').startswith('212')), 'social benefits (pension contributions)')
             .when((col('Econ3').startswith('2213')) | (col('Econ3').startswith('2218')), 'basic services')
@@ -179,10 +181,11 @@ def boost_silver():
                     not_dept,
                     'Other grants and transfers'
                 )
+                # social benefits is getting assigned where econ+_sub is null, so mitigate that
                .when(
-                   (col('econ_sub') == 'social assistance') 
-                   | (col('econ_sub') == 'pensions'), 
-                   'Social Benefits')
+                    (col('econ_sub').isin('social assistance', 'pensions')) & col('econ_sub').isNotNull(),
+                    'Social benefits'
+                )
                .otherwise('Other expenses')
     )
 
@@ -204,6 +207,7 @@ def boost_gold():
         .withColumn('country_name', lit(COUNTRY))
         .filter(col('year') > 2008)
         .filter(col('year') < 2024)
+        .filter(col('actual').isNotNull())
         .select('country_name',
                 col('year').cast('integer'),
                 col('approved'),
