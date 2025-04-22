@@ -150,7 +150,7 @@ def boost_silver():
                 ((col("econ3") == 604) & (col("admin4") == 1025096) & (col("admin3") == 25)) |
                 ((col("econ3") == 604) & (col("admin4") == 1010226) & (col("admin3") == 10)), 1)
             .otherwise(lit(0))
-        )
+        ).withColumn('admin2', lpad(col('admin2').cast('int').cast("string"), 3, "0"))
     for column_name, mapping in labels.items():
         if column_name in silver_df.columns:
             silver_df = silver_df.withColumn(column_name, replacement_udf(column_name)(col(column_name)))
@@ -164,8 +164,8 @@ def boost_silver():
             when(col('counties')=='Central', 'Central Scope')
             .otherwise(col('counties'))
         ).withColumn('admin2_tmp',
-            when(col('counties')=='Central', col('admin3'))
-            .otherwise(col('counties'))
+            when(col('admin2').startswith('00'), 'Central')
+            .otherwise(col('admin2'))
         ).withColumn('geo1', col('admin1_tmp')
         ).withColumn('func_sub',
             # spending in judiciary
@@ -262,7 +262,7 @@ def boost_silver():
                         when(col('counties')=='Central', 'Central Scope')
                         .otherwise(col('counties'))
             ).withColumn('admin2_tmp',
-                        when(col('counties')=='Central', col('admin3'))
+                        when(col('counties')=='Central', col('admin2'))
                         .otherwise(col('counties'))
             ).withColumn('geo1', col('admin1_tmp')
             ).withColumn('func_sub',
