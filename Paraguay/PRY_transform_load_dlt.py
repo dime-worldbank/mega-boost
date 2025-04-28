@@ -56,7 +56,7 @@ def boost_bronze_cen():
                 when(col('FUNCTION2').startswith('120'), "judiciary")
                 .when(col('FUNCTION2').startswith('220'), "public safety")
                 .when((col('FUNCTION3').startswith('311')) & ((col('PROGRAM1').startswith('001') | col('PROGRAM1').startswith('007')) & (col('hospital').isNull())), "primary and secondary health")
-                .when((col('FUNCTION2').startswith('310')) & (col('ECON2').startswith('120') & col('ECON5').startswith('240')), "tertiaty and quaternary health")
+                .when((col('FUNCTION2').startswith('310')) & (col('ECON2').startswith('120') & col('ECON5').startswith('240')), "tertiary and quaternary health")
                 .when(col('FUNCTION3').startswith('341'), "primary education")
                 .when(col('FUNCTION3').startswith('342'), "secondary education") # No further information about higher education 
             ).withColumn('func', 

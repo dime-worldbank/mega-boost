@@ -181,7 +181,7 @@ def boost_silver_cen():
             .when((col('admin1').startswith('05')) & (col('interest_tmp') == 0), 'public safety')
             .when((col('year') <= 2019) & (col('admin1').startswith('13')) & (lower(col('admin2')) != '05 corporacion nacional forestal'), 'agriculture')
             .when((col('year') > 2019) & (col('admin1').startswith('13')) & (~col('admin2').startswith('1305')), 'agriculture')
-            .when(col('road_transport') == 'road', 'road')
+            .when(col('road_transport') == 'road', 'roads')
             .when(
                 (col('program1').rlike('^(190102|190103)')) | (lower(col('program1')).isin(
                     '02 s.y adm.gral.transporte-empresa ferrocarriles del estado',
@@ -202,7 +202,7 @@ def boost_silver_cen():
             .when(
                 (col('interest_tmp') == 0) &
                 (((col('admin1').rlike('^(07|17)') & (~lower(col('admin2')).isin('04 comision chilena de energia nuclear', '05 comision nacional de energia'))))
-                 | col('func_sub').isin('agriculture', 'road', 'railroads', 'water transport', 'air transport', 'energy')),
+                 | col('func_sub').isin('agriculture', 'roads', 'railroads', 'water transport', 'air transport', 'energy')),
                 'Economic affairs')
             .when(
                 (col('admin2').rlike('^(1305|2501|2502|2503)') |

@@ -63,7 +63,7 @@ def boost_silver():
                 .when(
                     (((col('airport')==1) & (~col('prog1').startswith('33')) & (~col('prog1').startswith('55')))), 'air transport')
                 # road transport
-                .when((col('Roads')==True) | col('Roads')==1, 'road transport')
+                .when((col('Roads')==True) | col('Roads')==1, 'roads')
                 # education spending decomposed
                 .when(col('prog2').startswith('87'), 'primary education')
                 .when((col('prog2').startswith("88") | col('prog2').startswith("89") | col("prog2").startswith("90")), "secondary education")
@@ -104,7 +104,7 @@ def boost_silver():
                     )) ,'Housing and community amenities')
                 # econ affairs
                 .when((
-                    (col('func_sub').isin('agriculture', 'air transport', 'road transport')) |
+                    (col('func_sub').isin('agriculture', 'air transport', 'roads')) |
                     (col('prog1').startswith('53') | col('prog1').startswith('26') | col('prog1').startswith('50') | col('prog1').startswith('51')) |
                     ((col('activity') == '26 SUBSIDY TO BHUTAN POWER CORPORATION') | col('prog1').startswith('52') | col('prog1').startswith('88') | col('prog1').startswith('89') | col('prog1').startswith('90'))                
                 ), 'Economic affairs')

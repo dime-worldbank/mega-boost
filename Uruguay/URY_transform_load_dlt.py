@@ -72,7 +72,7 @@ def boost_silver():
                     | col("func2").startswith("0371 ")
                     | col("func2").startswith("0372 ")
                 ),
-                "road transport",
+                "roads",
             )
             .when(
                 col("func1").startswith("09 ") & col("func2").startswith("0367 "),

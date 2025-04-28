@@ -173,7 +173,7 @@ def boost_silver():
             # public safety
             .when(col('func2').substr(1,3).isin(['031', '034', '035']), 'public safety')
             # spending in energy
-            .when(col('func2').startswith('043'), 'Energy')
+            .when(col('func2').startswith('043'), 'energy')
             # primary and secondary health
             .when(col('func2').startswith('072') | col('func2').startswith('074'), 'primary and secondary health')
             # tertitaey and quaternary health
@@ -214,7 +214,7 @@ def boost_silver():
             # pension contributions
             .when(col('econ3').startswith('601'), 'social benefits (pension contributions)') # note this will be zero since it is subsumed into above category
             # capital expenditures (foreign funded)
-            .when(col('is_foreign') & col('exp_type').startswith('3'), 'capital expenditure (foreign funded)')
+            .when(col('is_foreign') & col('exp_type').startswith('3'), 'capital expenditure (foreign spending)')
             # no entry for capital maintenance
             # goods and services (basic services)
             .when(col('econ4').startswith('6022') | col('econ4').startswith('6026'), 'basic services')
@@ -271,7 +271,7 @@ def boost_silver():
                         # public safety
                         .when(col('func2').substr(1,3).isin(['031', '034', '035']), 'public safety')
                         # spending in energy
-                        .when(col('func2').startswith('043'), 'Energy')
+                        .when(col('func2').startswith('043'), 'energy')
                         # primary and secondary health
                         .when(col('func2').startswith('072') | col('func2').startswith('074'), 'primary and secondary health')
                         # tertitaey and quaternary health
@@ -312,7 +312,7 @@ def boost_silver():
                         # pension contributions
                         .when(col('econ3').startswith('601'), 'social benefits (pension contributions)') # note this will be zero since it is subsumed into above category
                         # capital expenditures (foreign funded)
-                        .when(col('is_foreign') & col('exp_type').startswith('3'), 'capital expenditure (foreign funded)')
+                        .when(col('is_foreign') & col('exp_type').startswith('3'), 'capital expenditure (foreign spending)')
                         # no entry for capital maintenance
                         # goods and services (basic services)
                         .when(col('econ4').startswith('6022') | col('econ4').startswith('6026'), 'basic services')
