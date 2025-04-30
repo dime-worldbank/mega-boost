@@ -162,19 +162,19 @@ def boost_silver():
             .otherwise('General public services')
             # Sector_prog1 = 00 Default - Non Programmatic are not tagged
         ).withColumn('econ_sub',
-            # social assistance
+            # Social Assistance
             when(
-                ((~col('Class').startswith('2')) & (~col('Class').startswith('4')) & (~col('Item_econ4').startswith('27101')) & (col('Sector_prog1').startswith('09'))), 'social assistance')
-            # basic wages computed after computing econ categories
-            # social benefits (pension contributions)
-            .when((col('Item_econ4').startswith('21201')), 'social benefits (pension contributions)')
-            # employment contracts
-            .when((col('Sub-Item_econ5').startswith('2211310')| col('Sub-Item_econ5').startswith('2110201')), 'employment contracts')
-            # allowances
-            .when(((col('Class').startswith('0')) & (col('Item_econ4').startswith('21103'))), 'allowances')
+                ((~col('Class').startswith('2')) & (~col('Class').startswith('4')) & (~col('Item_econ4').startswith('27101')) & (col('Sector_prog1').startswith('09'))), 'Social Assistance')
+            # Basic Wages computed after computing econ categories
+            # Social Benefits (pension contributions)
+            .when((col('Item_econ4').startswith('21201')), 'Social Benefits (pension contributions)')
+            # Employment Contracts
+            .when((col('Sub-Item_econ5').startswith('2211310')| col('Sub-Item_econ5').startswith('2110201')), 'Employment Contracts')
+            # Allowances
+            .when(((col('Class').startswith('0')) & (col('Item_econ4').startswith('21103'))), 'Allowances')
             # foreign funded cap ex
-            .when((col('Chapter_econ2').startswith('31') & (~col('SOF2').startswith('00'))), 'capital expenditure (foreign spending)')
-            # basic services            
+            .when((col('Chapter_econ2').startswith('31') & (~col('SOF2').startswith('00'))), 'Capital Expenditure (foreign spending)')
+            # Basic Services            
             .when(
                 ((~col('Class').startswith('2')) & (col('Chapter_econ2').startswith('22')) & (
                     (col('Sub-Item_econ5').startswith('2211201')) | 
@@ -182,13 +182,13 @@ def boost_silver():
                     (col('Sub-Item_econ5').startswith('2210102')) |
                     (col('Sub-Item_econ5').startswith('2210101')) |
                     (col('Sub-Item_econ5').startswith('2211015'))
-                )), 'basic services')
-            # recurrent maintenance
-            .when(col('Item_econ4').startswith('22202'), 'recurrent maintenance')
-            # subsidies to production
-            .when(((~col('Class').startswith('2')) & (col('Chapter_econ2').startswith('25'))), 'subsidies to production')
-            #pensions
-            .when(((~col('Class').startswith('2')) & (col('Item_econ4').startswith('27101'))), 'pensions')
+                )), 'Basic Services')
+            # Recurrent Maintenance
+            .when(col('Item_econ4').startswith('22202'), 'Recurrent Maintenance')
+            # Subsidies to Production
+            .when(((~col('Class').startswith('2')) & (col('Chapter_econ2').startswith('25'))), 'Subsidies to Production')
+            #Pensions
+            .when(((~col('Class').startswith('2')) & (col('Item_econ4').startswith('27101'))), 'Pensions')
         ).withColumn('econ',
             # wage bill
             when((
@@ -203,7 +203,7 @@ def boost_silver():
             # subsidies           
             .when(((~col('Class').startswith('2')) & (col('Chapter_econ2').startswith('25'))), 'Subsidies')
             # social benefits
-            .when(col("econ_sub").isin("social assistance", "pensions"), 'Social benefits')
+            .when(col("econ_sub").isin("Social Assistance", "Pensions"), 'Social benefits')
             # other grants and transfers category not available
             # interest on debt
             .when(((~col('Class').startswith('2')) & (col('Chapter_econ2').startswith('24'))), 'Interest on debt')

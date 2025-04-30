@@ -222,8 +222,8 @@ def boost_silver_cen():
             .otherwise('General public services'))
         .withColumn(
             'econ_sub',
-            when(lower(col('econ3')) == '02 prestaciones de asistencia social', 'social assistance')
-            .when(lower(col('econ3')) == '01 prestaciones previsionales', 'pensions'))
+            when(lower(col('econ3')) == '02 prestaciones de asistencia social', 'Social Assistance')
+            .when(lower(col('econ3')) == '01 prestaciones previsionales', 'Pensions'))
         .withColumn('econ',
             # wage bill
             when(col('econ2').startswith('21'), 'Wage bill')
@@ -238,7 +238,7 @@ def boost_silver_cen():
                   (lower(col('econ3')) != "03 a otras entidades publicas") &
                   (lower(col('econ1')) !="gasto de capital"), 'Subsidies')
             # social benefits
-            .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
+            .when(col('econ_sub').isin('Social Assistance', 'Pensions'), 'Social benefits')
             # Other grants and trasnfers
             .when((lower(col('econ3'))=='03 a otras entidades publicas') & (lower(col('econ1'))!='gasto de capital'), 'Other grants and transfers')
             # interest on debt

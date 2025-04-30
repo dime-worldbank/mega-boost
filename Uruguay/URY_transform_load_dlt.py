@@ -206,15 +206,15 @@ def boost_silver():
                 & (
                     col("econ2_lower") != "08 cargas legales sobre servicios personales"
                 ),
-                "basic wages",
+                "Basic Wages",
             )
-            .when(col("exp_type_lower") == "personal", "allowances")
+            .when(col("exp_type_lower") == "personal", "Allowances")
             .when(
                 (col("exp_type_lower") == "inversion")
                 & col("source_fin1").startswith("20 "),
-                "capital expenditure (foreign spending)",
+                "Capital Expenditure (foreign spending)",
             )
-            .when(col("econ2_lower") == "21 servicios basicos", "basic services")
+            .when(col("econ2_lower") == "21 servicios basicos", "Basic Services")
             .when(
                 (
                     (col("year") < 2019)
@@ -227,12 +227,12 @@ def boost_silver():
                     (col("year") >= 2019)
                     & (col("econ2_lower").startswith("08 servicios tecnicos"))
                 ),
-                "employment contracts",
+                "Employment Contracts",
             )
             .when(
                 col("econ2_lower")
                 == "07 servici. para mantenimiento, reparaciones menores y limpieza",
-                "recurrent maintenance",
+                "Recurrent Maintenance",
             )
             .when(
                 (
@@ -254,7 +254,7 @@ def boost_silver():
                         == "02 transferencias corrientes al sector privado"
                     )
                 ),
-                "subsidies to production",
+                "Subsidies to Production",
             )
             .when(
                 (col("year") >= 2020)
@@ -268,7 +268,7 @@ def boost_silver():
                         == "02 transferencias corrientes al sector privado"
                     )
                 ),
-                "subsidies to production",
+                "Subsidies to Production",
             )
             .when(
                 (
@@ -283,7 +283,7 @@ def boost_silver():
                     (col("year") > 2019)
                     & (col("func1").startswith("20 ") & col("econ1").startswith("5 "))
                 ),
-                "pensions",
+                "Pensions",
             )
             .when(
                 (
@@ -294,7 +294,7 @@ def boost_silver():
                     (col("year") < 2020)
                     & (col("func1").startswith("11 ") & col("econ1").startswith("5 "))
                 ),
-                "social assistance",
+                "Social Assistance",
             ),
         )
         .withColumn(
@@ -363,7 +363,7 @@ def boost_silver():
                 "Subsidies",
             )
             .when(
-                col("econ_sub").isin("pensions", "social assistance"), "Social benefits"
+                col("econ_sub").isin("Pensions", "Social Assistance"), "Social benefits"
             )
             .when(
                 (col("exp_type_lower") != "inversion")

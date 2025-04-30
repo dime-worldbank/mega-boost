@@ -490,17 +490,17 @@ def col_central_boost_silver_from_raw():
       )
     ).withColumn('econ_sub',
       when(
-        (col("pension") & (col("econ2") == "Transferencias")), "pensions"
+        (col("pension") & (col("econ2") == "Transferencias")), "Pensions"
       ).when(
-        col("econ3").startswith("03-03-04-052"), "social assistance"
+        col("econ3").startswith("03-03-04-052"), "Social Assistance"
       )
     ).withColumn('econ',
       when(
         col("econ1") == 'Inversion', "Capital expenditures"
       ).when(
         col("econ_sub").isin(
-          "pensions",
-          "social assistance"
+          "Pensions",
+          "Social Assistance"
         ), "Social benefits"
       ).when(
         col("econ2") == 'Gastos de Personal' , "Wage bill"

@@ -265,23 +265,23 @@ def boost_silver():
             "econ_sub",
             when(
                 (col("econ3") == "Social contributions"),
-                "social benefits (pension contributions)",
+                "Social Benefits (pension contributions)",
             )
             .when(
                 col("econ3").isin("Property payments", "Operating leases"),
-                "basic services",
+                "Basic Services",
             )
             .when(
                 (col("econ3") == "Contractors"),
-                "employment contracts",
+                "Employment Contracts",
             )
             .when(
                 (col("econ2") == "Public corporations and private enterprises"),
-                "subsidies to production",
+                "Subsidies to Production",
             )
             .when(
                 (col("transfers") == "old age"),
-                "pensions",
+                "Pensions",
             )
             .when(
                 (
@@ -301,7 +301,7 @@ def boost_silver():
                         | ((col("func_sub_lower") == "social development"))
                     )
                 ),
-                "social assistance",
+                "Social Assistance",
             ),
         )
         .withColumn(
@@ -342,7 +342,7 @@ def boost_silver():
                 "Other grants and transfers",
             )
             .when(
-                col("econ_sub").isin("social assistance", "pensions"), "Social benefits"
+                col("econ_sub").isin("Social Assistance", "Pensions"), "Social benefits"
             )
             .when(
                 (

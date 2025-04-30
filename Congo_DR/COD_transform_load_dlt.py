@@ -70,56 +70,56 @@ def boost_silver():
             .when(col('Grande_Fonction').startswith('09'), 'Education')        
             .when(col('Grande_Fonction').startswith('10'), 'Social protection'))
         .withColumn('econ_sub',
-            # basic wages
+            # Basic Wages
             when((col('Exercice')<2016) &
                 ((~col('Article').startswith('12')) &
                  col('Titre').startswith('3') &
-                 (~col('Sous_Article').startswith('34'))), 'basic wages')
+                 (~col('Sous_Article').startswith('34'))), 'Basic Wages')
             .when((col('Exercice')>=2016) & 
                  ((~col('Article').startswith('12')) &
                  (col('Titre').startswith('3')) &
-                 (col('Sous_Article').startswith('3661'))), 'basic wages')
-            # allowances
+                 (col('Sous_Article').startswith('3661'))), 'Basic Wages')
+            # Allowances
             .when((col('Exercice')<2016) &
                  ((~col('Article').startswith('12')) &
                  (col('Titre').startswith('3')) &
-                 (col('Sous_Article').startswith('34'))), 'allowances')
+                 (col('Sous_Article').startswith('34'))), 'Allowances')
             .when((col('Exercice')>=2016) &
                  ((~col('Article').startswith('12')) &
                  (col('Titre').startswith('3')) &
-                 (~col('Sous_Article').startswith('3661'))), 'allowances')
-            # capital expenditure (foreign spending)
+                 (~col('Sous_Article').startswith('3661'))), 'Allowances')
+            # Capital Expenditure (foreign spending)
             .when(((~col('Article').startswith('12')) &
                  ((col('Titre').startswith('7') | (col('Titre').startswith('8')))) &
-                 col('is_foreign')), 'capital expenditure (foreign spending)')
-            # capital maintenance
-            .when((col('Exercice')>=2016) & (col('Sous_Article').startswith('8233')), 'capital maintenance') # only post 2015
-            # basic services                
-            .when((col('Exercice')>=2016) & (col('Sous_Article').startswith('5611')), 'basic services')# only post 2015
-            # recurrent maintenance
-            .when((col('Exercice')<2016) & (col('Sous_Article').startswith('55') | col('Sous_Article').startswith('57')), 'recurrent maintenance')
+                 col('is_foreign')), 'Capital Expenditure (foreign spending)')
+            # Capital Maintenance
+            .when((col('Exercice')>=2016) & (col('Sous_Article').startswith('8233')), 'Capital Maintenance') # only post 2015
+            # Basic Services                
+            .when((col('Exercice')>=2016) & (col('Sous_Article').startswith('5611')), 'Basic Services')# only post 2015
+            # Recurrent Maintenance
+            .when((col('Exercice')<2016) & (col('Sous_Article').startswith('55') | col('Sous_Article').startswith('57')), 'Recurrent Maintenance')
             .when((col('Exercice')>=2016) &
-                 (col('Nature_Economique').startswith('5615') | col('Nature_Economique').startswith('5617')), 'recurrent maintenance')
-            # subsidies to production
-            .when((col('Exercice')<2016) & (col('Sous_Article').startswith('6150')), 'subsidies to production')
-            .when((col('Exercice')>=2016) & (col('Nature_Economique').startswith('66413')), 'subsidies to production')
-            # social assistance
+                 (col('Nature_Economique').startswith('5615') | col('Nature_Economique').startswith('5617')), 'Recurrent Maintenance')
+            # Subsidies to Production
+            .when((col('Exercice')<2016) & (col('Sous_Article').startswith('6150')), 'Subsidies to Production')
+            .when((col('Exercice')>=2016) & (col('Nature_Economique').startswith('66413')), 'Subsidies to Production')
+            # Social Assistance
             .when((col('Exercice')<2016) & 
                  (col('Grande_Fonction').startswith('10') &
                  col('Titre').startswith('6') &
                  (~col('Article').startswith('68')) &
                  (~col('Sous_Article').startswith('6350')) &
                  (~col('Sous_Article').startswith('6110')) &
-                 (~col('Sous_Article').startswith('6150'))),  'social assistance')
+                 (~col('Sous_Article').startswith('6150'))),  'Social Assistance')
             .when((col('Exercice')>=2016) &
                  col('Grande_Fonction').startswith('10') &
-                 col('Titre').startswith('6') & (~col('Nature_Economique').startswith('66441')), 'social assistance')
-             # pensions
-            .when(((col('Exercice')<2016) & col('Article').startswith('68')), 'pensions')
-            .when(((col('Exercice')>=2016) & col('Nature_Economique').startswith('66441')), 'pensions'))
+                 col('Titre').startswith('6') & (~col('Nature_Economique').startswith('66441')), 'Social Assistance')
+             # Pensions
+            .when(((col('Exercice')<2016) & col('Article').startswith('68')), 'Pensions')
+            .when(((col('Exercice')>=2016) & col('Nature_Economique').startswith('66441')), 'Pensions'))
         .withColumn('econ',
             # social benefits
-            when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
+            when(col('econ_sub').isin('Social Assistance', 'Pensions'), 'Social benefits')
             # subsidies
             .when((col('Exercice')>=2016) & (col('Sous_Article').startswith('6641 ')), 'Subsidies')
             # subsidies

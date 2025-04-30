@@ -93,13 +93,13 @@ def boost_silver():
             .otherwise('General public services')
         ).withColumn(
         'econ_sub',
-            when((col('YEAR')>2015) & (col('PROG') == '2 Securite Sociale'), 'pensions') # appears before social assistance. Available post 2015
-            .when((col('ADMIN1').startswith('05') & (col('PROG')!='2 Securite Sociale')), 'social assistance')
-            .when((col('Econ2').startswith('01') & (col('PROG')!='2 Securite Sociale')), 'basic wages')
-            .when(((col('Maintenance') == 1) & col('ECON1').startswith('Titre 2')), 'capital maintenance')
-            .when(((col('Maintenance') == 1) & col('ECON1').startswith('Titre 1')), 'recurrent maintenance')
+            when((col('YEAR')>2015) & (col('PROG') == '2 Securite Sociale'), 'Pensions') # appears before Social Assistance. Available post 2015
+            .when((col('ADMIN1').startswith('05') & (col('PROG')!='2 Securite Sociale')), 'Social Assistance')
+            .when((col('Econ2').startswith('01') & (col('PROG')!='2 Securite Sociale')), 'Basic Wages')
+            .when(((col('Maintenance') == 1) & col('ECON1').startswith('Titre 2')), 'Capital Maintenance')
+            .when(((col('Maintenance') == 1) & col('ECON1').startswith('Titre 1')), 'Recurrent Maintenance')
             .when(((col('subsidies')==1) & (~col('ECON2').startswith('02')) &
-                   (~col('ECON2').startswith('01'))), 'subsidies to production')
+                   (~col('ECON2').startswith('01'))), 'Subsidies to Production')
         ).withColumn(
         'econ',
             # wage bill
@@ -111,7 +111,7 @@ def boost_silver():
             # subsidies
             .when(((col('subsidies')==1) & (~col('Econ2').startswith('02')) & (~col('Econ2').startswith('01'))), 'Subsidies')
             # social benefits
-            .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
+            .when(col('econ_sub').isin('Social Assistance', 'Pensions'), 'Social benefits')
             # interest on debt
             .when(col('Econ2').startswith('05'), 'Interest on debt')
             # other expenses

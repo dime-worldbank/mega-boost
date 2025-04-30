@@ -90,31 +90,31 @@ def boost_silver():
             .when(col('Func1').startswith("09"), "Education")
             .when(col('Func1').startswith("10"), "Social protection")
         ).withColumn( 'econ_sub',
-            # pensions
-            when((col('Econ4').startswith('1431') | col('Econ4').startswith('1432')), 'pensions')
-            # social assistance
+            # Pensions
+            when((col('Econ4').startswith('1431') | col('Econ4').startswith('1432')), 'Pensions')
+            # Social Assistance
             .when(((col('Func1').startswith('10')) &
                    (~col('Econ4').startswith('1431')) &
-                   (~col('Econ4').startswith('1432'))), 'social assistance')
+                   (~col('Econ4').startswith('1432'))), 'Social Assistance')
             # wage bill breakdowm missing
             # capital expenditure (foreign funded)
-            .when((col('Econ1').startswith('2') & (~col('Fund1').startswith('1'))), 'capital expenditure (foreign spending)')
-            # basic services
-            .when((col('Econ5').startswith('121001') | col('Econ5').startswith('122013') | col('Econ5').startswith('122004') | col('Econ5').startswith('121010')), 'basic services')
-            # employment contracts
-            .when((col('Econ5').startswith('121014') | col('Econ5').startswith('122015')), 'employment contracts')
-            # recurrent maintenance
+            .when((col('Econ1').startswith('2') & (~col('Fund1').startswith('1'))), 'Capital Expenditure (foreign spending)')
+            # Basic Services
+            .when((col('Econ5').startswith('121001') | col('Econ5').startswith('122013') | col('Econ5').startswith('122004') | col('Econ5').startswith('121010')), 'Basic Services')
+            # Employment Contracts
+            .when((col('Econ5').startswith('121014') | col('Econ5').startswith('122015')), 'Employment Contracts')
+            # Recurrent Maintenance
             .when((col('Econ5').startswith('121002') |
                    col('Econ5').startswith('122003') |
                    col('Econ5').startswith('122005') |
                    col('Econ5').startswith('122006') |
-                   col('Econ5').startswith('122007')), 'recurrent maintenance')
-            # subsidies to production
-            .when(col('Econ2').startswith('15'), 'subsidies to production') # same as the value for subsidies
+                   col('Econ5').startswith('122007')), 'Recurrent Maintenance')
+            # Subsidies to Production
+            .when(col('Econ2').startswith('15'), 'Subsidies to Production') # same as the value for subsidies
 
         ).withColumn('econ',
             # social benefits
-            when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits') # should come before other econ categories
+            when(col('econ_sub').isin('Social Assistance', 'Pensions'), 'Social benefits') # should come before other econ categories
             # cap ex
             .when((col('Econ1').startswith('2')) & (~col('Func1').startswith('10')), 'Capital expenditures')
             # wage bill

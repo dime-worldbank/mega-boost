@@ -95,8 +95,8 @@ def boost_2019_onward_silver():
         ).withColumn(
             'econ_sub',
             when(col('ECON3') == "311 - Wages and Salaries", 
-                when(col('ECON_5') == '31113 - Allowances', 'allowances')
-                .otherwise('basic wages')
+                when(col('ECON_5') == '31113 - Allowances', 'Allowances')
+                .otherwise('Basic Wages')
             )
             .when(
                 (col('Old_ECON3').startswith("3211113")
@@ -105,12 +105,12 @@ def boost_2019_onward_silver():
                  | col('Old_ECON3').startswith("3211120")
                  | col('Old_ECON3').startswith("3211122")
                  | col('Old_ECON3').startswith("3211129")
-                ), 'basic services')
+                ), 'Basic Services')
             .when(
                 col('ECON_4') == '3257 - Professional services, honorariums and special expenses',
-                'employment contracts')
-            .when((col('ECON3').startswith('372')), 'social assistance')
-            .when(col('ECON_5') == '37311 - Employment-related social benefits in cash', 'pensions')
+                'Employment Contracts')
+            .when((col('ECON3').startswith('372')), 'Social Assistance')
+            .when(col('ECON_5') == '37311 - Employment-related social benefits in cash', 'Pensions')
         ).withColumn(
             'econ',
             when(col('ECON1') == '4 - Capital Expenditure', 'Capital expenditures')
@@ -118,7 +118,7 @@ def boost_2019_onward_silver():
             .when(col('ECON2') == '32 - Purchases of Goods and Services', 'Goods and services')
             .when(col('ECON2') == '34 - Interest', 'Interest on debt') 
             .when(col('ECON2') == '35 - Subsidies', 'Subsidies')
-            .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
+            .when(col('econ_sub').isin('Social Assistance', 'Pensions'), 'Social benefits')
             .otherwise('Other expenses') 
         )
     )
@@ -227,8 +227,8 @@ def boost_2015_to_2018_silver():
             )
         ).withColumn(
             'econ_sub',
-            when(col('ECON2').isin(["4500-Pay of Officers","4600-Pay of Establishment"]), 'basic wages')
-            .when(col('ECON2') == "4700-Allowances", 'allowances')
+            when(col('ECON2').isin(["4500-Pay of Officers","4600-Pay of Establishment"]), 'Basic Wages')
+            .when(col('ECON2') == "4700-Allowances", 'Allowances')
             .when(
                 col('ECON2') == "4800-Supplies and Services",
                 when(
@@ -239,20 +239,20 @@ def boost_2015_to_2018_silver():
                      | col('ECON3').startswith("4819")
                      | col('ECON3').startswith("4821")
                      | col('ECON3').startswith("4822")
-                    ), 'basic services'
+                    ), 'Basic Services'
                 ).when(
                     (col('ECON3').startswith("4849")
                      | col('ECON3').startswith("4851")
                      | col('ECON3').startswith("4874")
-                    ), 'employment contracts'
+                    ), 'Employment Contracts'
                 )
             )
             .when(
                 col('ECON2') == '6300-Pensions and Gratuities',
-                'pensions')
+                'Pensions')
             .when(
                 (col('ECON2').startswith('59') & (col('FUNC1') == 'Social Security and Welfare')),
-                'social assistance'
+                'Social Assistance'
             )
         ).withColumn(
             'econ',
@@ -261,8 +261,8 @@ def boost_2015_to_2018_silver():
                 'Capital expenditures')
             .when(
                 col('econ_sub').isin([
-                    'basic wages',
-                    'allowances']),
+                    'Basic Wages',
+                    'Allowances']),
                 'Wage bill')
             .when(
                 col('ECON2').isin([
@@ -288,8 +288,8 @@ def boost_2015_to_2018_silver():
                 'Subsidies')
             .when(
                 col('econ_sub').isin([
-                    'social assistance',
-                    'pensions']),
+                    'Social Assistance',
+                    'Pensions']),
                 'Social benefits')
             .otherwise('Other expenses') 
         )
@@ -400,8 +400,8 @@ def boost_2008_to_2014_silver():
             )
         ).withColumn(
             'econ_sub',
-            when(col('ECON1').isin(["45 Pay of Officers","46 Pay of Establishment"]), 'basic wages')
-            .when(col('ECON1') == "47 Allowances", 'allowances')
+            when(col('ECON1').isin(["45 Pay of Officers","46 Pay of Establishment"]), 'Basic Wages')
+            .when(col('ECON1') == "47 Allowances", 'Allowances')
             .when(
                 col('ECON1') == "48 Supplies and Services",
                 when(
@@ -413,18 +413,18 @@ def boost_2008_to_2014_silver():
                         "4806 Rent - Office",
                         "4819 Water"
                     ]),
-                    'basic services'
+                    'Basic Services'
                 ).when(
                     col('ECON2') == "4883 Honorarium/Fees/Remuneration",
-                    'employment contracts'
+                    'Employment Contracts'
                 )
             )
             .when(
                 col('ECON1') == '63 Pensions and Gratuities',
-                'pensions')
+                'Pensions')
             .when(
                 ((col('ECON1') == '59 Grants-in-Aid') & (col('FUNC1') == 'Social Security and Welfare')),
-                'social assistance'
+                'Social Assistance'
             )
         ).withColumn(
             'econ',
@@ -436,8 +436,8 @@ def boost_2008_to_2014_silver():
                 'Capital expenditures')
             .when(
                 col('econ_sub').isin([
-                    'basic wages',
-                    'allowances']),
+                    'Basic Wages',
+                    'Allowances']),
                 'Wage bill')
             .when(
                 col('ECON1').isin([
@@ -460,8 +460,8 @@ def boost_2008_to_2014_silver():
                 'Subsidies')
             .when(
                 col('econ_sub').isin([
-                    'social assistance',
-                    'pensions']),
+                    'Social Assistance',
+                    'Pensions']),
                 'Social benefits')
             .otherwise('Other expenses') 
         )

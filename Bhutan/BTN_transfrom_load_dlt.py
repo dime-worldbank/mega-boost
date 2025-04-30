@@ -113,14 +113,14 @@ def boost_silver():
                 # general public services
                 .otherwise('General public services')
             ).withColumn('econ_sub',
-                        when(col('Econ3') == 'Social benefits', 'social assistance')
-                        .when(col('econ4').startswith('25.01'), 'pensions')
-                        .when(col('Econ3') == 'Wages', 'basic wages')
-                        .when(col('Econ3') == 'Allowances', 'allowances')
-                        .when((col('source') == 'foreign') & (col('Econ1')=='Capital'), 'capital expenditure (foreign spending)')
-                        .when(col('econ4').startswith('12') | col('econ4').startswith('13'), 'basic services')
-                        .when(col('econ4').startswith('15'), 'recurrent maintenance')
-                        .when((coalesce(col('activity'), lit('')) == '26 SUBSIDY TO BHUTAN POWER CORPORATION'), 'subsidies to production')
+                        when(col('Econ3') == 'Social benefits', 'Social Assistance')
+                        .when(col('econ4').startswith('25.01'), 'Pensions')
+                        .when(col('Econ3') == 'Wages', 'Basic Wages')
+                        .when(col('Econ3') == 'Allowances', 'Allowances')
+                        .when((col('source') == 'foreign') & (col('Econ1')=='Capital'), 'Capital Expenditure (foreign spending)')
+                        .when(col('econ4').startswith('12') | col('econ4').startswith('13'), 'Basic Services')
+                        .when(col('econ4').startswith('15'), 'Recurrent Maintenance')
+                        .when((coalesce(col('activity'), lit('')) == '26 SUBSIDY TO BHUTAN POWER CORPORATION'), 'Subsidies to Production')
             ).withColumn('econ', 
                         # wage bill
                         when(col('Econ2').startswith('21'), 'Wage bill')
@@ -131,7 +131,7 @@ def boost_silver():
                         # subsidies
                         .when(col('econ4').startswith('22.02'), 'Subsidies')
                         # social benefits
-                        .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
+                        .when(col('econ_sub').isin('Social Assistance', 'Pensions'), 'Social benefits')
                         # NO data on interest on debt
                         # other expenses
                         .otherwise('Other expenses')  
