@@ -212,7 +212,7 @@ def boost_2015_to_2018_silver():
         .withColumn(
             'func_sub',
             when(col('func') == 'Public order and safety', 
-                 when(col('ADMIN2') == '22-Public Security Division', 'Public Order')
+                 when(col('ADMIN2') == '22-Public Security Division', 'Public Safety')
                  .otherwise('Judiciary')
             )
             .when(col('func') == 'Education', 

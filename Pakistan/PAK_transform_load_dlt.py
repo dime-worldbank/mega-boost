@@ -55,7 +55,7 @@ def boost_silver():
         ).withColumn(
             'func_sub',
             when(col('func2').startswith('031'), 'Judiciary')
-            .when((col('func1').startswith('03') & (~col('func2').startswith('031'))), 'Public Order')
+            .when((col('func1').startswith('03') & (~col('func2').startswith('031'))), 'Public Safety')
             .when(col('func2').startswith('091'), 'Primary Education')
             .when(col('func2').startswith('092'), 'Secondary Education')
             .when(col('func2').startswith('093'), 'Tertiary Education')
