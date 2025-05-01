@@ -168,25 +168,25 @@ def boost_silver():
             .otherwise(col('counties'))
         ).withColumn('geo1', col('admin1_tmp')
         ).withColumn('func_sub',
-            # spending in judiciary
-            when(col('func2').startswith('033'), 'judiciary')
-            # public safety
-            .when(col('func2').substr(1,3).isin(['031', '034', '035']), 'public safety')
-            # spending in energy
-            .when(col('func2').startswith('043'), 'energy')
-            # primary and secondary health
-            .when(col('func2').startswith('072') | col('func2').startswith('074'), 'primary and secondary health')
+            # spending in Judiciary
+            when(col('func2').startswith('033'), 'Judiciary')
+            # Public Safety
+            .when(col('func2').substr(1,3).isin(['031', '034', '035']), 'Public Safety')
+            # spending in Energy
+            .when(col('func2').startswith('043'), 'Energy')
+            # Primary and Secondary Health
+            .when(col('func2').startswith('072') | col('func2').startswith('074'), 'Primary and Secondary Health')
             # tertitaey and quaternary health
-            .when(col('func2').startswith('073'), 'tertiary and quaternary health')
-            # primary education
-            .when(col('func1').startswith('09') & col('func2').startswith('091'), 'primary education')
-            # secondary education
-            .when(col('func1').startswith('09') & col('func2').startswith('092'), 'secondary education')
-            # tertiary education
-            .when(col('func1').startswith('09') & col('func2').startswith('094'), 'tertiary education')
+            .when(col('func2').startswith('073'), 'Tertiary and Quaternary Health')
+            # Primary Education
+            .when(col('func1').startswith('09') & col('func2').startswith('091'), 'Primary Education')
+            # Secondary Education
+            .when(col('func1').startswith('09') & col('func2').startswith('092'), 'Secondary Education')
+            # Tertiary Education
+            .when(col('func1').startswith('09') & col('func2').startswith('094'), 'Tertiary Education')
         ).withColumn('func',
             # public order and safety
-            when(col('func_sub').isin('judiciary', 'public safety'), 'Public order and safety')
+            when(col('func_sub').isin('Judiciary', 'Public Safety'), 'Public order and safety')
             # defense
             .when(col('func1').startswith('02'), 'Defence')
             # economic relations
@@ -266,25 +266,25 @@ def boost_silver():
                         .otherwise(col('counties'))
             ).withColumn('geo1', col('admin1_tmp')
             ).withColumn('func_sub',
-                        # spending in judiciary
-                        when(col('func2').startswith('033'), 'judiciary')
-                        # public safety
-                        .when(col('func2').substr(1,3).isin(['031', '034', '035']), 'public safety')
-                        # spending in energy
-                        .when(col('func2').startswith('043'), 'energy')
-                        # primary and secondary health
-                        .when(col('func2').startswith('072') | col('func2').startswith('074'), 'primary and secondary health')
+                        # spending in Judiciary
+                        when(col('func2').startswith('033'), 'Judiciary')
+                        # Public Safety
+                        .when(col('func2').substr(1,3).isin(['031', '034', '035']), 'Public Safety')
+                        # spending in Energy
+                        .when(col('func2').startswith('043'), 'Energy')
+                        # Primary and Secondary Health
+                        .when(col('func2').startswith('072') | col('func2').startswith('074'), 'Primary and Secondary Health')
                         # tertitaey and quaternary health
-                        .when(col('func2').startswith('073'), 'tertiary and quaternary health')
-                        # primary education
-                        .when(col('func1').startswith('09') & col('func2').startswith('091'), 'primary education')
-                        # secondary education
-                        .when(col('func1').startswith('09') & col('func2').startswith('092'), 'secondary education')
-                        # tertiary education
-                        .when(col('func1').startswith('09') & col('func2').startswith('094'), 'tertiary education')
+                        .when(col('func2').startswith('073'), 'Tertiary and Quaternary Health')
+                        # Primary Education
+                        .when(col('func1').startswith('09') & col('func2').startswith('091'), 'Primary Education')
+                        # Secondary Education
+                        .when(col('func1').startswith('09') & col('func2').startswith('092'), 'Secondary Education')
+                        # Tertiary Education
+                        .when(col('func1').startswith('09') & col('func2').startswith('094'), 'Tertiary Education')
             ).withColumn('func',
                         # public order and safety
-                        when(col('func_sub').isin('judiciary', 'public safety'), 'Public order and safety')
+                        when(col('func_sub').isin('Judiciary', 'Public Safety'), 'Public order and safety')
                         # defense
                         .when(col('func1').startswith('02'), 'Defence')
                         # economic relations

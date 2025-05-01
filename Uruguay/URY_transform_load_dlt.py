@@ -55,14 +55,14 @@ def boost_silver():
         .withColumn("is_foreign", col("SOURCE_FIN1").startswith("20 "))
         .withColumn(
             "func_sub",
-            when(col("func1").startswith("01 "), "judiciary")
-            .when(col("func1").startswith("14 "), "public safety")
-            .when(col("admin1").startswith("07 "), "agriculture")
+            when(col("func1").startswith("01 "), "Judiciary")
+            .when(col("func1").startswith("14 "), "Public Safety")
+            .when(col("admin1").startswith("07 "), "Agriculture")
             .when(
                 col("func1").startswith("09 ")
                 & ~col("func2").startswith("0368 ")
                 & ~col("func2").startswith("0369 "),
-                "transport",
+                "Transport",
             )
             .when(
                 col("func1").startswith("09 ")
@@ -72,15 +72,15 @@ def boost_silver():
                     | col("func2").startswith("0371 ")
                     | col("func2").startswith("0372 ")
                 ),
-                "roads",
+                "Roads",
             )
             .when(
                 col("func1").startswith("09 ") & col("func2").startswith("0367 "),
-                "air transport",
+                "Air Transport",
             )
             .when(
                 col("func1").startswith("09 ") & col("func2").startswith("0369 "),
-                "telecom",
+                "Telecom",
             )
             .when(
                 (
@@ -91,7 +91,7 @@ def boost_silver():
                     )
                 )
                 | ((col("year") >= 2016) & (col("func1").startswith("18 "))),
-                "energy",
+                "Energy",
             )
             .when(
                 (
@@ -116,7 +116,7 @@ def boost_silver():
                         )
                     )
                 ),
-                "primary education",
+                "Primary Education",
             )
             .when(
                 (
@@ -136,7 +136,7 @@ def boost_silver():
                         | col("func2").startswith("0605 ")
                     )
                 ),
-                "secondary education",
+                "Secondary Education",
             )
             .when(
                 col("func1").startswith("08 ")
@@ -146,14 +146,14 @@ def boost_silver():
                     | col("func2").startswith("0349 ")
                     | col("func2").startswith("0353 ")
                 ),
-                "tertiary education",
+                "Tertiary Education",
             ),
         )
         .withColumn(
             "func",
             when(col("func1").startswith("06 "), "Defence")
             .when(
-                col("func_sub").isin("judiciary", "public safety"),
+                col("func_sub").isin("Judiciary", "Public Safety"),
                 "Public order and safety",
             )
             .when(

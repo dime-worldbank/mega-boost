@@ -96,31 +96,31 @@ def boost_silver():
                  (col('National_Government_Votes_&_Counties_adm2').startswith('102') |
                   col('National_Government_Votes_&_Counties_adm2').startswith('210') |
                   col('National_Government_Votes_&_Counties_adm2').startswith('215'))),
-                "public safety")
+                "Public Safety")
             .when(
                 col('Sector_prog1').startswith('06'), 
-                "judiciary") # important for this to be after public safety
+                "Judiciary") # important for this to be after Public Safety
             .when(
-                col('Programme_pro2').startswith('0401'), 'primary and secondary health')
+                col('Programme_pro2').startswith('0401'), 'Primary and Secondary Health')
             .when(
-                col('Programme_pro2').startswith('0402'), 'tertiary and quaternary health')
+                col('Programme_pro2').startswith('0402'), 'Tertiary and Quaternary Health')
             .when(
                 (col('Sector_prog1').startswith('05') & (
                     col('Programme_pro2').startswith('0501 Primary') |
                     col('Programme_pro2').startswith('0502 Basic') |
                     col('Sub-programme_prog3').startswith('050901'))
-                ), 'primary education')
+                ), 'Primary Education')
             .when(
                 (col('Sector_prog1').startswith('05') & (
                     col('Programme_pro2').startswith('0502 secondary') |
                     col('Sub-programme_prog3').startswith('050902'))
-                ), 'secondary education')
+                ), 'Secondary Education')
             .when(
                 (col('Sector_prog1').startswith('05') & (
                     col('Programme_pro2').startswith('0504') |
                     col('Programme_pro2').startswith('0505') |
                     col('Sub-programme_prog3').startswith('05093'))
-                ), 'tertiary education'
+                ), 'Tertiary Education'
             )
         ).withColumn('func', 
             when(
@@ -136,7 +136,7 @@ def boost_silver():
                 col('Sector_prog1').startswith('08'),
                 'Defence') # Note: Defence has no allocated amount in the executed sheet
             .when(
-                col("func_sub").isin("judiciary", "public safety"),
+                col("func_sub").isin("Judiciary", "Public Safety"),
                 "Public order and safety")
             .when(
                 ~col('environment').isNull(),

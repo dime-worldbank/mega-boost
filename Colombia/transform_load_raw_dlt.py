@@ -444,18 +444,18 @@ def col_central_boost_silver_from_raw():
     )
     .withColumn('func_sub',
       when(
-        col("func1").isin("RAMA JUDICIAL", "JUSTICIA Y DEL DERECHO") , "judiciary"
+        col("func1").isin("RAMA JUDICIAL", "JUSTICIA Y DEL DERECHO") , "Judiciary"
       ).when(
         (col("admin1").startswith("151100") |
          col("admin1").startswith("151201") |
          col("admin1").startswith("151600") |
          col("admin1").startswith("160101") |
-         col("admin1").startswith("160102")), "public safety"
+         col("admin1").startswith("160102")), "Public Safety"
       )
     )
     .withColumn('func',
       when(
-        col("func_sub").isin("judiciary", "public safety") , "Public order and safety"
+        col("func_sub").isin("Judiciary", "Public Safety") , "Public order and safety"
       ).when(
         col("func1") == "DEFENSA Y POLICÍA", "Defence" # important for this to be after "Public order and safety" to exclude those line items
       ).when(

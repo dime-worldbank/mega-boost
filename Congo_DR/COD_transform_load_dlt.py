@@ -49,14 +49,14 @@ def boost_silver():
                 initcap(trim(regexp_replace(regexp_replace(col("Province"), "\d+", ""), "-", " ")))))
         .withColumn('func_sub',
             # education
-            # NOTE: post 2016 the code for primary education is not present. pre-primary is the only one tagged -- we assume it refers to primary as well following previous years codes
-            when(col('Sous_Fonction_').startswith('091'), 'primary education')
-            .when(col('Sous_Fonction_').startswith('092'), 'secondary education') 
-            .when(col('Sous_Fonction_').startswith('094'), 'tertiary education')
-            # public safety
-            .when(col('Fonction2').startswith('03'), 'public safety' )
-            # judiciary (SHOULD come after public safety)
-            .when(col('Fonction2').startswith('033'), 'judiciary'))
+            # NOTE: post 2016 the code for Primary Education is not present. pre-primary is the only one tagged -- we assume it refers to primary as well following previous years codes
+            when(col('Sous_Fonction_').startswith('091'), 'Primary Education')
+            .when(col('Sous_Fonction_').startswith('092'), 'Secondary Education') 
+            .when(col('Sous_Fonction_').startswith('094'), 'Tertiary Education')
+            # Public Safety
+            .when(col('Fonction2').startswith('03'), 'Public Safety' )
+            # Judiciary (SHOULD come after Public Safety)
+            .when(col('Fonction2').startswith('033'), 'Judiciary'))
             # No specific indicators for primary, secondary, tertiary or quaternary health
         .withColumn('func',
             when(col('Grande_Fonction').startswith('01'), 'General public services')

@@ -48,13 +48,13 @@ def nga_boost_silver():
     .withColumn('is_foreign', ((~col('is_transfer')) & (col('Econ3').startswith('220402'))))
     .withColumn('admin2', trim(regexp_replace(col("adm2"), '^[0-9\\s]*', '')))
     .withColumn('func_sub',
-        when(col("Func2").startswith('7033') , "judiciary") # Comes before public safety tagging as it is a subcategory
-        .when(col('Func1').startswith('703'), 'public safety'))
+        when(col("Func2").startswith('7033') , "Judiciary") # Comes before Public Safety tagging as it is a subcategory
+        .when(col('Func1').startswith('703'), 'Public Safety'))
         # No breakdown of spending into primary, secondary for health
-        # No breakdown of spending into primary, secondary education
+        # No breakdown of spending into primary, Secondary Education
     .withColumn('func',
         # Public order and safety
-        when((~col("is_transfer")) & (col('Func1').startswith('703')), "Public order and safety") # not defined as sum of judiciary expenses and public safety expenses
+        when((~col("is_transfer")) & (col('Func1').startswith('703')), "Public order and safety") # not defined as sum of Judiciary expenses and Public Safety expenses
         # Environmental protection
         .when(col("Func1").startswith('705'), "Environmental protection")
         # Housing and community amenities

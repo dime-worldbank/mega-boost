@@ -53,14 +53,14 @@ def boost_bronze_cen():
             ).drop(
                 'geo1_tmp'
             ).withColumn('func_sub',
-                when(col('FUNCTION2').startswith('120'), "judiciary")
-                .when(col('FUNCTION2').startswith('220'), "public safety")
-                .when((col('FUNCTION3').startswith('311')) & ((col('PROGRAM1').startswith('001') | col('PROGRAM1').startswith('007')) & (col('hospital').isNull())), "primary and secondary health")
-                .when((col('FUNCTION2').startswith('310')) & (col('ECON2').startswith('120') & col('ECON5').startswith('240')), "tertiary and quaternary health")
-                .when(col('FUNCTION3').startswith('341'), "primary education")
-                .when(col('FUNCTION3').startswith('342'), "secondary education") # No further information about higher education 
+                when(col('FUNCTION2').startswith('120'), "Judiciary")
+                .when(col('FUNCTION2').startswith('220'), "Public Safety")
+                .when((col('FUNCTION3').startswith('311')) & ((col('PROGRAM1').startswith('001') | col('PROGRAM1').startswith('007')) & (col('hospital').isNull())), "Primary and Secondary Health")
+                .when((col('FUNCTION2').startswith('310')) & (col('ECON2').startswith('120') & col('ECON5').startswith('240')), "Tertiary and Quaternary Health")
+                .when(col('FUNCTION3').startswith('341'), "Primary Education")
+                .when(col('FUNCTION3').startswith('342'), "Secondary Education") # No further information about higher education 
             ).withColumn('func', 
-                when(col("func_sub").isin("judiciary", "public safety"), "Public order and safety")
+                when(col("func_sub").isin("Judiciary", "Public Safety"), "Public order and safety")
                 .when(col('FUNCTION2').startswith('210'), 'Defence')
                 .when(col('FUNCTION2').startswith('440'), 'Environmental protection') # env needs to be before economic affairs due to overlap
                 .when(col('FUNCTION2').startswith('310'), 'Health')

@@ -21,7 +21,7 @@ schema = StructType([
     StructField("geo1", StringType(), True, {'comment': 'Geographically, at which first sub-national administrative level the money was spent.'}),
     StructField("adm1_name", StringType(), True, {'comment': 'Legacy alias for geo1'}),
     StructField("func", StringType(), True, {'comment': 'Functional classification of the budget (e.g., Health, Education).'}),
-    StructField("func_sub", StringType(), True, {'comment': 'Sub-functional classification under the main COFOG function (e.g., primary education, secondary education).'}),
+    StructField("func_sub", StringType(), True, {'comment': 'Sub-functional classification under the main COFOG function (e.g., Primary Education, Secondary Education).'}),
     StructField("econ", StringType(), True, {'comment': 'Economic classification of the budget (e.g., Wage bill, Goods and services).'}),
     StructField("econ_sub", StringType(), True, {'comment': 'Sub-economic classification under the main economic category (e.g., Basic Wages, Allowances).'}),
     StructField("is_foreign", BooleanType(), True, {'comment': 'Indicator whether the expenditure is foreign funded or not.'}),

@@ -79,18 +79,18 @@ def boost_2019_onward_silver():
         .withColumn(
             'func_sub',
             when(col('func') == 'Public order and safety', 
-                 when(col('ADMIN2') == '122-Public Security Division', 'public order')
-                 .otherwise('judiciary')
+                 when(col('ADMIN2') == '122-Public Security Division', 'Public Order')
+                 .otherwise('Judiciary')
             )
             .when(col('func') == 'Education', 
                 when(
                     (col('ADMIN2').contains('Primary Education') 
                     | col('ADMIN2').contains('Primary and Mass Education'))
-                , 'primary education')
+                , 'Primary Education')
                 .when(
                     (col('ADMIN2').contains('Secondary and Higher Education') 
                     | col('ADMIN2').contains('Secondary & Higher Education'))
-                , 'secondary education')
+                , 'Secondary Education')
             )
         ).withColumn(
             'econ_sub',
@@ -212,18 +212,18 @@ def boost_2015_to_2018_silver():
         .withColumn(
             'func_sub',
             when(col('func') == 'Public order and safety', 
-                 when(col('ADMIN2') == '22-Public Security Division', 'public order')
-                 .otherwise('judiciary')
+                 when(col('ADMIN2') == '22-Public Security Division', 'Public Order')
+                 .otherwise('Judiciary')
             )
             .when(col('func') == 'Education', 
                 when(
                     (col('ADMIN2').contains('Primary Education') 
                     | col('ADMIN2').contains('Primary and Mass Education'))
-                , 'primary education')
+                , 'Primary Education')
                 .when(
                     (col('ADMIN2').contains('Secondary and Higher Education') 
                     | col('ADMIN2').contains('Secondary & Higher Education'))
-                , 'secondary education')
+                , 'Secondary Education')
             )
         ).withColumn(
             'econ_sub',
@@ -386,17 +386,17 @@ def boost_2008_to_2014_silver():
         .withColumn(
             'func_sub',
             when(col('func') == 'Public order and safety', 
-                 when(col('ADMIN2') == '22 Ministry of Home Affairs', 'public order')
-                 .otherwise('judiciary')
+                 when(col('ADMIN2') == '22 Ministry of Home Affairs', 'Public Order')
+                 .otherwise('Judiciary')
             )
             .when(col('func') == 'Education', 
                 when(
                     (col('ADMIN2').contains('Primary Education') 
                     | col('ADMIN2').contains('Primary and Mass Education'))
-                , 'primary education')
+                , 'Primary Education')
                 .when(
                     col('ADMIN2') == '25 Ministry of Education'
-                , 'secondary education')
+                , 'Secondary Education')
             )
         ).withColumn(
             'econ_sub',

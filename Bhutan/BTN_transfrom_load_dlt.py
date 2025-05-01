@@ -55,22 +55,22 @@ def boost_silver():
                 'is_foreign', col('source')=='foreign'
             ).withColumn(
                 'func_sub',
-                when(col('prog1').startswith('5 '), 'judiciary')
-                .when(col('prog1').startswith('30'), 'public safety')
-                # agriculture
-                .when((col('prog1').startswith('43') | col('prog1').startswith('44') | col('prog1').startswith('45') | col('prog1').startswith('46') | col('prog1').startswith('48') | col ('prog1').startswith('83')), 'agriculture')
-                # air transportation
+                when(col('prog1').startswith('5 '), 'Judiciary')
+                .when(col('prog1').startswith('30'), 'Public Safety')
+                # Agriculture
+                .when((col('prog1').startswith('43') | col('prog1').startswith('44') | col('prog1').startswith('45') | col('prog1').startswith('46') | col('prog1').startswith('48') | col ('prog1').startswith('83')), 'Agriculture')
+                # Air Transportation
                 .when(
-                    (((col('airport')==1) & (~col('prog1').startswith('33')) & (~col('prog1').startswith('55')))), 'air transport')
+                    (((col('airport')==1) & (~col('prog1').startswith('33')) & (~col('prog1').startswith('55')))), 'Air Transport')
                 # road transport
-                .when((col('Roads')==True) | col('Roads')==1, 'roads')
+                .when((col('Roads')==True) | col('Roads')==1, 'Roads')
                 # education spending decomposed
-                .when(col('prog2').startswith('87'), 'primary education')
-                .when((col('prog2').startswith("88") | col('prog2').startswith("89") | col("prog2").startswith("90")), "secondary education")
-                .when((col("prog1").startswith("16") | col("prog1").startswith("15")),  "tertiary education")
+                .when(col('prog2').startswith('87'), 'Primary Education')
+                .when((col('prog2').startswith("88") | col('prog2').startswith("89") | col("prog2").startswith("90")), "Secondary Education")
+                .when((col("prog1").startswith("16") | col("prog1").startswith("15")),  "Tertiary Education")
                 # health spending breakdown       
-                .when(col('prog1').startswith('69'), 'primary and secondary health')
-                .when(col('prog1').startswith('68'), 'tertiary and quaternary health')
+                .when(col('prog1').startswith('69'), 'Primary and Secondary Health')
+                .when(col('prog1').startswith('68'), 'Tertiary and Quaternary Health')
             ).withColumn(
                 'func',
                 # education
@@ -83,7 +83,7 @@ def boost_silver():
                     col('prog1').startswith('93') |
                     col('prog1').startswith('15')), 'Education')
                 # pulic order and safety
-                .when(col("func_sub").isin("judiciary", "public safety") , "Public order and safety")
+                .when(col("func_sub").isin("Judiciary", "Public Safety") , "Public order and safety")
                 # No classification into defence
                 # health
                 .when((
@@ -104,7 +104,7 @@ def boost_silver():
                     )) ,'Housing and community amenities')
                 # econ affairs
                 .when((
-                    (col('func_sub').isin('agriculture', 'air transport', 'roads')) |
+                    (col('func_sub').isin('Agriculture', 'Air Transport', 'Roads')) |
                     (col('prog1').startswith('53') | col('prog1').startswith('26') | col('prog1').startswith('50') | col('prog1').startswith('51')) |
                     ((col('activity') == '26 SUBSIDY TO BHUTAN POWER CORPORATION') | col('prog1').startswith('52') | col('prog1').startswith('88') | col('prog1').startswith('89') | col('prog1').startswith('90'))                
                 ), 'Economic affairs')

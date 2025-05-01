@@ -98,17 +98,17 @@ def boost_silver():
         .otherwise(col('geo1_tmp'))
     ).withColumn(
         'func_sub',
-        when(col('FUNCTION2').startswith('033'), 'judiciary')
-        .when(col('FUNCTION1').startswith('03') & (~col('FUNCTION2').startswith('033')), 'public safety')
-        .when(col('FUNCTION2').startswith('072') | col('FUNCTION2').startswith('074'), 'primary and secondary health')
-        .when(col('FUNCTION2').startswith('073'), 'tertiary and quaternary health')
-        .when(col('FUNCTION2').startswith('091') | ((col('SECTOR2').startswith('42')) & (col('FUNCTION2').startswith('095') | col('FUNCTION2').startswith('096'))), 'primary education')
-        .when((col('YEAR') < 2017) & (col('FUNCTION2').startswith('092')), 'secondary education')
+        when(col('FUNCTION2').startswith('033'), 'Judiciary')
+        .when(col('FUNCTION1').startswith('03') & (~col('FUNCTION2').startswith('033')), 'Public Safety')
+        .when(col('FUNCTION2').startswith('072') | col('FUNCTION2').startswith('074'), 'Primary and Secondary Health')
+        .when(col('FUNCTION2').startswith('073'), 'Tertiary and Quaternary Health')
+        .when(col('FUNCTION2').startswith('091') | ((col('SECTOR2').startswith('42')) & (col('FUNCTION2').startswith('095') | col('FUNCTION2').startswith('096'))), 'Primary Education')
+        .when((col('YEAR') < 2017) & (col('FUNCTION2').startswith('092')), 'Secondary Education')
     ).withColumn(
         'func',
         when(col('YEAR') == 2016, lit(None)) # Remove 2016 entirely from func calculation as wage bill is missing
         .when(col('FUNCTION1').startswith('02'), 'Defence')
-        .when(col('func_sub').isin('judiciary', 'public safety'), 'Public order and safety')
+        .when(col('func_sub').isin('Judiciary', 'Public Safety'), 'Public order and safety')
         .when(col('FUNCTION1').startswith('04'), 'Economic affairs')
         .when(col('FUNCTION1').startswith('05'), 'Environmental protection')
         .when(col('FUNCTION1').startswith('06'), 'Housing and community amenities')

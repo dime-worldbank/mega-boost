@@ -62,12 +62,12 @@ def boost_silver():
         'is_foreign', col('Econ2').startswith('09')
         ).withColumn(
         'func_sub',
-            when((col('ADMIN1').startswith('06')) & (col('ADMIN2').startswith('07')), 'public safety')
-            .when(col('ADMIN1').startswith('07'), 'judiciary')
-            .when(substring(col("ADMIN2"), 1, 2).isin('04 30 33'.split()), 'tertiary education')
-            .when((col("ADMIN2").startswith("16") | col("ADMIN2").startswith("17")), 'agriculture')
-            .when(col('ADMIN1').startswith('18') , 'telecom')
-            .when(((col('Roads')==1) | (col('railroads') == 1) | (col('Air') == 1)), 'transport')
+            when((col('ADMIN1').startswith('06')) & (col('ADMIN2').startswith('07')), 'Public Safety')
+            .when(col('ADMIN1').startswith('07'), 'Judiciary')
+            .when(substring(col("ADMIN2"), 1, 2).isin('04 30 33'.split()), 'Tertiary Education')
+            .when((col("ADMIN2").startswith("16") | col("ADMIN2").startswith("17")), 'Agriculture')
+            .when(col('ADMIN1').startswith('18') , 'Telecom')
+            .when(((col('Roads')==1) | (col('railroads') == 1) | (col('Air') == 1)), 'Transport')
         ).withColumn(
         'func',
             # housing
@@ -75,7 +75,7 @@ def boost_silver():
             # defence
             .when((col('ADMIN1').startswith('09') | col('ADMIN1').startswith('06')), 'Defence')
             # public order and safety
-            .when(col("func_sub").isin('public safety', 'judiciary') , "Public order and safety")
+            .when(col("func_sub").isin('Public Safety', 'Judiciary') , "Public order and safety")
             # environment protection
             .when(col('ADMIN2').startswith('21'), 'Environmental protection')
             # health
@@ -88,7 +88,7 @@ def boost_silver():
             # recreation, culture and religion
             .when(substring(col("ADMIN1"), 1, 2).isin('19 10 20'.split()), 'Recreation, culture and religion')
             # economic affairs
-            .when(col("func_sub").isin('agriculture', 'transport', 'telecom') , "Economic affairs")
+            .when(col("func_sub").isin('Agriculture', 'Transport', 'Telecom') , "Economic affairs")
             # general public services
             .otherwise('General public services')
         ).withColumn(
