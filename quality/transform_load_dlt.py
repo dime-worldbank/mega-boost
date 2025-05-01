@@ -124,6 +124,53 @@ def quality_functional_gold():
 
 # COMMAND ----------
 
+@dlt.table(name=f'quality_sub_functional_silver')
+def quality_sub_functional_silver():
+    bronze = dlt.read('quality_cci_bronze')
+    year_cols = list(col_name for col_name in bronze.columns if col_name.isnumeric())
+
+    return (bronze
+        .filter(F.col('category_code').startswith('EXP_FUNC_'))
+        .withColumn('func_sub',
+            F.when(F.col("category_code") == 'EXP_FUNC_AGR_EXE', "Agriculture")
+            .when(F.col("category_code") == 'EXP_FUNC_AIR_TRA_EXE', "Air Transport")
+            .when(F.col("category_code") == 'EXP_FUNC_ENE_EXE', "Energy")
+            .when(F.col("category_code") == 'EXP_FUNC_JUD_EXE', "Judiciary")
+            .when(F.col("category_code") == 'EXP_FUNC_PRI_EDU_EXE', "Primary Education")
+            .when(F.col("category_code") == 'EXP_FUNC_PRI_HEA_EXE', "Primary and Secondary Health")
+            .when(F.col("category_code") == 'EXP_FUNC_PUB_SAF_EXE', "Public Safety")
+            .when(F.col("category_code") == 'EXP_FUNC_ROA_EXE', "Roads")
+            .when(F.col("category_code") == 'EXP_FUNC_RAI_EXE', "Railroads")
+            .when(F.col("category_code") == 'EXP_FUNC_TEL_EXE', "Telecom")
+            .when(F.col("category_code") == 'EXP_FUNC_TER_EDU_EXE', "Tertiary Education")
+            .when(F.col("category_code") == 'EXP_FUNC_TER_HEA_EXE', "Tertiary and Quaternary Health")
+            .when(F.col("category_code") == 'EXP_FUNC_WAT_TRA_EXE', "Water Transport")
+        )
+        .filter(F.col('func_sub').isNotNull())
+        .melt(ids=["country_name", "approved_or_executed", "func_sub"], 
+              values=year_cols, 
+              variableColumnName="year", 
+              valueColumnName="amount"
+        )
+        .filter(F.col('amount').isNotNull())
+    )
+
+
+# COMMAND ----------
+
+@dlt.table(name=f'quality_functional_sub_gold')
+def quality_economic_sub_gold():
+    quality_econ_silver = dlt.read('quality_functional_sub_silver')
+    no_budget_and_spending_econ_rows = (
+        quality_econ_silver.filter(F.col("amount") == 0)
+        .groupBy("country_name", "func_sub", "year")
+        .count()
+        .filter(F.col("count") == 2)
+    )
+    return quality_econ_silver.join(no_budget_and_spending_econ_rows, ["country_name", "func_sub",  "year"], "leftanti") 
+
+# COMMAND ----------
+
 @dlt.table(name=f'quality_economic_silver')
 def quality_economic_silver():
     bronze = dlt.read('quality_cci_bronze')
@@ -171,6 +218,49 @@ def quality_economic_gold():
     )
     return quality_econ_silver.join(no_budget_and_spending_econ_rows, ["country_name", "econ",  "year"], "leftanti")
 
+
+# COMMAND ----------
+@dlt.table(name=f'quality_economic_sub_silver')
+def quality_economic_sub_silver():
+    bronze = dlt.read('quality_cci_bronze')
+    year_cols = list(col_name for col_name in bronze.columns if col_name.isnumeric())
+
+    return (bronze
+        .filter(F.col('category_code').startswith('EXP_ECON_'))
+        .withColumn('econ_sub',
+            F.when(F.col("category_code") == 'EXP_ECON_ALL_EXE', "Allowances")
+            .when(F.col("category_code") == 'EXP_ECON_GOO_SER_BAS_SER_EXE', "Basic Services")
+            .when(F.col("category_code") == 'EXP_ECON_BAS_WAG_EXE', "Basic Wages")
+            .when(F.col("category_code") == 'EXP_ECON_CAP_EXP_FOR_EXE', "Capital Expenditure (foreign spending)")
+            .when(F.col("category_code") == 'EXP_ECON_CAP_MAI_EXE', "Capital Maintenance")
+            .when(F.col("category_code") == 'EXP_ECON_GOO_SER_EMP_CON_EXE', "Employment Contracts")
+            .when(F.col("category_code") == 'EXP_ECON_OTH_SOC_BEN_EXE', "Other Social Benefits")
+            .when(F.col("category_code") == 'EXP_ECON_SOC_BEN_PEN_EXE', "Pensions")
+            .when(F.col("category_code") == 'EXP_ECON_REC_MAI_EXE', "Recurrent Maintenance")
+            .when(F.col("category_code") == 'EXP_ECON_SOC_ASS_EXE', "Social Assistance")
+            .when(F.col("category_code") == 'EXP_ECON_PEN_CON_EXE', "Social Benefits (pension contributions)")
+            .when(F.col("category_code") == 'EXP_ECON_SUB_PRO_EXE', "Subsidies to Production")
+        )
+        .filter(F.col('econ_sub').isNotNull())
+        .melt(ids=["country_name", "approved_or_executed", "econ_sub"], 
+              values=year_cols, 
+              variableColumnName="year", 
+              valueColumnName="amount"
+        )
+        .filter(F.col('amount').isNotNull())
+    )
+# COMMAND ----------
+
+@dlt.table(name=f'quality_economic_sub_gold')
+def quality_economic_sub_gold():
+    quality_econ_silver = dlt.read('quality_economic_sub_silver')
+    no_budget_and_spending_econ_rows = (
+        quality_econ_silver.filter(F.col("amount") == 0)
+        .groupBy("country_name", "econ_sub", "year")
+        .count()
+        .filter(F.col("count") == 2)
+    )
+    return quality_econ_silver.join(no_budget_and_spending_econ_rows, ["country_name", "econ_sub",  "year"], "leftanti") 
 # COMMAND ----------
 
 # Exploratory for Manuel. Remove if they are not going to use
