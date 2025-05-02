@@ -109,6 +109,7 @@ for year in years:
             df_7 = df_7[df_7.admin2.notna()]
             df_7 = df_7.dropna(how='all')
             df_7 = df_7.astype({col:'str' for col in df_7.columns if col!='executed'})
+            df_7['executed'] = df_7.executed.astype(int)
             df_7['year'] = year
             df_7['src'] = '7 digit'
 
@@ -125,7 +126,7 @@ for year in years:
             df_3.dropna(how='all', inplace=True)
             df_3['year'] = year
             df_3['src'] = '3 digit'
-
+            df_3 = df_3[df_3.econ3.map(lambda x: len(str(x))==3)]
 
     df = pd.concat([df_7, df_3], ignore_index=True)
     df['counties'] = df.admin2.map(lambda x: map_to_region(pad_left(str(x).split('.')[0], length=3)))
