@@ -124,7 +124,7 @@ def quality_functional_gold():
 
 # COMMAND ----------
 
-@dlt.table(name=f'quality_sub_functional_silver')
+@dlt.table(name=f'quality_functional_sub_silver')
 def quality_sub_functional_silver():
     bronze = dlt.read('quality_cci_bronze')
     year_cols = list(col_name for col_name in bronze.columns if col_name.isnumeric())
@@ -142,9 +142,12 @@ def quality_sub_functional_silver():
             .when(F.col("category_code") == 'EXP_FUNC_ROA_EXE', "Roads")
             .when(F.col("category_code") == 'EXP_FUNC_RAI_EXE', "Railroads")
             .when(F.col("category_code") == 'EXP_FUNC_TEL_EXE', "Telecom")
+            .when(F.col("category_code") == 'EXP_FUNC_SEC_EDU_EXE', "Secondary Education")
             .when(F.col("category_code") == 'EXP_FUNC_TER_EDU_EXE', "Tertiary Education")
             .when(F.col("category_code") == 'EXP_FUNC_TER_HEA_EXE', "Tertiary and Quaternary Health")
+            .when(F.col("category_code") == 'EXP_FUNC_TRA_EXE', "Transport")
             .when(F.col("category_code") == 'EXP_FUNC_WAT_TRA_EXE', "Water Transport")
+            .when(F.col("category_code") == 'EXP_FUNC_WAT_SAN_EXE', "Water and Sanitation")
         )
         .filter(F.col('func_sub').isNotNull())
         .melt(ids=["country_name", "approved_or_executed", "func_sub"], 
@@ -220,6 +223,7 @@ def quality_economic_gold():
 
 
 # COMMAND ----------
+
 @dlt.table(name=f'quality_economic_sub_silver')
 def quality_economic_sub_silver():
     bronze = dlt.read('quality_cci_bronze')
@@ -249,6 +253,7 @@ def quality_economic_sub_silver():
         )
         .filter(F.col('amount').isNotNull())
     )
+
 # COMMAND ----------
 
 @dlt.table(name=f'quality_economic_sub_gold')
@@ -261,6 +266,7 @@ def quality_economic_sub_gold():
         .filter(F.col("count") == 2)
     )
     return quality_econ_silver.join(no_budget_and_spending_econ_rows, ["country_name", "econ_sub",  "year"], "leftanti") 
+
 # COMMAND ----------
 
 # Exploratory for Manuel. Remove if they are not going to use
