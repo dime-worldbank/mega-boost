@@ -79,7 +79,7 @@ def boost_2019_onward_silver():
         .withColumn(
             'func_sub',
             when(col('func') == 'Public order and safety', 
-                 when(col('ADMIN2') == '122-Public Security Division', 'Public Order')
+                 when(col('ADMIN2') == '122-Public Security Division', 'Public Safety')
                  .otherwise('Judiciary')
             )
             .when(col('func') == 'Education', 
@@ -386,7 +386,7 @@ def boost_2008_to_2014_silver():
         .withColumn(
             'func_sub',
             when(col('func') == 'Public order and safety', 
-                 when(col('ADMIN2') == '22 Ministry of Home Affairs', 'Public Order')
+                 when(col('ADMIN2') == '22 Ministry of Home Affairs', 'Public Safety')
                  .otherwise('Judiciary')
             )
             .when(col('func') == 'Education', 
