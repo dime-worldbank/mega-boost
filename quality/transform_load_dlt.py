@@ -162,7 +162,7 @@ def quality_sub_functional_silver():
 # COMMAND ----------
 
 @dlt.table(name=f'quality_functional_sub_gold')
-def quality_economic_sub_gold():
+def quality_functional_sub_gold():
     quality_econ_silver = dlt.read('quality_functional_sub_silver')
     no_budget_and_spending_econ_rows = (
         quality_econ_silver.filter(F.col("amount") == 0)
