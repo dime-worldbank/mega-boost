@@ -177,32 +177,32 @@ def boost_silver_cen():
             ).otherwise(0))
         .withColumn(
             'func_sub',
-            when((col('admin1').rlike('^(03|10)')) & (col('interest_tmp') == 0), 'judiciary')
-            .when((col('admin1').startswith('05')) & (col('interest_tmp') == 0), 'public safety')
-            .when((col('year') <= 2019) & (col('admin1').startswith('13')) & (lower(col('admin2')) != '05 corporacion nacional forestal'), 'agriculture')
-            .when((col('year') > 2019) & (col('admin1').startswith('13')) & (~col('admin2').startswith('1305')), 'agriculture')
-            .when(col('road_transport') == 'road', 'road')
+            when((col('admin1').rlike('^(03|10)')) & (col('interest_tmp') == 0), 'Judiciary')
+            .when((col('admin1').startswith('05')) & (col('interest_tmp') == 0), 'Public Safety')
+            .when((col('year') <= 2019) & (col('admin1').startswith('13')) & (lower(col('admin2')) != '05 corporacion nacional forestal'), 'Agriculture')
+            .when((col('year') > 2019) & (col('admin1').startswith('13')) & (~col('admin2').startswith('1305')), 'Agriculture')
+            .when(col('road_transport') == 'road', 'Roads')
             .when(
                 (col('program1').rlike('^(190102|190103)')) | (lower(col('program1')).isin(
                     '02 s.y adm.gral.transporte-empresa ferrocarriles del estado',
                     '03 transantiago'
                 )),
-                'railroads')
-            .when(lower(col('program1')) == '06 d.g.o.p.-direccion de obras portuarias', 'water transport')
-            .when(lower(col('program1')) == '07 d.g.o.p.-direccion de aeropuertos', 'air transport')
+                'Railroads')
+            .when(lower(col('program1')) == '06 d.g.o.p.-direccion de obras portuarias', 'Water Transport')
+            .when(lower(col('program1')) == '07 d.g.o.p.-direccion de aeropuertos', 'Air Transport')
             .when(
                 ((col('admin1').startswith('17') & (lower(col('admin2')).isin('04 comision chilena de energia nuclear', '05 comision nacional de energia')))
                  | col('admin1').startswith('24')),
-                'energy'
+                'Energy'
             ))
         .withColumn(
             'func',
             when(col('admin1').startswith('11'), 'Defence')
-            .when(col('func_sub').isin('judiciary', 'public safety'), 'Public order and safety')
+            .when(col('func_sub').isin('Judiciary', 'Public Safety'), 'Public order and safety')
             .when(
                 (col('interest_tmp') == 0) &
                 (((col('admin1').rlike('^(07|17)') & (~lower(col('admin2')).isin('04 comision chilena de energia nuclear', '05 comision nacional de energia'))))
-                 | col('func_sub').isin('agriculture', 'road', 'railroads', 'water transport', 'air transport', 'energy')),
+                 | col('func_sub').isin('Agriculture', 'Roads', 'Water Transport', 'Water Transport', 'Air Transport', 'Energy')),
                 'Economic affairs')
             .when(
                 (col('admin2').rlike('^(1305|2501|2502|2503)') |
@@ -222,8 +222,8 @@ def boost_silver_cen():
             .otherwise('General public services'))
         .withColumn(
             'econ_sub',
-            when(lower(col('econ3')) == '02 prestaciones de asistencia social', 'social assistance')
-            .when(lower(col('econ3')) == '01 prestaciones previsionales', 'pensions'))
+            when(lower(col('econ3')) == '02 prestaciones de asistencia social', 'Social Assistance')
+            .when(lower(col('econ3')) == '01 prestaciones previsionales', 'Pensions'))
         .withColumn('econ',
             # wage bill
             when(col('econ2').startswith('21'), 'Wage bill')
@@ -238,7 +238,7 @@ def boost_silver_cen():
                   (lower(col('econ3')) != "03 a otras entidades publicas") &
                   (lower(col('econ1')) !="gasto de capital"), 'Subsidies')
             # social benefits
-            .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
+            .when(col('econ_sub').isin('Social Assistance', 'Pensions'), 'Social benefits')
             # Other grants and trasnfers
             .when((lower(col('econ3'))=='03 a otras entidades publicas') & (lower(col('econ1'))!='gasto de capital'), 'Other grants and transfers')
             # interest on debt

@@ -54,9 +54,9 @@ BOOST data is country-specific — for instance, some ministries of finance have
 | geo0        | string    | Is the money geographically or centrally allocated (either "Central" or "Regional") regardless of the spender | Either "Central" or "Regional" |
 | geo1        | string    | Geographically, at which first sub-national administrative level the money was spent | Same as admin1 possible values | `SELECT DISTINCT admin1_region FROM indicator.admin1_boundaries_gold` |
 | func        | string    | Functional classification of the budget                                     | e.g., Health, Education. See [Classification of the Functions of Government (COFOG)](https://en.wikipedia.org/wiki/Classification_of_the_Functions_of_Government) for a full list | `SELECT DISTINCT func FROM boost_intermediate.quality_functional_gold` |
-| func_sub    | string    | Sub-functional classification under the main COFOG function                 | e.g., "primary education", "secondary education" | |
+| func_sub    | string    | Sub-functional classification under the main COFOG function                 | e.g., "Primary Education", "Secondary Education" | |
 | econ        | string    | Economic classification of the budget                                       | e.g., "Wage bill", "Goods and services" | `SELECT DISTINCT econ FROM boost_intermediate.quality_economic_gold` |
-| econ_sub    | string    | Sub-economic classification under the main economic category                | e.g., "basic wages", "allowances" | |
+| econ_sub    | string    | Sub-economic classification under the main economic category                | e.g., "Basic Wages", "Allowances" | |
 | approved    | double    | Amount of budget in current local currency approved by the relevant authority | Numeric value representing local currency | |
 | revised     | double    | Revised budget in current local currency amount during the fiscal year      | Numeric value representing local currency | |
 | executed    | double    | Actual amount spent in current local currency by the end of the fiscal year | Numeric value representing local currency | |
