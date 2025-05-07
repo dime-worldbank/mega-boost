@@ -137,6 +137,7 @@ def quality_sub_functional_silver():
             .when(F.col("category_code") == 'EXP_FUNC_ENE_EXE', "Energy")
             .when(F.col("category_code") == 'EXP_FUNC_JUD_EXE', "Judiciary")
             .when(F.col("category_code") == 'EXP_FUNC_PRI_EDU_EXE', "Primary Education")
+            .when(F.col("category_code") == 'EXP_FUNC_PRI_SEC_EDU_EXE', "Primary and Secondary education")
             .when(F.col("category_code") == 'EXP_FUNC_PRI_HEA_EXE', "Primary and Secondary Health")
             .when(F.col("category_code") == 'EXP_FUNC_PUB_SAF_EXE', "Public Safety")
             .when(F.col("category_code") == 'EXP_FUNC_ROA_EXE', "Roads")

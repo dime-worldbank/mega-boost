@@ -49,11 +49,12 @@ def boost_silver():
                 initcap(trim(regexp_replace(regexp_replace(col("Province"), "\d+", ""), "-", " ")))))
         .withColumn('func_sub',
             # education
-            .when(col('Sous_Fonction_').startswith('094'), 'Tertiary Education')
+            when(((col('Sous_Fonction_').startswith('940')) | (col('Sous_Fonction_').startswith('941'))), 'Tertiary Education')
+            .when((col('Grande_Fonction').startswith('09')) & (~col('Sous_Fonction_').startswith('940')) & (~col('Sous_Fonction_').startswith('941')), 'Primary and Secondary education') # this is total education - Tertially Education        
             # Public Safety
-            .when(col('Fonction2').startswith('03'), 'Public Safety' )
+            .when(col('Fonction2').startswith('3'), 'Public Safety' )
             # Judiciary (SHOULD come after Public Safety)
-            .when(col('Fonction2').startswith('033'), 'Judiciary'))
+            .when(col('Fonction2').startswith('33'), 'Judiciary'))
             # No specific indicators for primary, secondary, tertiary or quaternary health
         .withColumn('func',
             when(col('Grande_Fonction').startswith('01'), 'General public services')
