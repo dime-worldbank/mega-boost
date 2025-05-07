@@ -70,6 +70,9 @@ def boost_bronze():
 @dlt.table(name=f'alb_2023_onward_boost_silver')
 def boost_silver():
     silver_df  = (dlt.read(f'alb_2023_onward_boost_bronze')
+        ).withColumn("executed",
+            when(col('src')=='3 digit', lit(None))
+            .otherwise(col('executed'))
         ).filter(~lower(col("project").substr(1, 5)).contains("total")
         ).withColumn("admin1", substring(col("admin4").cast("string"), 1, 1)
         ).withColumn("admin3", 
@@ -85,6 +88,7 @@ def boost_silver():
             .otherwise(substring(col("econ3").cast("string"), 1, 2).cast("int"))
         ).withColumn("econ4",
             when(col("econ5").isNotNull(), substring(col("econ5").cast("string"), 1, 4).cast("int"))
+            .otherwise(lit(None))
         ).filter((col("econ3").isNull()) | ((col("econ3") != 255) & (col("econ3") >= 230))
         ).filter(~col("econ1").isin([16, 17])
         ).withColumn("econ1",
