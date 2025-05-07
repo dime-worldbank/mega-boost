@@ -75,27 +75,43 @@ def pad_left(code, length = 3):
     code = str(code).split('.')[0]
     while len(code)<length:
         code = '0'+code
+    return code
         
 def format_float(x):
     if pd.isna(x):
         return x
-    x = str(x)
-    x = x.replace('.', '').replace(',', '.')
+    x = str(x).strip()
     try:
         return float(x)
     except ValueError:
-        return pd.NA
+        pass
+    euro_thousands_pattern = r'^\d{1,3}(\.\d{3})+,\d{2}$'
+    if re.match(euro_thousands_pattern, x):
+        try:
+            x = x.replace('.', '').replace(',', '.')
+            return float(x)
+        except ValueError:
+            return pd.NA
+    comma_decimal_pattern = r'^\d+,\d{1,2}$'
+    if re.match(comma_decimal_pattern, x):
+        try:
+            x = x.replace(',', '.')
+            return float(x)
+        except ValueError:
+            return pd.NA
+    return pd.NA
 
 # COMMAND ----------
 
 col_names_3_digit = [
-    'admin2', 'admin3', 'admin4', 'fin_source', 'func_3', 'econ3', 'admin5', 'project', 'executed', 'revised', 'approved']
+    'admin2', 'admin3', 'admin4', 'fin_source', 'func3', 'econ3', 'admin5', 'project', 'executed', 'revised', 'approved']
 col_names_7_digit = [
-    'admin2', 'admin3', 'admin4', 'fin_source', 'func_3', 'econ5', 'admin5', 'project', 'executed']
+    'admin2', 'admin3', 'admin4', 'fin_source', 'func3', 'econ5', 'admin5', 'project', 'executed']
 
 years = [2023, 2024]
 for year in years:
-    expense_data_files = glob(f'{RAW_INPUT_DIR}/{COUNTRY}/{year}/*.xlsx')
+    expense_data_files = [file for file in glob(f'{RAW_INPUT_DIR}/{COUNTRY}/{year}/*.xlsx') if 'ex' in file.lower()]
+
     for f in expense_data_files:
         if '7 digit' in f:
             sheet_name = pd.ExcelFile(f).sheet_names[-1]
@@ -109,7 +125,8 @@ for year in years:
             df_7 = df_7[df_7.admin2.notna()]
             df_7 = df_7.dropna(how='all')
             df_7 = df_7.astype({col:'str' for col in df_7.columns if col!='executed'})
-            df_7['executed'] = df_7.executed.astype(int)
+            df_7['executed'] = df_7['executed'].map(format_float)
+            df_7['econ3'] = df_7['econ5'].str[:3]
             df_7['year'] = year
             df_7['src'] = '7 digit'
 
