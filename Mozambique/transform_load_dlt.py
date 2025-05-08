@@ -61,27 +61,27 @@ def boost_silver():
             trim(regexp_replace(col("Adm2"), '^[0-9\\s]*', ''))
         ).withColumn('is_foreign', ~col('Fund1').startswith('1') # foreign funded expenditure
         ).withColumn('func_sub',
-            # judiciary
-            when(col("Func1").startswith('03') & (col('Func2') == '03311 Tribunais') , "judiciary")
-            # public safety
-            .when(col("Func1").startswith('03'), "public safety" ) # important for this to be after judiciary
+            # Judiciary
+            when(col("Func1").startswith('03') & (col('Func2') == '03311 Tribunais') , "Judiciary")
+            # Public Safety
+            .when(col("Func1").startswith('03'), "Public Safety" ) # important for this to be after Judiciary
             # education expenditure breakdown
             .when((col('Func1').startswith('09') & (
                 col('Func2').startswith('09111') | col('Func2').startswith('09121') | col('Func2').startswith('09122') | col('Func2').startswith('09113')
-            )), 'primary education')
+            )), 'Primary Education')
             .when((col('Func1').startswith('09') & (
                 col('Func2').startswith('09211') | col('Func2').startswith('09212')
-            )), 'secondary education')
+            )), 'Secondary Education')
             .when((col('Func1').startswith('09') & (
                 col('Func2').startswith('09411') | col('Func2').startswith('09412') | col('Func2').startswith('09419') | col('Func2').startswith('09431')
-            )), 'tertiary education')
+            )), 'Tertiary Education')
             # health expenditure breakdown
-            .when(col('Func2').startswith('07411'), 'primary and secondary health')
-            .when((col('Func2').startswith('07311') | col('Func2').startswith('07321')), 'tertiary and quaternary health')
+            .when(col('Func2').startswith('07411'), 'Primary and Secondary Health')
+            .when((col('Func2').startswith('07311') | col('Func2').startswith('07321')), 'Tertiary and Quaternary Health')
         ).withColumn('func',
             when(col('Func1').startswith("01"), "General public services")
             .when(col('Func1').startswith("02"), "Defence")
-            .when(col("func_sub").isin("judiciary", "public safety") , "Public order and safety")
+            .when(col("func_sub").isin("Judiciary", "Public Safety") , "Public order and safety")
             .when(col('Func1').startswith("04"), "Economic affairs")
             .when(col('Func1').startswith("05"), "Environmental protection")
             .when(col('Func1').startswith("06"), "Housing and community amenities")
@@ -90,31 +90,31 @@ def boost_silver():
             .when(col('Func1').startswith("09"), "Education")
             .when(col('Func1').startswith("10"), "Social protection")
         ).withColumn( 'econ_sub',
-            # pensions
-            when((col('Econ4').startswith('1431') | col('Econ4').startswith('1432')), 'pensions')
-            # social assistance
+            # Pensions
+            when((col('Econ4').startswith('1431') | col('Econ4').startswith('1432')), 'Pensions')
+            # Social Assistance
             .when(((col('Func1').startswith('10')) &
                    (~col('Econ4').startswith('1431')) &
-                   (~col('Econ4').startswith('1432'))), 'social assistance')
+                   (~col('Econ4').startswith('1432'))), 'Social Assistance')
             # wage bill breakdowm missing
             # capital expenditure (foreign funded)
-            .when((col('Econ1').startswith('2') & (~col('Fund1').startswith('1'))), 'capital expenditure (foreign spending)')
-            # basic services
-            .when((col('Econ5').startswith('121001') | col('Econ5').startswith('122013') | col('Econ5').startswith('122004') | col('Econ5').startswith('121010')), 'basic services')
-            # employment contracts
-            .when((col('Econ5').startswith('121014') | col('Econ5').startswith('122015')), 'employment contracts')
-            # recurrent maintenance
+            .when((col('Econ1').startswith('2') & (~col('Fund1').startswith('1'))), 'Capital Expenditure (foreign spending)')
+            # Basic Services
+            .when((col('Econ5').startswith('121001') | col('Econ5').startswith('122013') | col('Econ5').startswith('122004') | col('Econ5').startswith('121010')), 'Basic Services')
+            # Employment Contracts
+            .when((col('Econ5').startswith('121014') | col('Econ5').startswith('122015')), 'Employment Contracts')
+            # Recurrent Maintenance
             .when((col('Econ5').startswith('121002') |
                    col('Econ5').startswith('122003') |
                    col('Econ5').startswith('122005') |
                    col('Econ5').startswith('122006') |
-                   col('Econ5').startswith('122007')), 'recurrent maintenance')
-            # subsidies to production
-            .when(col('Econ2').startswith('15'), 'subsidies to production') # same as the value for subsidies
+                   col('Econ5').startswith('122007')), 'Recurrent Maintenance')
+            # Subsidies to Production
+            .when(col('Econ2').startswith('15'), 'Subsidies to Production') # same as the value for subsidies
 
         ).withColumn('econ',
             # social benefits
-            when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits') # should come before other econ categories
+            when(col('econ_sub').isin('Social Assistance', 'Pensions'), 'Social benefits') # should come before other econ categories
             # cap ex
             .when((col('Econ1').startswith('2')) & (~col('Func1').startswith('10')), 'Capital expenditures')
             # wage bill

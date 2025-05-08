@@ -21,9 +21,9 @@ schema = StructType([
     StructField("geo1", StringType(), True, {'comment': 'Geographically, at which first sub-national administrative level the money was spent.'}),
     StructField("adm1_name", StringType(), True, {'comment': 'Legacy alias for geo1'}),
     StructField("func", StringType(), True, {'comment': 'Functional classification of the budget (e.g., Health, Education).'}),
-    StructField("func_sub", StringType(), True, {'comment': 'Sub-functional classification under the main COFOG function (e.g., primary education, secondary education).'}),
+    StructField("func_sub", StringType(), True, {'comment': 'Sub-functional classification under the main COFOG function (e.g., Primary Education, Secondary Education).'}),
     StructField("econ", StringType(), True, {'comment': 'Economic classification of the budget (e.g., Wage bill, Goods and services).'}),
-    StructField("econ_sub", StringType(), True, {'comment': 'Sub-economic classification under the main economic category (e.g., basic wages, allowances).'}),
+    StructField("econ_sub", StringType(), True, {'comment': 'Sub-economic classification under the main economic category (e.g., Basic Wages, Allowances).'}),
     StructField("is_foreign", BooleanType(), True, {'comment': 'Indicator whether the expenditure is foreign funded or not.'}),
     StructField("approved", DoubleType(), True, {'comment': 'Amount of budget in current local currency approved by the relevant authority.'}),
     StructField("revised", DoubleType(), True, {'comment': 'Revised budget in current local currency amount during the fiscal year.'}),
@@ -517,6 +517,25 @@ def quality_boost_func_exact():
         .join(quality_cci_func, on=['country_name', 'func'], how="left")
     )
 
+@dlt.table(name='quality_boost_func_sub_unknown')
+@dlt.expect_or_fail('country has no unknown func_sub', 'cci_row_count IS NOT NULL')
+def quality_boost_func_sub_exact():
+    # This doesn't check by year on purpose as new years may be added to pipeline
+    # without the CCI excel being updated.
+    boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
+    quality_cci_func = (spark.table(f'{catalog}.{boost_intermediate_schema}.quality_functional_sub_gold')
+        .groupBy('country_name', 'func_sub')
+        .agg(F.count('*').alias('cci_row_count'))
+        .join(boost_countries, on=['country_name'], how="right")
+    )
+    return (
+        dlt.read('expenditure_by_country_admin_func_sub_econ_sub_year')
+        .filter(F.col('func_sub').isNotNull())
+        .groupBy('country_name', 'func_sub')
+        .agg(F.count('*').alias('row_count'))
+        .join(quality_cci_func, on=['country_name', 'func_sub'], how="left")
+    )
+
 @dlt.table(name='quality_boost_econ')
 @dlt.expect_or_fail('country has econ agg for year', 'expenditure IS NOT NULL')
 def quality_boost_econ():
@@ -545,6 +564,23 @@ def quality_boost_econ_unknown():
         .groupBy('country_name', 'econ')
         .agg(F.count('*').alias('row_count'))
         .join(quality_cci_econ, on=['country_name', 'econ'], how="left")
+    )
+
+@dlt.table(name='quality_boost_econ_sub_unknown')
+@dlt.expect_or_fail('country has no unknown econ sub agg', 'cci_row_count IS NOT NULL')
+def quality_boost_econ_sub_unknown():
+    boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
+    quality_cci_econ = (spark.table(f'{catalog}.{boost_intermediate_schema}.quality_economic_sub_gold')
+        .groupBy('country_name', 'econ_sub')
+        .agg(F.count('*').alias('cci_row_count'))
+        .join(boost_countries, on=['country_name'], how="right")
+    )
+    return (
+        dlt.read('expenditure_by_country_admin_func_sub_econ_sub_year')
+        .filter(F.col('econ_sub').isNotNull())
+        .groupBy('country_name', 'econ_sub')
+        .agg(F.count('*').alias('row_count'))
+        .join(quality_cci_econ, on=['country_name', 'econ_sub'], how="left")
     )
 
 @dlt.table(name='quality_boost_foreign')

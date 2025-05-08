@@ -55,22 +55,22 @@ def boost_silver():
                 'is_foreign', col('source')=='foreign'
             ).withColumn(
                 'func_sub',
-                when(col('prog1').startswith('5 '), 'judiciary')
-                .when(col('prog1').startswith('30'), 'public safety')
-                # agriculture
-                .when((col('prog1').startswith('43') | col('prog1').startswith('44') | col('prog1').startswith('45') | col('prog1').startswith('46') | col('prog1').startswith('48') | col ('prog1').startswith('83')), 'agriculture')
-                # air transportation
+                when(col('prog1').startswith('5 '), 'Judiciary')
+                .when(col('prog1').startswith('30'), 'Public Safety')
+                # Agriculture
+                .when((col('prog1').startswith('43') | col('prog1').startswith('44') | col('prog1').startswith('45') | col('prog1').startswith('46') | col('prog1').startswith('48') | col ('prog1').startswith('83')), 'Agriculture')
+                # Air Transportation
                 .when(
-                    (((col('airport')==1) & (~col('prog1').startswith('33')) & (~col('prog1').startswith('55')))), 'air transport')
+                    (((col('airport')==1) & (~col('prog1').startswith('33')) & (~col('prog1').startswith('55')))), 'Air Transport')
                 # road transport
-                .when((col('Roads')==True) | col('Roads')==1, 'road transport')
+                .when((col('Roads')==True) | col('Roads')==1, 'Roads')
                 # education spending decomposed
-                .when(col('prog2').startswith('87'), 'primary education')
-                .when((col('prog2').startswith("88") | col('prog2').startswith("89") | col("prog2").startswith("90")), "secondary education")
-                .when((col("prog1").startswith("16") | col("prog1").startswith("15")),  "tertiary education")
+                .when(col('prog2').startswith('87'), 'Primary Education')
+                .when((col('prog2').startswith("88") | col('prog2').startswith("89") | col("prog2").startswith("90")), "Secondary Education")
+                .when((col("prog1").startswith("16") | col("prog1").startswith("15")),  "Tertiary Education")
                 # health spending breakdown       
-                .when(col('prog1').startswith('69'), 'primary and secondary health')
-                .when(col('prog1').startswith('68'), 'tertiary and quaternary health')
+                .when(col('prog1').startswith('69'), 'Primary and Secondary Health')
+                .when(col('prog1').startswith('68'), 'Tertiary and Quaternary Health')
             ).withColumn(
                 'func',
                 # education
@@ -83,7 +83,7 @@ def boost_silver():
                     col('prog1').startswith('93') |
                     col('prog1').startswith('15')), 'Education')
                 # pulic order and safety
-                .when(col("func_sub").isin("judiciary", "public safety") , "Public order and safety")
+                .when(col("func_sub").isin("Judiciary", "Public Safety") , "Public order and safety")
                 # No classification into defence
                 # health
                 .when((
@@ -104,7 +104,7 @@ def boost_silver():
                     )) ,'Housing and community amenities')
                 # econ affairs
                 .when((
-                    (col('func_sub').isin('agriculture', 'air transport', 'road transport')) |
+                    (col('func_sub').isin('Agriculture', 'Air Transport', 'Roads')) |
                     (col('prog1').startswith('53') | col('prog1').startswith('26') | col('prog1').startswith('50') | col('prog1').startswith('51')) |
                     ((col('activity') == '26 SUBSIDY TO BHUTAN POWER CORPORATION') | col('prog1').startswith('52') | col('prog1').startswith('88') | col('prog1').startswith('89') | col('prog1').startswith('90'))                
                 ), 'Economic affairs')
@@ -113,14 +113,14 @@ def boost_silver():
                 # general public services
                 .otherwise('General public services')
             ).withColumn('econ_sub',
-                        when(col('Econ3') == 'Social benefits', 'social assistance')
-                        .when(col('econ4').startswith('25.01'), 'pensions')
-                        .when(col('Econ3') == 'Wages', 'basic wages')
-                        .when(col('Econ3') == 'Allowances', 'allowances')
-                        .when((col('source') == 'foreign') & (col('Econ1')=='Capital'), 'capital expenditure (foreign spending)')
-                        .when(col('econ4').startswith('12') | col('econ4').startswith('13'), 'basic services')
-                        .when(col('econ4').startswith('15'), 'recurrent maintenance')
-                        .when((coalesce(col('activity'), lit('')) == '26 SUBSIDY TO BHUTAN POWER CORPORATION'), 'subsidies to production')
+                        when(col('Econ3') == 'Social benefits', 'Social Assistance')
+                        .when(col('econ4').startswith('25.01'), 'Pensions')
+                        .when(col('Econ3') == 'Wages', 'Basic Wages')
+                        .when(col('Econ3') == 'Allowances', 'Allowances')
+                        .when((col('source') == 'foreign') & (col('Econ1')=='Capital'), 'Capital Expenditure (foreign spending)')
+                        .when(col('econ4').startswith('12') | col('econ4').startswith('13'), 'Basic Services')
+                        .when(col('econ4').startswith('15'), 'Recurrent Maintenance')
+                        .when((coalesce(col('activity'), lit('')) == '26 SUBSIDY TO BHUTAN POWER CORPORATION'), 'Subsidies to Production')
             ).withColumn('econ', 
                         # wage bill
                         when(col('Econ2').startswith('21'), 'Wage bill')
@@ -131,7 +131,7 @@ def boost_silver():
                         # subsidies
                         .when(col('econ4').startswith('22.02'), 'Subsidies')
                         # social benefits
-                        .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
+                        .when(col('econ_sub').isin('Social Assistance', 'Pensions'), 'Social benefits')
                         # NO data on interest on debt
                         # other expenses
                         .otherwise('Other expenses')  
