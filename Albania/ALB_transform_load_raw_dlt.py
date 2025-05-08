@@ -253,7 +253,10 @@ def boost_silver():
             .when(col('econ2').startswith('65') | col('econ2').startswith('66'), 'Interest on debt')
             # other expenses
             .otherwise('Other expenses')
-        ).withColumn('admin2_new', col('admin2'))
+        ).withColumn('admin2_new', col('admin2')
+        ).withColumn('approved',
+                when(((col('econ3') == "606 Transfers to families and individuals") & (col('func2')== "102 Old age")), col('executed')).otherwise(col("approved")))
+                
     return silver_df
 
 
@@ -262,6 +265,8 @@ def boost_silver():
     return (dlt.read(f'alb_2022_and_before_boost_bronze')          
             .filter(col('transfer') == 'Excluding transfers'
             ).withColumn('is_foreign', col('fin_source').startswith('2')
+            ).withColumn('approved',
+                         when(col('admin2').isin(["003 Social Insurance Institute", "004 Health Insurance Institute"]), col('executed')).otherwise(col("approved"))
             ).withColumn('admin0', 
                 when(col('admin2').startswith('00') | col('admin2').startswith('999'), 'Central')
                 .otherwise('Regional')    
@@ -420,9 +425,10 @@ def alb_publish():
     alb_bronze_2023 = alb_bronze_2023.select(col_list)
     alb_bronze_2022 = alb_bronze_2022.select(col_list)
     alb_bronze_union = alb_bronze_2022.unionByName(alb_bronze_2023)
-
     prefix = "boost_"
     for column in alb_gold_union.columns:
         alb_gold_union = alb_gold_union.withColumnRenamed(column, prefix + column)
-    return alb_bronze_union.join(alb_gold_union, on=[alb_gold_union['boost_id'] == alb_bronze_union['id']], how='left').drop("id", "boost_id")
+    df = alb_bronze_union.join(alb_gold_union, on=[alb_gold_union['boost_id'] == alb_bronze_union['id']], how='left').drop("id", "boost_id")
+    df = df.withColumn('approved', col("boost_approved"))
+    return df
 
