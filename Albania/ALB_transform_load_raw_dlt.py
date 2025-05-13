@@ -253,7 +253,9 @@ def boost_silver():
             .when(col('econ2').startswith('65') | col('econ2').startswith('66'), 'Interest on debt')
             # other expenses
             .otherwise('Other expenses')
-        ).withColumn('admin2_new', col('admin2'))
+        ).withColumn('admin2_new', col('admin2')
+        ).withColumn('approved',
+                when(((col('econ3') == "606 Transfers to families and individuals") & (col('func2')== "102 Old age")), col('executed')).otherwise(col("approved")))
     return silver_df
 
 
