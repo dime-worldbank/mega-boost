@@ -74,7 +74,9 @@ def boost_bronze():
 @dlt.table(name=f'alb_2023_onward_boost_silver')
 def boost_silver():
     silver_df  = (dlt.read(f'alb_2023_onward_boost_bronze')
-        ).filter(col("approved").isNull()
+        ).withColumn("executed",
+            when(col('src')=='3 digit', lit(None))
+            .otherwise(col('executed'))
         ).filter(~lower(col("project").substr(1, 5)).contains("total")
         ).withColumn("admin1", substring(col("admin4").cast("string"), 1, 1)
         ).withColumn("admin3", 
@@ -90,6 +92,7 @@ def boost_silver():
             .otherwise(substring(col("econ3").cast("string"), 1, 2).cast("int"))
         ).withColumn("econ4",
             when(col("econ5").isNotNull(), substring(col("econ5").cast("string"), 1, 4).cast("int"))
+            .otherwise(lit(None))
         ).filter((col("econ3").isNull()) | ((col("econ3") != 255) & (col("econ3") >= 230))
         ).filter(~col("econ1").isin([16, 17])
         ).withColumn("econ1",
@@ -155,7 +158,7 @@ def boost_silver():
                 ((col("econ3") == 604) & (col("admin4") == 1025096) & (col("admin3") == 25)) |
                 ((col("econ3") == 604) & (col("admin4") == 1010226) & (col("admin3") == 10)), 1)
             .otherwise(lit(0))
-        )
+        ).withColumn('admin2', lpad(col('admin2').cast('int').cast("string"), 3, "0"))
     for column_name, mapping in labels.items():
         if column_name in silver_df.columns:
             silver_df = silver_df.withColumn(column_name, replacement_udf(column_name)(col(column_name)))
@@ -168,29 +171,29 @@ def boost_silver():
             when(col('counties')=='Central', 'Central Scope')
             .otherwise(col('counties'))
         ).withColumn('admin2_tmp',
-            when(col('counties')=='Central', col('admin3'))
-            .otherwise(col('counties'))
+            when(col('admin2').startswith('00'), 'Central')
+            .otherwise(col('admin2'))
         ).withColumn('geo1', col('admin1_tmp')
         ).withColumn('func_sub',
-            # spending in judiciary
-            when(col('func2').startswith('033'), 'judiciary')
-            # public safety
-            .when(col('func2').substr(1,3).isin(['031', '034', '035']), 'public safety')
-            # spending in energy
+            # spending in Judiciary
+            when(col('func2').startswith('033'), 'Judiciary')
+            # Public Safety
+            .when(col('func2').substr(1,3).isin(['031', '034', '035']), 'Public Safety')
+            # spending in Energy
             .when(col('func2').startswith('043'), 'Energy')
-            # primary and secondary health
-            .when(col('func2').startswith('072') | col('func2').startswith('074'), 'primary and secondary health')
+            # Primary and Secondary Health
+            .when(col('func2').startswith('072') | col('func2').startswith('074'), 'Primary and Secondary Health')
             # tertitaey and quaternary health
-            .when(col('func2').startswith('073'), 'tertiary and quaternary health')
-            # primary education
-            .when(col('func1').startswith('09') & col('func2').startswith('091'), 'primary education')
-            # secondary education
-            .when(col('func1').startswith('09') & col('func2').startswith('092'), 'secondary education')
-            # tertiary education
-            .when(col('func1').startswith('09') & col('func2').startswith('094'), 'tertiary education')
+            .when(col('func2').startswith('073'), 'Tertiary and Quaternary Health')
+            # Primary Education
+            .when(col('func1').startswith('09') & col('func2').startswith('091'), 'Primary Education')
+            # Secondary Education
+            .when(col('func1').startswith('09') & col('func2').startswith('092'), 'Secondary Education')
+            # Tertiary Education
+            .when(col('func1').startswith('09') & col('func2').startswith('094'), 'Tertiary Education')
         ).withColumn('func',
             # public order and safety
-            when(col('func_sub').isin('judiciary', 'public safety'), 'Public order and safety')
+            when(col('func_sub').isin('Judiciary', 'Public Safety'), 'Public order and safety')
             # defense
             .when(col('func1').startswith('02'), 'Defence')
             # economic relations
@@ -210,29 +213,29 @@ def boost_silver():
             # general public services
             .otherwise('General public services')
         ).withColumn('econ_sub',
-            # allowances
+            # Allowances
             when((col('econ3').startswith('600') & 
-                    col('econ5').substr(1, 7).isin(['6001005', '6001003', '6001006', '6001009', '6001099', '6001008', '6001014', '6001007', '6001012', '6001004'])), 'allowances')
-            # basic wages
-            .when(col('econ3').startswith('600') | col('econ3').startswith('601'), 'basic wages')
+                    col('econ5').substr(1, 7).isin(['6001005', '6001003', '6001006', '6001009', '6001099', '6001008', '6001014', '6001007', '6001012', '6001004'])), 'Allowances')
+            # Basic Wages
+            .when(col('econ3').startswith('600') | col('econ3').startswith('601'), 'Basic Wages')
             # pension contributions
-            .when(col('econ3').startswith('601'), 'social benefits (pension contributions)') # note this will be zero since it is subsumed into above category
+            .when(col('econ3').startswith('601'), 'Social Benefits (pension contributions)') # note this will be zero since it is subsumed into above category
             # capital expenditures (foreign funded)
-            .when(col('is_foreign') & col('exp_type').startswith('3'), 'capital expenditure (foreign funded)')
-            # no entry for capital maintenance
-            # goods and services (basic services)
-            .when(col('econ4').startswith('6022') | col('econ4').startswith('6026'), 'basic services')
-            # no entry for employment contracts
-            # recurrent maintenance
-            .when(col('econ4').startswith('6025'), 'recurrent maintenance')
-            # subsidies to production
-            .when(col('econ3').startswith('603'), 'subsidies to production')
-            # social assistance
-            .when(col('econ3').startswith('606') & col('func2').startswith('104'), 'social assistance')
-            # pensions
-            .when(col('econ3').startswith('606') & col('func2').startswith('102'), 'pensions')
-            # other social benefits
-            .when(col('econ3').startswith('606') & col('func2').startswith('10'), 'other social benefits') # should come after social assistance and pensions
+            .when(col('is_foreign') & col('exp_type').startswith('3'), 'Capital Expenditure (foreign spending)')
+            # no entry for Capital Maintenance
+            # goods and services (Basic Services)
+            .when(col('econ4').startswith('6022') | col('econ4').startswith('6026'), 'Basic Services')
+            # no entry for Employment Contracts
+            # Recurrent Maintenance
+            .when(col('econ4').startswith('6025'), 'Recurrent Maintenance')
+            # Subsidies to Production
+            .when(col('econ3').startswith('603'), 'Subsidies to Production')
+            # Social Assistance
+            .when(col('econ3').startswith('606') & col('func2').startswith('104'), 'Social Assistance')
+            # Pensions
+            .when(col('econ3').startswith('606') & col('func2').startswith('102'), 'Pensions')
+            # Other Social Benefits
+            .when(col('econ3').startswith('606') & col('func2').startswith('10'), 'Other Social Benefits') # should come after Social Assistance and Pensions
         ).withColumn('econ',         
             # wage bill
             when(col('econ3').startswith('601') | col('econ3').startswith('600'), 'Wage bill')
@@ -250,7 +253,7 @@ def boost_silver():
             .when(col('econ2').startswith('65') | col('econ2').startswith('66'), 'Interest on debt')
             # other expenses
             .otherwise('Other expenses')
-        )
+        ).withColumn('admin2_new', col('admin2'))
     return silver_df
 
 
@@ -266,29 +269,29 @@ def boost_silver():
                         when(col('counties')=='Central', 'Central Scope')
                         .otherwise(col('counties'))
             ).withColumn('admin2_tmp',
-                        when(col('counties')=='Central', col('admin3'))
+                        when(col('counties')=='Central', col('admin2'))
                         .otherwise(col('counties'))
             ).withColumn('geo1', col('admin1_tmp')
             ).withColumn('func_sub',
-                        # spending in judiciary
-                        when(col('func2').startswith('033'), 'judiciary')
-                        # public safety
-                        .when(col('func2').substr(1,3).isin(['031', '034', '035']), 'public safety')
-                        # spending in energy
+                        # spending in Judiciary
+                        when(col('func2').startswith('033'), 'Judiciary')
+                        # Public Safety
+                        .when(col('func2').substr(1,3).isin(['031', '034', '035']), 'Public Safety')
+                        # spending in Energy
                         .when(col('func2').startswith('043'), 'Energy')
-                        # primary and secondary health
-                        .when(col('func2').startswith('072') | col('func2').startswith('074'), 'primary and secondary health')
+                        # Primary and Secondary Health
+                        .when(col('func2').startswith('072') | col('func2').startswith('074'), 'Primary and Secondary Health')
                         # tertitaey and quaternary health
-                        .when(col('func2').startswith('073'), 'tertiary and quaternary health')
-                        # primary education
-                        .when(col('func1').startswith('09') & col('func2').startswith('091'), 'primary education')
-                        # secondary education
-                        .when(col('func1').startswith('09') & col('func2').startswith('092'), 'secondary education')
-                        # tertiary education
-                        .when(col('func1').startswith('09') & col('func2').startswith('094'), 'tertiary education')
+                        .when(col('func2').startswith('073'), 'Tertiary and Quaternary Health')
+                        # Primary Education
+                        .when(col('func1').startswith('09') & col('func2').startswith('091'), 'Primary Education')
+                        # Secondary Education
+                        .when(col('func1').startswith('09') & col('func2').startswith('092'), 'Secondary Education')
+                        # Tertiary Education
+                        .when(col('func1').startswith('09') & col('func2').startswith('094'), 'Tertiary Education')
             ).withColumn('func',
                         # public order and safety
-                        when(col('func_sub').isin('judiciary', 'public safety'), 'Public order and safety')
+                        when(col('func_sub').isin('Judiciary', 'Public Safety'), 'Public order and safety')
                         # defense
                         .when(col('func1').startswith('02'), 'Defence')
                         # economic relations
@@ -308,29 +311,29 @@ def boost_silver():
                         # general public services
                         .otherwise('General public services')
             ).withColumn('econ_sub',
-                        # allowances
+                        # Allowances
                         when((col('econ3').startswith('600') & 
-                               col('econ5').substr(1, 7).isin(['6001005', '6001003', '6001006', '6001009', '6001099', '6001008', '6001014', '6001007', '6001012', '6001004'])), 'allowances')
-                        # basic wages
-                        .when(col('econ3').startswith('600') | col('econ3').startswith('601'), 'basic wages')
+                               col('econ5').substr(1, 7).isin(['6001005', '6001003', '6001006', '6001009', '6001099', '6001008', '6001014', '6001007', '6001012', '6001004'])), 'Allowances')
+                        # Basic Wages
+                        .when(col('econ3').startswith('600') | col('econ3').startswith('601'), 'Basic Wages')
                         # pension contributions
-                        .when(col('econ3').startswith('601'), 'social benefits (pension contributions)') # note this will be zero since it is subsumed into above category
+                        .when(col('econ3').startswith('601'), 'Social Benefits (pension contributions)') # note this will be zero since it is subsumed into above category
                         # capital expenditures (foreign funded)
-                        .when(col('is_foreign') & col('exp_type').startswith('3'), 'capital expenditure (foreign funded)')
-                        # no entry for capital maintenance
-                        # goods and services (basic services)
-                        .when(col('econ4').startswith('6022') | col('econ4').startswith('6026'), 'basic services')
-                        # no entry for employment contracts
-                        # recurrent maintenance
-                        .when(col('econ4').startswith('6025'), 'recurrent maintenance')
-                        # subsidies to production
-                        .when(col('econ3').startswith('603'), 'subsidies to production')
-                        # social assistance
-                        .when(col('econ3').startswith('606') & col('func2').startswith('104'), 'social assistance')
-                        # pensions
-                        .when(col('econ3').startswith('606') & col('func2').startswith('102'), 'pensions')
-                        # other social benefits
-                        .when(col('econ3').startswith('606') & col('func2').startswith('10'), 'other social benefits') # should come after social assistance and pensions
+                        .when(col('is_foreign') & col('exp_type').startswith('3'), 'Capital Expenditure (foreign spending)')
+                        # no entry for Capital Maintenance
+                        # goods and services (Basic Services)
+                        .when(col('econ4').startswith('6022') | col('econ4').startswith('6026'), 'Basic Services')
+                        # no entry for Employment Contracts
+                        # Recurrent Maintenance
+                        .when(col('econ4').startswith('6025'), 'Recurrent Maintenance')
+                        # Subsidies to Production
+                        .when(col('econ3').startswith('603'), 'Subsidies to Production')
+                        # Social Assistance
+                        .when(col('econ3').startswith('606') & col('func2').startswith('104'), 'Social Assistance')
+                        # Pensions
+                        .when(col('econ3').startswith('606') & col('func2').startswith('102'), 'Pensions')
+                        # Other Social Benefits
+                        .when(col('econ3').startswith('606') & col('func2').startswith('10'), 'Other Social Benefits') # should come after Social Assistance and Pensions
             ).withColumn('econ',         
                         # wage bill
                         when(col('econ3').startswith('601') | col('econ3').startswith('600'), 'Wage bill')

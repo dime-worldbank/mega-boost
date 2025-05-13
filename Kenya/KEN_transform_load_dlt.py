@@ -96,31 +96,31 @@ def boost_silver():
                  (col('National_Government_Votes_&_Counties_adm2').startswith('102') |
                   col('National_Government_Votes_&_Counties_adm2').startswith('210') |
                   col('National_Government_Votes_&_Counties_adm2').startswith('215'))),
-                "public safety")
+                "Public Safety")
             .when(
                 col('Sector_prog1').startswith('06'), 
-                "judiciary") # important for this to be after public safety
+                "Judiciary") # important for this to be after Public Safety
             .when(
-                col('Programme_pro2').startswith('0401'), 'primary and secondary health')
+                col('Programme_pro2').startswith('0401'), 'Primary and Secondary Health')
             .when(
-                col('Programme_pro2').startswith('0402'), 'tertiary and quaternary health')
+                col('Programme_pro2').startswith('0402'), 'Tertiary and Quaternary Health')
             .when(
                 (col('Sector_prog1').startswith('05') & (
                     col('Programme_pro2').startswith('0501 Primary') |
                     col('Programme_pro2').startswith('0502 Basic') |
                     col('Sub-programme_prog3').startswith('050901'))
-                ), 'primary education')
+                ), 'Primary Education')
             .when(
                 (col('Sector_prog1').startswith('05') & (
                     col('Programme_pro2').startswith('0502 secondary') |
                     col('Sub-programme_prog3').startswith('050902'))
-                ), 'secondary education')
+                ), 'Secondary Education')
             .when(
                 (col('Sector_prog1').startswith('05') & (
                     col('Programme_pro2').startswith('0504') |
                     col('Programme_pro2').startswith('0505') |
                     col('Sub-programme_prog3').startswith('05093'))
-                ), 'tertiary education'
+                ), 'Tertiary Education'
             )
         ).withColumn('func', 
             when(
@@ -136,7 +136,7 @@ def boost_silver():
                 col('Sector_prog1').startswith('08'),
                 'Defence') # Note: Defence has no allocated amount in the executed sheet
             .when(
-                col("func_sub").isin("judiciary", "public safety"),
+                col("func_sub").isin("Judiciary", "Public Safety"),
                 "Public order and safety")
             .when(
                 ~col('environment').isNull(),
@@ -162,19 +162,19 @@ def boost_silver():
             .otherwise('General public services')
             # Sector_prog1 = 00 Default - Non Programmatic are not tagged
         ).withColumn('econ_sub',
-            # social assistance
+            # Social Assistance
             when(
-                ((~col('Class').startswith('2')) & (~col('Class').startswith('4')) & (~col('Item_econ4').startswith('27101')) & (col('Sector_prog1').startswith('09'))), 'social assistance')
-            # basic wages computed after computing econ categories
-            # social benefits (pension contributions)
-            .when((col('Item_econ4').startswith('21201')), 'social benefits (pension contributions)')
-            # employment contracts
-            .when((col('Sub-Item_econ5').startswith('2211310')| col('Sub-Item_econ5').startswith('2110201')), 'employment contracts')
-            # allowances
-            .when(((col('Class').startswith('0')) & (col('Item_econ4').startswith('21103'))), 'allowances')
+                ((~col('Class').startswith('2')) & (~col('Class').startswith('4')) & (~col('Item_econ4').startswith('27101')) & (col('Sector_prog1').startswith('09'))), 'Social Assistance')
+            # Basic Wages computed after computing econ categories
+            # Social Benefits (pension contributions)
+            .when((col('Item_econ4').startswith('21201')), 'Social Benefits (pension contributions)')
+            # Employment Contracts
+            .when((col('Sub-Item_econ5').startswith('2211310')| col('Sub-Item_econ5').startswith('2110201')), 'Employment Contracts')
+            # Allowances
+            .when(((col('Class').startswith('0')) & (col('Item_econ4').startswith('21103'))), 'Allowances')
             # foreign funded cap ex
-            .when((col('Chapter_econ2').startswith('31') & (~col('SOF2').startswith('00'))), 'capital expenditure (foreign spending)')
-            # basic services            
+            .when((col('Chapter_econ2').startswith('31') & (~col('SOF2').startswith('00'))), 'Capital Expenditure (foreign spending)')
+            # Basic Services            
             .when(
                 ((~col('Class').startswith('2')) & (col('Chapter_econ2').startswith('22')) & (
                     (col('Sub-Item_econ5').startswith('2211201')) | 
@@ -182,13 +182,13 @@ def boost_silver():
                     (col('Sub-Item_econ5').startswith('2210102')) |
                     (col('Sub-Item_econ5').startswith('2210101')) |
                     (col('Sub-Item_econ5').startswith('2211015'))
-                )), 'basic services')
-            # recurrent maintenance
-            .when(col('Item_econ4').startswith('22202'), 'recurrent maintenance')
-            # subsidies to production
-            .when(((~col('Class').startswith('2')) & (col('Chapter_econ2').startswith('25'))), 'subsidies to production')
-            #pensions
-            .when(((~col('Class').startswith('2')) & (col('Item_econ4').startswith('27101'))), 'pensions')
+                )), 'Basic Services')
+            # Recurrent Maintenance
+            .when(col('Item_econ4').startswith('22202'), 'Recurrent Maintenance')
+            # Subsidies to Production
+            .when(((~col('Class').startswith('2')) & (col('Chapter_econ2').startswith('25'))), 'Subsidies to Production')
+            #Pensions
+            .when(((~col('Class').startswith('2')) & (col('Item_econ4').startswith('27101'))), 'Pensions')
         ).withColumn('econ',
             # wage bill
             when((
@@ -203,7 +203,7 @@ def boost_silver():
             # subsidies           
             .when(((~col('Class').startswith('2')) & (col('Chapter_econ2').startswith('25'))), 'Subsidies')
             # social benefits
-            .when(col("econ_sub").isin("social assistance", "pensions"), 'Social benefits')
+            .when(col("econ_sub").isin("Social Assistance", "Pensions"), 'Social benefits')
             # other grants and transfers category not available
             # interest on debt
             .when(((~col('Class').startswith('2')) & (col('Chapter_econ2').startswith('24'))), 'Interest on debt')
