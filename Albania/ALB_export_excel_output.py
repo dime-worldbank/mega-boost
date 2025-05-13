@@ -4,10 +4,9 @@
 
 # COMMAND ----------
 
-import openpyxl
+import logging
 import tempfile
 import shutil
-import json
 
 from pyspark.sql.functions import col, sum as _sum, lit
 from pyspark.sql import functions as F
@@ -29,6 +28,24 @@ raw_data = (
     .withColumn("year", col("year").cast("string"))
     .cache()
 )
+
+required_columns = [
+    "admin0",
+    "admin1",
+    "admin2",
+    "econ",
+    "econ_sub",
+    "func",
+    "func_sub",
+    "is_foreign",
+    "approved",
+    "executed",
+    "year"
+]
+
+for col_name in required_columns:
+    if col_name not in raw_data.columns:
+        raise KeyError(f"Required column '{col_name}' is missing in the DataFrame.")
 
 tag_code_mapping = pd.read_csv(f"{AUXI_DIR}/tag_label_mapping.csv") 
 years = [str(year) for year in sorted(raw_data.select("year").distinct().rdd.flatMap(lambda x: x).collect())]
@@ -75,6 +92,10 @@ def create_pivot(df, parent, child, agg_col, central=True, ):
         pivoted.join(filtered_mapping_spark, on=["parent", "child"])
         .drop("Categories", "parent", "child", "parent_type", "child_type", "subnational")
     )
+
+    total_classifications = filtered_mapping_spark.select("Code").distinct().rdd.flatMap(lambda x: x).collect()
+    total_matches = result.select("Code").distinct().rdd.flatMap(lambda x: x).collect()
+    logging.info(f"Matched entries for {parent}, {child}: {len(total_matches)} / {len(total_classifications)}")
 
     return result
 
@@ -147,8 +168,9 @@ approved = generate_combined_pivots(pairs, "approved")
 # COMMAND ----------
 
 # Helper functions to update the EXCEL sheets
+#todo: move to utils for reusability when we have more than one country
 
-def reorder_and_add_columns(ws, raw_data):
+def spark_to_pandas_with_reorder(ws, raw_data):
     # make sure that the data expendture column specific order so that the formula will work
     raw_data = raw_data.toPandas()
     ws = source_wb['Data_Expenditures']
@@ -162,7 +184,7 @@ def reorder_and_add_columns(ws, raw_data):
     raw_data = raw_data[new_order]
     return raw_data
 
-def get_font(cell, blue_text_format=False):
+def copy_font(cell, blue_text_format=False):
     if not cell.font:
         return {}
     # Copy font formatting
@@ -181,6 +203,7 @@ def get_font(cell, blue_text_format=False):
     font_size = cell.font.size if cell.font.size else 10  # Default font size if none specified
     font_name = cell.font.name if cell.font.name else 'Arial'  # Default to Arial if no font specified
 
+    # source worksheet does not have color information. use heuristic to set the color. 
     if cell.row == 1:
         font_color = "#FFFFFF"
         bg_color = "#4d93d9"
@@ -226,37 +249,39 @@ def get_col_name(source_ws,col_inedex, current_year):
 
 
 def update_excel_with_new_values(target_ws, source_ws, df):    
-    # max_row = source_ws.max_row
-    # max_col = source_ws.max_column 
-    max_col = 10
-    max_row = 10
+    max_row = source_ws.max_row
+    max_col = source_ws.max_column 
+
     df = df.toPandas()
     # Copy cell values and styles
     col_name = None
     for row_index in range(0, max_row):
         code = source_ws.cell(row=row_index+1, column=1).value
-        for col_inedex in range(0, max_col-1):
-            col_name = get_col_name(source_ws,col_inedex, col_name)
-            source_cell = source_ws.cell(row=row_index+1, column=col_inedex+1)
+        for col_inedx in range(0, max_col-1):
+            col_name = get_col_name(source_ws,col_inedx, col_name)
+            source_cell = source_ws.cell(row=row_index+1, column=col_inedx+1)
 
-            default_cell_format = target_wb.add_format(get_font(source_cell))
+            default_cell_format = target_wb.add_format(copy_font(source_cell))
 
             if str(col_name) not in years or code not in df.Code.values:
                 if source_cell.data_type == 'f':
-                    blue_cell_format = target_wb.add_format(get_font(source_cell, blue_text_format=True))
-                    target_ws.write_formula(row_index, col_inedex, str(source_cell.value), blue_cell_format)  # Write the formula to Excel
+                    blue_cell_format = target_wb.add_format(copy_font(source_cell, blue_text_format=True))
+                    target_ws.write_formula(row_index, col_inedx, str(source_cell.value), blue_cell_format)  # Write the formula to Excel
                 else:
-                    target_ws.write(row_index, col_inedex, source_cell.value,default_cell_format)
+                    target_ws.write(row_index, col_inedx, source_cell.value,default_cell_format)
             else:                
                 boost_value = df[str(col_name)][df['Code'] == code].values[0]
-                target_ws.write(row_index, col_inedex, boost_value,default_cell_format)
+                target_ws.write(row_index, col_inedx, boost_value,default_cell_format)
         set_width(target_ws, max_col)
 
 # COMMAND ----------
 
 # Load an existing workbook
 source_wb = load_workbook(SOURCE_FILE_PATH,  data_only=False, read_only=True,)  # Important: data_only=False to get formulas
-raw_data = reorder_and_add_columns(source_ws, raw_data)[:10]
+required_sheets = ["Executed", "Approved"]
+for sheet in required_sheets:
+    if sheet not in source_wb.sheetnames:
+        raise KeyError(f"Required sheet '{sheet}' is missing in the source workbook.")
 
 with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=True) as tmp:
 
@@ -264,6 +289,7 @@ with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=True) as tmp:
 
     # Now write the updated DataFrame to a new Excel file
     with pd.ExcelWriter(temp_path, engine='xlsxwriter') as writer:
+        raw_data = spark_to_pandas_with_reorder(source_wb["Executed"], raw_data)[:10]
         raw_data.to_excel(writer, sheet_name='Data_Expenditures', index=False)
 
         revenue = pd.DataFrame() # revenue data sheet is currently empty but needed for the formula reference
@@ -289,4 +315,5 @@ with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=True) as tmp:
         source_ws = source_wb['Approved'] 
         update_excel_with_new_values(target_ws, source_ws, approved)
 
+    source_wb.close()
     shutil.copy(temp_path, OUTPUT_FILE_PATH)
