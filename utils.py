@@ -1,5 +1,5 @@
 # Databricks notebook source
-# MAGIC %pip install openpyxl tqdm
+# MAGIC %pip install openpyxl tqdm xlsxwriter
 
 # COMMAND ----------
 
@@ -12,6 +12,8 @@ import unicodedata
 
 TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
 INPUT_DIR = f"{TOP_DIR}/Documents/input/Countries"
+OUTPUT_DIR = f"{TOP_DIR}/Workspace/output_excel"
+INPUT_AUXI_DIR = f"{TOP_DIR}/Documents/input/Auxiliary"
 RAW_INPUT_DIR = f"{TOP_DIR}/Documents/input/Data from authorities"
 WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
 
@@ -54,9 +56,3 @@ def dbfs_file_exists(path):
       return False
     else:
       raise
-
-# COMMAND ----------
-
-# Output export help functions
-TARGET = 'prd_mega.boost_intermediate'
-OUTPUT_DIR = f"{TOP_DIR}/Workspace/output_excel/"
