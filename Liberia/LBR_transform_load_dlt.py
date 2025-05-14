@@ -1,9 +1,12 @@
 # Databricks notebook source
+# DBTITLE 1,Main
 import dlt
 import unicodedata
 from pyspark.sql.functions import (
-    substring, col, lit, when, udf, trim, regexp_replace, initcap, concat, lower, create_map, coalesce
+    substring, col, lit, when, udf, trim, regexp_replace, initcap, concat, lower, create_map, coalesce, split, concat_ws
 )
+from pyspark.sql.window import Window
+from pyspark.sql.functions import row_number
 
 TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
 INPUT_DIR = f"{TOP_DIR}/Documents/input/Countries"
@@ -20,11 +23,17 @@ CSV_READ_OPTIONS = {
 
 @dlt.table(name='lbr_boost_bronze')
 def boost_bronze():
-    return (spark.read
+    df = (spark.read
         .format("csv")
         .options(**CSV_READ_OPTIONS)
         .option("inferSchema", "true")
         .load(f'{COUNTRY_MICRODATA_DIR}/Data.csv'))
+
+    # Add index column
+    # window_spec = Window.orderBy(lit(1))
+    # df = df.withColumn("index", row_number().over(window_spec))
+
+    return df
 
 @dlt.table(name='lbr_boost_silver')
 def boost_silver():
@@ -134,35 +143,30 @@ def boost_silver():
     
     # --- Econ and sub econ reused filters ---
     pensions_filter = (col('Econ0').startswith('2')) & (col('Econ2').startswith('271'))
-    social_assistance_filter = ((col('Func1').startswith('10')) & col('Econ0').startswith('2')) # 2013 - ...
+    social_assistance_filter = ((col('Func1').startswith('10')) & col('Econ0').startswith('2'))
     allowances_filter = ((col('Econ2').startswith('211')) & not_dept)
     wage_filter = (col('Econ1').startswith('21'))
 
     # --- Sub-Economic Classifications ---     
     df = df.withColumn(
         'econ_sub', when(social_assistance_filter, 'social assistance')
+            .when(pensions_filter, 'pensions')
             .when(wage_filter & allowances_filter, 'allowances')
             .when(wage_filter & ~allowances_filter, 'basic wages')
-            .when(pensions_filter, 'pensions')
-            .when(not_dept & (col('Econ2').startswith('212')), 'social benefits (pension contributions)')
+            .when(not_dept & (col('Econ2').startswith('212')), 'social benefits (pension contributions)') 
             .when((col('Econ3').startswith('2213')) | (col('Econ3').startswith('2218')), 'basic services')
             .when(col('Econ3').startswith('2215'), 'recurrent maintenance')
     )
 
-    # --- Economic Classifications ---     
+    # --- Economic Classifications ---
     df = df.withColumn(
-        'econ', when(col('Econ2').startswith("2") 
-                    & col('Econ1').startswith("21"), 
+        'econ', when(col('Econ1').startswith("21"), 
                     'Wage bill')
-               .when(
-                   (col('budget').startswith('4')) 
-                   & not_dept 
-                   & (~col('Econ1').startswith('21'))
-                   , 'Capital expenditures')
-               .when(
+                
+                .when(
                    col('Econ1').startswith('25'), 
                    'Subsidies')
-               .when(
+                .when(
                    (col('Econ1').startswith('22')) 
                    & (col('budget').startswith('1'))
                    , 'Goods and services')
@@ -173,18 +177,30 @@ def boost_silver():
                 .when(
                 (col('year').cast('integer') >= 2018) & col('Econ4').startswith('423104'),
                 'Interest on debt'
+                ).when(
+                    (col('econ_sub') == 'social assistance') | (col('econ_sub') == 'pensions')
+                    ,'Social benefits'
                 )
+                    # capex - admin2,"<>10401 Revenue",budget,"4*",Econ1,"<>21 Compensation of Employees"
+                    # goods and services - ,Econ1,"22*",budget,"1 Recurrent"
+                    # other grants - Econ1,{"13 grants","26 grants"},Func1,"<>10 Social Protection",Econ0,"<>4 Liabilities",Econ1,"<>32 Financial assets",budget,"1 Recurrent",admin2,"<>10401 Revenue"))
+                    # wage bill - Econ1,"21 Compensation of Employees"
                 .when(
+                    (col('year').cast('integer') == 2018) & 
+                    col('Econ1').startswith('26'),
+                    'Other grants and transfers'
+                ).when(
                     (col('Econ1').startswith('13') | col('Econ1').startswith('26')) & 
                     ~col('Func1').startswith('10') & 
                     col('budget').startswith('1') &  
                     not_dept,
                     'Other grants and transfers'
                 )
-                # social benefits is getting assigned where econ+_sub is null, so mitigate that
-               .when(
-                    (col('econ_sub').isin('social assistance', 'pensions')) & col('econ_sub').isNotNull(),
-                    'Social benefits'
+                .when(
+                   (col('budget').startswith('4')) 
+                   & not_dept 
+                   & (~col('Econ1').startswith('21'))
+                   , 'Capital expenditures'
                 )
                .otherwise('Other expenses')
     )
@@ -196,7 +212,23 @@ def boost_silver():
 
     # --- Geo ---
     df = df.withColumn(
-        'geo1', lower(col('admin1'))
+        'geo1', initcap(col('admin1'))
+    )
+    # --- Cases ---
+    df = df.withColumn(
+        "admin1",initcap(col("Admin1"))
+    )
+
+    df = df.withColumn(
+        "admin2",initcap(col("Admin2"))
+    )
+
+    df = df.withColumn(
+        "admin1", when(col("admin1").isin("Bong County"), "Bong")
+        .when(col("admin1").isin("Bomi County"), "Bomi")
+        .when(col("admin1") == "Rivergee", "River Gee")
+        .when(col("admin1") == "Rivercess", "River Cess")
+        .otherwise(col("admin1"))
     )
 
     return df
@@ -208,7 +240,9 @@ def boost_gold():
         .filter(col('year') > 2008)
         .filter(col('year') < 2024)
         .filter(col('actual').isNotNull())
-        .select('country_name',
+        .select(
+                # 'index', 
+                'country_name',
                 col('year').cast('integer'),
                 col('approved'),
                 col('actual').alias('executed'),
@@ -224,4 +258,3 @@ def boost_gold():
                 'geo1'
                 )
     )
-
