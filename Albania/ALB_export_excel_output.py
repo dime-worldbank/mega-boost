@@ -4,7 +4,6 @@
 
 # COMMAND ----------
 
-import logging
 import tempfile
 import shutil
 
@@ -14,33 +13,38 @@ from pyspark.sql import functions as F
 import pandas as pd
 from openpyxl import load_workbook
 
+import logging
+logger = logging.getLogger()  # Get the root logger
+logging.getLogger("py4j").setLevel(logging.WARNING)
+logger.setLevel(logging.INFO)
 
 OUTPUT_FILE_PATH = f"{OUTPUT_DIR}/Albania_BOOST.xlsx"
 SOURCE_FILE_PATH = f"{INPUT_DIR}/Albania BOOST.xlsx"
-BOOST_TARGET = 'prd_mega.boost_intermediate'
+BOOST_TARGET = 'prd_mega.boost_staging'
+TARGET_TABLE = 'prd_mega.boost_intermeiate.alb_publish'
 
 # COMMAND ----------
 
 
 # Load and filter
 raw_data = (
-    spark.table(f"{BOOST_TARGET}.alb_boost_gold")
+    spark.table(f"{BOOST_TARGET}.alb_publish")
     .withColumn("year", col("year").cast("string"))
     .cache()
 )
 
 required_columns = [
-    "admin0",
-    "admin1",
-    "admin2",
-    "econ",
-    "econ_sub",
-    "func",
-    "func_sub",
-    "is_foreign",
-    "approved",
-    "executed",
-    "year"
+    "boost_admin0",
+    "boost_admin1",
+    "boost_admin2",
+    "boost_econ",
+    "boost_econ_sub",
+    "boost_func",
+    "boost_func_sub",
+    "boost_is_foreign",
+    "boost_approved",
+    "boost_executed",
+    "boost_year",
 ]
 
 for col_name in required_columns:
@@ -50,18 +54,12 @@ for col_name in required_columns:
 tag_code_mapping = pd.read_csv(f"{AUXI_DIR}/tag_label_mapping.csv") 
 years = [str(year) for year in sorted(raw_data.select("year").distinct().rdd.flatMap(lambda x: x).collect())]
 
-def create_pivot(df, parent, child, agg_col, central=True, ):
-    # Filter based on admin0 level
-    if central:
-        df = df.filter(F.col("admin0") == "Central")
-        filtered_mapping = tag_code_mapping[tag_code_mapping['subnational'].isna()]
-    else:
-        df = df.filter(F.col("admin0") == "Regional")
-        filtered_mapping = tag_code_mapping[~tag_code_mapping['subnational'].isna()]
+def create_pivot(df, parent, child, agg_col ):
+    filtered_mapping = tag_code_mapping[tag_code_mapping['subnational'].isna()]
 
     # Step 1: Get detailed level (econ + econ_sub + year)
     detailed = (
-        df.groupBy(parent, child, "year")
+        df.groupBy(parent, child, "boost_year")
         .agg(F.sum(agg_col).alias(agg_col))
         .withColumnRenamed(parent, "parent")
         .withColumnRenamed(child, "child")
@@ -69,19 +67,19 @@ def create_pivot(df, parent, child, agg_col, central=True, ):
 
     # Step 2: Get subtotals at parent level (econ + year), econ_sub = 'Subtotal'
     subtotals = (
-        df.groupBy(parent, "year")
+        df.groupBy(parent, "boost_year")
         .agg(F.sum(agg_col).alias(agg_col))
         .withColumn("child", F.lit("Subtotal"))  # Ensure same schema
         .withColumnRenamed(parent, "parent")
     )
 
     # Step 3: Union both
-    combined = detailed.unionByName(subtotals)
+    combined = detailed.unionByName(subtotals).filter(F.col("boost_year").isNotNull())
 
     # Step 4: Pivot to wide format
     pivoted = (
         combined.groupBy("parent", "child")
-        .pivot("year")
+        .pivot("boost_year")
         .agg(F.sum(agg_col))
         .fillna(0)  # Replace NaNs with 0
     )
@@ -93,52 +91,45 @@ def create_pivot(df, parent, child, agg_col, central=True, ):
         .drop("Categories", "parent", "child", "parent_type", "child_type", "subnational")
     )
 
-    total_classifications = filtered_mapping_spark.select("Code").distinct().rdd.flatMap(lambda x: x).collect()
     total_matches = result.select("Code").distinct().rdd.flatMap(lambda x: x).collect()
-    logging.info(f"Matched entries for {parent}, {child}: {len(total_matches)} / {len(total_classifications)}")
+    logging.info(f"Matched {agg_col} entries for {parent}, {child} : {len(total_matches)} ")
 
     return result
 
 
 # COMMAND ----------
 
-def create_pivot_total(df, agg_col, central=True):
-    # Filter based on admin0 level
-    if central:
-        df = df.filter(F.col("admin0") == "Central")
-    else:
-        df = df.filter(F.col("admin0") == "Regional")
-
+def create_pivot_total(df, agg_col):
     # Step 1: Calculate total expenditure by year
     total = (
-        df.groupBy("year")
+        df.groupBy("boost_year")
         .agg(F.sum(agg_col).alias(agg_col))
         .withColumn("Code", F.lit("EXP_ECON_TOT_EXP_EXE"))
     )
 
     # Step 2: Calculate foreign expenditure by year
     foreign_total = (
-        df.filter(F.col("is_foreign") == True)
-        .groupBy("year")
+        df.filter(F.col("boost_is_foreign") == True)
+        .groupBy("boost_year")
         .agg(F.sum(agg_col).alias(agg_col))
         .withColumn("Code", F.lit("EXP_ECON_TOT_EXP_FOR_EXE"))
     )
 
     # Step 3: Combine total and foreign expenditure
-    combined = total.unionByName(foreign_total)
+    combined = total.unionByName(foreign_total).filter(F.col("boost_year").isNotNull())
 
     # Step 4: Pivot to wide format
     pivoted = (
         combined.groupBy("Code")
-        .pivot("year")
+        .pivot("boost_year")
         .agg(F.first(agg_col))
-        .fillna(0)  # Replace NaNs with 0
+        .fillna(0)  
     )
     return pivoted
 
 # COMMAND ----------
 
-pairs = [('econ', 'econ_sub'), ('func', 'econ_sub'), ('func', 'econ'), ('func', 'func_sub'), ('func_sub', 'econ'), ('func_sub', 'econ_sub')]
+pairs = [('boost_econ', 'boost_econ_sub'), ('boost_func', 'boost_econ_sub'), ('boost_func', 'boost_econ'), ('boost_func', 'boost_func_sub'), ('boost_func_sub', 'boost_econ'), ('boost_func_sub', 'boost_econ_sub')]
 
 def generate_combined_pivots(pairs, agg_col):
     # Initialize an empty DataFrame for combining results
@@ -146,24 +137,21 @@ def generate_combined_pivots(pairs, agg_col):
 
     for parent, child in pairs:
         # Create pivot for central and regional levels
-        pivoted = create_pivot(raw_data, parent, child,agg_col, central=True)
-        pivoted_subnational = create_pivot(raw_data, parent, child,agg_col, central=False)
+        pivoted = create_pivot(raw_data, parent, child,agg_col)
         
         # Combine the results
         if combined is None:
-            combined = pivoted.unionByName(pivoted_subnational)
+            combined = pivoted
         else:
-            combined = combined.unionByName(pivoted).unionByName(pivoted_subnational)
+            combined = combined.unionByName(pivoted)
 
     # Add totals to the combined DataFrame
     totals = create_pivot_total(raw_data, agg_col)
     combined = combined.unionByName(totals)
-    totals_subnational = create_pivot_total(raw_data, agg_col, central=False)
-    combined = combined.unionByName(totals_subnational)
     return combined
 
-executed = generate_combined_pivots(pairs, "executed")
-approved = generate_combined_pivots(pairs, "approved")
+executed = generate_combined_pivots(pairs, "boost_executed")
+approved = generate_combined_pivots(pairs, "boost_approved")
 
 # COMMAND ----------
 
@@ -188,22 +176,13 @@ def copy_font(cell, blue_text_format=False):
     if not cell.font:
         return {}
     # Copy font formatting
-    if cell.font.bold:
-        bold = True
-    else:
-        bold = False
-    
-    if cell.font.italic:
-        italic = True
-    else:
-        italic = False
-
+    bold = True if cell.font.bold else False
+    italic = True if cell.font.italic else False
     num_format = cell.number_format
-
     font_size = cell.font.size if cell.font.size else 10  # Default font size if none specified
     font_name = cell.font.name if cell.font.name else 'Arial'  # Default to Arial if no font specified
 
-    # source worksheet does not have color information. use heuristic to set the color. 
+    # source worksheet does not have other styling information. use heuristic to set the color/alignment. 
     if cell.row == 1:
         font_color = "#FFFFFF"
         bg_color = "#4d93d9"
@@ -241,7 +220,7 @@ def set_width(target_ws,max_col_index):
 def get_col_name(source_ws,col_inedex, current_year):
     # some of the years are evaluated in formula: e.g. =U1+1.
     # load_workbook with data_only=True was too expensive. 
-    # we need to evaluate the formula to get the year
+    # we need to evaluate the formula to get the year with the assumption that the formula is Previous Cell + 1
     col_name = source_ws.cell(row=1, column=col_inedex+1).value
     if str(col_name).startswith("="):
         col_name = current_year + 1
@@ -266,7 +245,8 @@ def update_excel_with_new_values(target_ws, source_ws, df):
             if str(col_name) not in years or code not in df.Code.values:
                 if source_cell.data_type == 'f':
                     blue_cell_format = target_wb.add_format(copy_font(source_cell, blue_text_format=True))
-                    target_ws.write_formula(row_index, col_inedx, str(source_cell.value), blue_cell_format)  # Write the formula to Excel
+                    formula = getattr(source_cell.value, "text", source_cell.value)
+                    target_ws.write_formula(row_index, col_inedx, formula, blue_cell_format)  
                 else:
                     target_ws.write(row_index, col_inedx, source_cell.value,default_cell_format)
             else:                
@@ -283,13 +263,14 @@ for sheet in required_sheets:
     if sheet not in source_wb.sheetnames:
         raise KeyError(f"Required sheet '{sheet}' is missing in the source workbook.")
 
+# pandas.to_excel() cannot write directly to DBFS paths like '/dbfs/...'.
+# Workaround: write to a temporary local file, then copy it to the target DBFS location.
 with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=True) as tmp:
-
     temp_path = tmp.name
 
     # Now write the updated DataFrame to a new Excel file
     with pd.ExcelWriter(temp_path, engine='xlsxwriter') as writer:
-        raw_data = spark_to_pandas_with_reorder(source_wb["Executed"], raw_data)[:10]
+        raw_data = spark_to_pandas_with_reorder(source_wb["Executed"], raw_data)
         raw_data.to_excel(writer, sheet_name='Data_Expenditures', index=False)
 
         revenue = pd.DataFrame() # revenue data sheet is currently empty but needed for the formula reference
@@ -317,3 +298,7 @@ with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=True) as tmp:
 
     source_wb.close()
     shutil.copy(temp_path, OUTPUT_FILE_PATH)
+
+# COMMAND ----------
+
+
