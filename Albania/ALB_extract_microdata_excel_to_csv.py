@@ -103,3 +103,30 @@ def check_missing_years(expected_years, existing_years):
 
 check_missing_years(expected_years, existing_years)
 print("All expected years are present")
+
+# COMMAND ----------
+
+# Extract Reevenue data for years 2022 and before
+SHEET_NAME = 'Data_Revenues'
+START_YEAR = 2010
+END_YEAR = 2022
+MIN_NUM_OF_REV_ROWS = 79577
+csv_file_path = f'{microdata_csv_dir}/{SHEET_NAME}.csv'
+
+df = pd.read_excel(filename, sheet_name=SHEET_NAME)
+
+# Handle null and unnamed columns
+header = [col_name for col_name in df.columns if normalize_cell(is_named_column(col_name))]
+df = df[header]
+df = df.dropna(how='all')
+df = df.applymap(normalize_cell)
+df = df[df.year<=END_YEAR]
+df.to_csv(csv_file_path, index=False, encoding='utf-8')
+
+existing_years = df['year'].unique()
+expected_years = np.arange(START_YEAR, END_YEAR + 1)
+
+
+assert len(df) >= MIN_NUM_OF_REV_ROWS, f"Number of rows in sheet are less than expected {MIN_NUM_OF_REV_ROWS}, got {df.shape[0]}."
+check_missing_years(expected_years, existing_years)
+print("All expected years are present in revenue data")

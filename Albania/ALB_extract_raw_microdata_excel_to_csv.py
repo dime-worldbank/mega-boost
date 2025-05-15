@@ -103,14 +103,17 @@ def format_float(x):
 
 # COMMAND ----------
 
+years = [2023, 2024]
+
+# COMMAND ----------
+
 col_names_3_digit = [
     'admin2', 'admin3', 'admin4', 'fin_source', 'func3', 'econ3', 'admin5', 'project', 'executed', 'revised', 'approved']
 col_names_7_digit = [
     'admin2', 'admin3', 'admin4', 'fin_source', 'func3', 'econ5', 'admin5', 'project', 'executed']
 
-years = [2023, 2024]
 for year in years:
-    expense_data_files = [file for file in glob(f'{RAW_INPUT_DIR}/{COUNTRY}/{year}/*.xlsx') if 'ex' in file.lower()]
+    expense_data_files = [file for file in glob(f'{RAW_INPUT_DIR}/{COUNTRY}/{year}/*.xlsx') if (('ex' in file.lower()) & ('rev' not in file.lower()))]
 
     for f in expense_data_files:
         if '7 digit' in f:
@@ -148,4 +151,33 @@ for year in years:
     df = pd.concat([df_7, df_3], ignore_index=True)
     df['counties'] = df.admin2.map(lambda x: map_to_region(pad_left(str(x).split('.')[0], length=3)))
     outfile = f'{raw_microdata_csv_dir}/{year}.csv'
+    df.to_csv(outfile, index=False)
+
+# COMMAND ----------
+
+# Revenue data extraction into CSV
+
+rev_col_names_7_digit = ['admin2', 'admin3', 'admin4', 'econ5', 'admin5', 'executed']
+
+for year in years:
+    revenue_data_files = [file for file in glob(f'{RAW_INPUT_DIR}/{COUNTRY}/{year}/*.xlsx') if any(y in file.lower() for y in ['rev', '46655'])]
+    for f in expense_data_files:
+        if 'rev' in f.lower():
+            df_7_rev = pd.read_excel(f, dtype=str)
+            assert df_7_rev.shape[1] == 6
+            df_7_rev.columns = rev_col_names_7_digit
+            df_7_rev = df_7_rev[df_7_rev.admin2.map(lambda x: str(x).isdigit())]
+            df_7_rev['executed'] = df_7_rev.executed.astype('float')
+            df_7_rev['src'] = '7 digit rev'
+        elif '46655' in f:
+            df_46655 = pd.read_excel(f, dtype=str)
+            assert df_46655.shape[1] == 6
+            df_46655.columns = rev_col_names_7_digit
+            df_46655 = df_46655[df_46655.admin2.map(lambda x: str(x).isdigit())]
+            df_46655['executed'] = df_46655.executed.astype('float')
+            df_46655['src'] = '46655'
+
+    df = pd.concat([df_7_rev, df_46655], ignore_index=True)
+    df['year'] = year
+    outfile = f'{raw_microdata_csv_dir}/{year}_rev.csv'
     df.to_csv(outfile, index=False)
