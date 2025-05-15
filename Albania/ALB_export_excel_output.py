@@ -18,9 +18,10 @@ logger = logging.getLogger()  # Get the root logger
 logging.getLogger("py4j").setLevel(logging.WARNING)
 logger.setLevel(logging.INFO)
 
+APPLY_BLUE_FONT_IF_MISSING = False
+
 OUTPUT_FILE_PATH = f"{OUTPUT_DIR}/Albania_BOOST.xlsx"
 SOURCE_FILE_PATH = f"{INPUT_DIR}/Albania BOOST.xlsx"
-BOOST_TARGET = 'prd_mega.boost_staging'
 TARGET_TABLE = 'prd_mega.boost_intermeiate.alb_publish'
 
 # COMMAND ----------
@@ -28,7 +29,7 @@ TARGET_TABLE = 'prd_mega.boost_intermeiate.alb_publish'
 
 # Load and filter
 raw_data = (
-    spark.table(f"{BOOST_TARGET}.alb_publish")
+    spark.table(f"{TARGET_TABLE}")
     .withColumn("year", col("year").cast("string"))
     .cache()
 )
@@ -157,6 +158,12 @@ approved = generate_combined_pivots(pairs, "boost_approved")
 
 # Helper functions to update the EXCEL sheets
 #todo: move to utils for reusability when we have more than one country
+EXCEL_COL_LIST =  [
+    "Code", "Categories", "2006", "2007", "2008", "2009", "2010", "2011", "2012", "2013", "2014", 
+    "2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026", 
+    "2027", "2028", "2029", "2030", "AVG", "Country", "Country", "Fomrulas", "Coverage", 
+    "Fiscal year", "Region", "Income", "Basis", "Source", "Rigidity", "empty"
+]
 
 def spark_to_pandas_with_reorder(ws, raw_data):
     # make sure that the data expendture column specific order so that the formula will work
@@ -217,13 +224,12 @@ def set_width(target_ws,max_col_index):
             width = 12
         target_ws.set_column(i, i, width)  # xlsxwriter uses 0-based index
 
-def get_col_name(source_ws,col_inedex, current_year):
-    # some of the years are evaluated in formula: e.g. =U1+1.
-    # load_workbook with data_only=True was too expensive. 
-    # we need to evaluate the formula to get the year with the assumption that the formula is Previous Cell + 1
-    col_name = source_ws.cell(row=1, column=col_inedex+1).value
-    if str(col_name).startswith("="):
-        col_name = current_year + 1
+def get_col_name(col_inedex):
+    # Some year columns in the original file use formulas (e.g., =U1+1),
+    # which makes evaluating the actual column names dynamically too costly.
+    # As a workaround, we hardcoded the column names from the original file
+    # and iterate through that list instead of computing them.
+    col_name = EXCEL_COL_LIST[col_inedex]
     return col_name
 
 
@@ -237,16 +243,16 @@ def update_excel_with_new_values(target_ws, source_ws, df):
     for row_index in range(0, max_row):
         code = source_ws.cell(row=row_index+1, column=1).value
         for col_inedx in range(0, max_col-1):
-            col_name = get_col_name(source_ws,col_inedx, col_name)
+            col_name = get_col_name(col_inedx)
             source_cell = source_ws.cell(row=row_index+1, column=col_inedx+1)
 
             default_cell_format = target_wb.add_format(copy_font(source_cell))
 
             if str(col_name) not in years or code not in df.Code.values:
                 if source_cell.data_type == 'f':
-                    blue_cell_format = target_wb.add_format(copy_font(source_cell, blue_text_format=True))
+                    cell_format = target_wb.add_format(copy_font(source_cell, blue_text_format=APPLY_BLUE_FONT_IF_MISSING))
                     formula = getattr(source_cell.value, "text", source_cell.value)
-                    target_ws.write_formula(row_index, col_inedx, formula, blue_cell_format)  
+                    target_ws.write_formula(row_index, col_inedx, formula, cell_format)  
                 else:
                     target_ws.write(row_index, col_inedx, source_cell.value,default_cell_format)
             else:                
@@ -298,7 +304,3 @@ with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=True) as tmp:
 
     source_wb.close()
     shutil.copy(temp_path, OUTPUT_FILE_PATH)
-
-# COMMAND ----------
-
-
