@@ -304,3 +304,36 @@ with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=True) as tmp:
 
     source_wb.close()
     shutil.copy(temp_path, OUTPUT_FILE_PATH)
+
+# COMMAND ----------
+
+coverage_start = raw_data.year.min()
+coverage_end = raw_data.year.max()
+coverage_country = "Albania"
+tagging_sql = f"""
+ALTER TABLE {TARGET_TABLE} SET TAGS (
+    'name' = 'Albania BOOST {coverage_start}-{coverage_end}',
+    'comment' = 'The Ministry of Finance of Albania together with the World Bank developed and published a BOOST platform obtained from the National Treasury System in order to facilitate access to the detailed public finance data for comprehensive budget analysis. In this context, the Albania BOOST Public Finance Portal aims to strengthen the disclosure and demand for availability of public finance information at all level of government in the country from 2010 onward.Note that 2020 execution only covers 6 months.',
+    'subject' = 'Finance',
+    'classification' = 'Official Use Only',
+    'category' = 'Public Sector',
+    'subcategory' = 'Financial Management',
+    'frequency' = 'Annually',
+    'collections' = 'Financial Management (FM), BOOST - Public Expenditure Database',
+    'source' = 'BOOST',
+    'domain' = 'Budget',
+    'subdomain' = 'Budget & Cost Accounting',
+    'excel_link' = '/Volumes/prd_mega/sboost4/vboost4/Workspace/output_excel/Albania_BOOST.xlsx',
+    'destinations' = 'dataexplorer, ddh',
+    'exception' = '7. Member Countries/Third Party Confidence',
+    'license' = 'Creative Commons Attribution-Non Commercial 4.0',
+    'topics' = 'Economic Growth, Macroeconomic and Structural Policies, Public Sector Management',
+    'coverage_year_start' = '{coverage_start}',
+    'coverage_year_end' = '{coverage_end}',
+    'coverage_countries' = '{coverage_country}',
+    'team_lead' = 'mmastruzzi@worldbank.org',
+    'collaborators' = 'icapita@worldbank.org, agirongordillo@worldbank.org, sbhupatiraju@worldbank.org, ysuzuki2@worldbank.org, elysenko@worldbank.org, wlu4@worldbank.org'
+);
+"""
+
+spark.sql(tagging_sql)
