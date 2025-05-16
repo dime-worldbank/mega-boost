@@ -50,14 +50,14 @@ def boost_silver():
     rename_mappings = {
         'year.1': 'year',
         'econ0': 'Econ0',
-        'econ1': 'Econ1',
+        'econ1': 'Econ1_orig',
         'econ2': 'Econ2',
         'econ3': 'Econ3',
         'econ4': 'Econ4',
         'geo1': 'Geo1',
         'geo2': 'Geo2',
         'admin1': 'Admin1',
-        'admin2': 'Admin2',
+        'admin2': 'Admin2_orig',
         'admin3': 'Admin3',
         'func1': 'Func1',
         'func214': 'Func3',
@@ -71,7 +71,7 @@ def boost_silver():
         df = df.withColumnRenamed(old_name, new_name)
     
     columns_to_clean = [
-        "econ0", "econ1", "econ2", "econ3", 
+        "econ0", "Econ1_orig", "econ2", "econ3", 
         "econ4", "geo1", "fund",'geo1','geo2','wages'
     ]
 
@@ -81,10 +81,10 @@ def boost_silver():
 
     # --- Global Filters ---
     # Filtering out unwanted values at the total expenditures level
-    df = df.filter((col('Econ0') != '4 Liabilities') & (col('Econ1') != '32 Financial assets'))
+    df = df.filter((col('Econ0') != '4 Liabilities') & (col('Econ1_orig') != '32 Financial assets'))
 
     # used quite often, so to limit repetition
-    not_dept = ~col('Admin2').startswith('10401') 
+    not_dept = ~col('Admin2_orig').startswith('10401 Revenue') 
 
     # --- Admin and Geo Data Adjustments ---
     # admin and geo data appear to be swapped
@@ -145,7 +145,7 @@ def boost_silver():
     pensions_filter = (col('Econ0').startswith('2')) & (col('Econ2').startswith('271'))
     social_assistance_filter = ((col('Func1').startswith('10')) & col('Econ0').startswith('2'))
     allowances_filter = ((col('Econ2').startswith('211')) & not_dept)
-    wage_filter = (col('Econ1').startswith('21'))
+    wage_filter = (col('Econ1_orig').startswith('21'))
 
     # --- Sub-Economic Classifications ---     
     df = df.withColumn(
@@ -160,18 +160,18 @@ def boost_silver():
 
     # --- Economic Classifications ---
     df = df.withColumn(
-        'econ', when(col('Econ1').startswith("21"), 
+        'econ', when(col('Econ1_orig').startswith("21"), 
                     'Wage bill')
                 
                 .when(
-                   col('Econ1').startswith('25'), 
+                   col('Econ1_orig').startswith('25'), 
                    'Subsidies')
                 .when(
-                   (col('Econ1').startswith('22')) 
+                   (col('Econ1_orig').startswith('22')) 
                    & (col('budget').startswith('1'))
                    , 'Goods and services')
                .when(
-                (col('year').cast('integer') < 2018) & col('Econ1').startswith('24'),
+                (col('year').cast('integer') < 2018) & col('Econ1_orig').startswith('24'),
                 'Interest on debt'
                 )
                 .when(
@@ -187,20 +187,20 @@ def boost_silver():
                     # wage bill - Econ1,"21 Compensation of Employees"
                 .when(
                     (col('year').cast('integer') == 2018) & 
-                    col('Econ1').startswith('26'),
+                    col('Econ1_orig').startswith('26'),
                     'Other grants and transfers'
                 ).when(
-                    (col('Econ1').startswith('13') | col('Econ1').startswith('26')) & 
+                   (col('budget').startswith('4')) 
+                   & not_dept 
+                   & (~col('Econ1_orig').startswith('21'))
+                   , 'Capital expenditures'
+                )
+                .when(
+                    (col('Econ1_orig').startswith('13') | col('Econ1_orig').startswith('26')) & 
                     ~col('Func1').startswith('10') & 
                     col('budget').startswith('1') &  
                     not_dept,
                     'Other grants and transfers'
-                )
-                .when(
-                   (col('budget').startswith('4')) 
-                   & not_dept 
-                   & (~col('Econ1').startswith('21'))
-                   , 'Capital expenditures'
                 )
                .otherwise('Other expenses')
     )
@@ -220,7 +220,7 @@ def boost_silver():
     )
 
     df = df.withColumn(
-        "admin2",initcap(col("Admin2"))
+        "admin2",initcap(col("Admin2_orig"))
     )
 
     df = df.withColumn(
@@ -242,6 +242,9 @@ def boost_gold():
         .filter(col('actual').isNotNull())
         .select(
                 # 'index', 
+                # 'Admin2_orig',
+                # "Econ1_orig",
+                # 'budget',
                 'country_name',
                 col('year').cast('integer'),
                 col('approved'),
