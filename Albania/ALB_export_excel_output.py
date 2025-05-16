@@ -22,7 +22,7 @@ APPLY_BLUE_FONT_IF_MISSING = False
 
 OUTPUT_FILE_PATH = f"{OUTPUT_DIR}/Albania_BOOST.xlsx"
 SOURCE_FILE_PATH = f"{INPUT_DIR}/Albania BOOST.xlsx"
-TARGET_TABLE = 'prd_mega.boost_intermeiate.alb_publish'
+TARGET_TABLE = 'prd_mega.boost.alb_publish'
 
 # COMMAND ----------
 
@@ -58,7 +58,7 @@ years = [str(year) for year in sorted(raw_data.select("year").distinct().rdd.fla
 def create_pivot(df, parent, child, agg_col ):
     filtered_mapping = tag_code_mapping[tag_code_mapping['subnational'].isna()]
 
-    # Step 1: Get detailed level (econ + econ_sub + year)
+    # Step 1: Get detailed level e.g. (econ + econ_sub + year)
     detailed = (
         df.groupBy(parent, child, "boost_year")
         .agg(F.sum(agg_col).alias(agg_col))
@@ -66,7 +66,7 @@ def create_pivot(df, parent, child, agg_col ):
         .withColumnRenamed(child, "child")
     )
 
-    # Step 2: Get subtotals at parent level (econ + year), econ_sub = 'Subtotal'
+    # Step 2: Get subtotals at parent level e.g (econ + year), econ_sub = 'Subtotal'
     subtotals = (
         df.groupBy(parent, "boost_year")
         .agg(F.sum(agg_col).alias(agg_col))
@@ -274,7 +274,6 @@ for sheet in required_sheets:
 with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=True) as tmp:
     temp_path = tmp.name
 
-    # Now write the updated DataFrame to a new Excel file
     with pd.ExcelWriter(temp_path, engine='xlsxwriter') as writer:
         raw_data = spark_to_pandas_with_reorder(source_wb["Executed"], raw_data)
         raw_data.to_excel(writer, sheet_name='Data_Expenditures', index=False)

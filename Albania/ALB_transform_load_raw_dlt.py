@@ -16,7 +16,7 @@ COUNTRY = 'Albania'
 COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/microdata_csv/{COUNTRY}'
 RAW_COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/raw_microdata_csv/{COUNTRY}'
 RAW_INPUT_DIR = f"{TOP_DIR}/Documents/input/Data from authorities/"
-PUBLISH_WITH_BRONZE = strtobool(spark.conf.get("PUBLISH_WITH_BRONZE", "false"))
+PUBLISH_WITH_BRONZE = strtobool(spark.conf.get("PUBLISH_WITH_BRONZE", "true"))
 
 CSV_READ_OPTIONS = {
     "header": "true",
@@ -408,7 +408,7 @@ def alb_boost_gold():
     return df_before_2023.unionByName(df_from_2023).drop("id")
 
 
-@dlt.table(name='alb_publish')
+@dlt.table(name='boost.alb_publish')
 def alb_publish():
     alb_gold_2023 = dlt.read(f'alb_2023_onward_boost_gold')
     alb_gold_2022 = dlt.read('alb_2022_and_before_boost_gold')
