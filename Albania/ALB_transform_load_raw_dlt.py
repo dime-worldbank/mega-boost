@@ -3,10 +3,12 @@ import dlt
 import json
 import unicodedata
 from distutils.util import strtobool
-from pyspark.sql.functions import col, lower, regexp_extract, regexp_replace, when, lit, substring, expr, floor, concat, udf, lpad, monotonically_increasing_id
+from pyspark.sql.functions import col, lower, regexp_extract, regexp_replace, when, lit, substring, expr, floor, concat, udf, lpad, create_map, monotonically_increasing_id
 from pyspark.sql.types import StringType, DoubleType
 from glob import glob
 from functools import reduce
+from itertools import chain
+
 
 
 # Note DLT requires the path to not start with /dbfs
@@ -25,8 +27,12 @@ CSV_READ_OPTIONS = {
     "escape": '"',
 }
 
-with open(f"{RAW_INPUT_DIR}/{COUNTRY}/2023/labels_en_v01_overall.json", 'r') as json_file:
+with open(f"{RAW_INPUT_DIR}/{COUNTRY}/labels_en_v01_overall.json", 'r') as json_file:
     labels = json.load(json_file)
+
+with open(f"{RAW_INPUT_DIR}/{COUNTRY}/project_labels.json", 'r') as json_file:
+    project_description_map = json.load(json_file)['project']
+project_map = create_map([lit(x) for x in chain(*project_description_map.items())])
 
 def replacement_udf(column_name):
     def replace_value(value):
@@ -158,7 +164,8 @@ def boost_silver():
                 ((col("econ3") == 604) & (col("admin4") == 1025096) & (col("admin3") == 25)) |
                 ((col("econ3") == 604) & (col("admin4") == 1010226) & (col("admin3") == 10)), 1)
             .otherwise(lit(0))
-        ).withColumn('admin2', lpad(col('admin2').cast('int').cast("string"), 3, "0"))
+        ).withColumn('admin2', lpad(col('admin2').cast('int').cast("string"), 3, "0")
+        ).withColumn("project_lab", project_map[col("project")])
     for column_name, mapping in labels.items():
         if column_name in silver_df.columns:
             silver_df = silver_df.withColumn(column_name, replacement_udf(column_name)(col(column_name)))
