@@ -25,8 +25,15 @@ CSV_READ_OPTIONS = {
     "escape": '"',
 }
 
-with open(f"{RAW_INPUT_DIR}/{COUNTRY}/2023/labels_en_v01_overall.json", 'r') as json_file:
+with open(f"{RAW_INPUT_DIR}/{COUNTRY}/labels_en_v01_overall.json", 'r') as json_file:
     labels = json.load(json_file)
+ 
+with open(f"{RAW_INPUT_DIR}/{COUNTRY}/project_labels.json", 'r') as json_file:
+    project_labels = json.load(json_file)
+
+# Extend the labels json file to contain the project labels
+labels['project'] = project_labels['project']
+
 
 def replacement_udf(column_name):
     def replace_value(value):
