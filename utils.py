@@ -1,5 +1,5 @@
 # Databricks notebook source
-# MAGIC %pip install openpyxl tqdm
+# MAGIC %pip install openpyxl tqdm xlsxwriter
 
 # COMMAND ----------
 
