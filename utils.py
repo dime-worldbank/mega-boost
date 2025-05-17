@@ -12,9 +12,6 @@ import unicodedata
 
 TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
 INPUT_DIR = f"{TOP_DIR}/Documents/input/Countries"
-OUTPUT_DIR = f"{TOP_DIR}/Workspace/output_excel"
-AUXI_DIR = f"{TOP_DIR}/Documents/input/Auxiliary"
-INPUT_AUXI_DIR = f"{TOP_DIR}/Documents/input/Auxiliary"
 RAW_INPUT_DIR = f"{TOP_DIR}/Documents/input/Data from authorities"
 WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
 

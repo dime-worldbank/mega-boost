@@ -18,7 +18,7 @@ COUNTRY = 'Albania'
 COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/microdata_csv/{COUNTRY}'
 RAW_COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/raw_microdata_csv/{COUNTRY}'
 RAW_INPUT_DIR = f"{TOP_DIR}/Documents/input/Data from authorities/"
-PUBLISH_WITH_BRONZE = strtobool(spark.conf.get("PUBLISH_WITH_BRONZE", "true"))
+PUBLISH_WITH_BOOST = strtobool(spark.conf.get("PUBLISH_WITH_BOOST", "true"))
 
 CSV_READ_OPTIONS = {
     "header": "true",
@@ -72,7 +72,7 @@ def boost_bronze():
          .options(**CSV_READ_OPTIONS)
          .option("inferSchema", "true")
          .load(f"{COUNTRY_MICRODATA_DIR}/Data_Expenditures.csv").withColumn(
-             "id",concat(lit("alb_2_"), monotonically_increasing_id())).filter(col("year") < 2023)
+             "id",concat(lit("alb_2_"),  monotonically_increasing_id())).filter(col("year") < 2023)
 
      )
 
@@ -261,8 +261,7 @@ def boost_silver():
             # other expenses
             .otherwise('Other expenses')
         ).withColumn('admin2_new', col('admin2')
-        ).withColumn('approved',
-                when(((col('econ3') == "606 Transfers to families and individuals") & (col('func2')== "102 Old age")), col('executed')).otherwise(col("approved")))
+        )
     return silver_df
 
 
@@ -417,21 +416,23 @@ def alb_boost_gold():
 
 @dlt.table(name='boost.alb_publish')
 def alb_publish():
-    alb_gold_2023 = dlt.read(f'alb_2023_onward_boost_gold')
-    alb_gold_2022 = dlt.read('alb_2022_and_before_boost_gold')
-    alb_gold_union = alb_gold_2022.unionByName(alb_gold_2023)
-    if not PUBLISH_WITH_BRONZE:
-        return alb_gold_union 
+    alb_bronze_before_2023 = dlt.read('alb_2022_and_before_boost_bronze')
+    alb_bronze_from_2023 = dlt.read('alb_2023_onward_boost_silver')
+    col_list = [col for col in alb_bronze_before_2023.columns if col in alb_bronze_from_2023.columns]
+    alb_bronze_from_2023 = alb_bronze_from_2023.select(col_list)
+    alb_bronze_before_2023 = alb_bronze_before_2023.select(col_list)
+    alb_bronze_union = alb_bronze_before_2023.unionByName(alb_bronze_from_2023)
+
+    if not PUBLISH_WITH_BOOST:
+        return alb_bronze_union 
     
-    alb_bronze_2022 = dlt.read('alb_2022_and_before_boost_bronze')
-    alb_bronze_2023 = dlt.read('alb_2023_onward_boost_silver')
-    col_list = [col for col in alb_bronze_2022.columns if col in alb_bronze_2023.columns]
-    alb_bronze_2023 = alb_bronze_2023.select(col_list)
-    alb_bronze_2022 = alb_bronze_2022.select(col_list)
-    alb_bronze_union = alb_bronze_2022.unionByName(alb_bronze_2023)
+    alb_gold_from_2023 = dlt.read(f'alb_2023_onward_boost_gold')
+    alb_gold_before_2023 = dlt.read('alb_2022_and_before_boost_gold')
+    alb_gold_union = alb_gold_before_2023.unionByName(alb_gold_from_2023)
 
     prefix = "boost_"
     for column in alb_gold_union.columns:
         alb_gold_union = alb_gold_union.withColumnRenamed(column, prefix + column)
+
     return alb_bronze_union.join(alb_gold_union, on=[alb_gold_union['boost_id'] == alb_bronze_union['id']], how='left').drop("id", "boost_id")
 

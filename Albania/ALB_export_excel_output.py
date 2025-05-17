@@ -1,6 +1,9 @@
 # Databricks notebook source
 # MAGIC %run ../utils
-# MAGIC
+
+# COMMAND ----------
+
+# MAGIC %pip install xlsxwriter
 
 # COMMAND ----------
 
@@ -20,9 +23,15 @@ logger.setLevel(logging.INFO)
 
 APPLY_BLUE_FONT_IF_MISSING = False
 
+OUTPUT_DIR = f"{TOP_DIR}/Workspace/output_excel"
+AUXI_DIR = f"{TOP_DIR}/Documents/input/Auxiliary"
+INPUT_AUXI_DIR = f"{TOP_DIR}/Documents/input/Auxiliary"
+
 OUTPUT_FILE_PATH = f"{OUTPUT_DIR}/Albania_BOOST.xlsx"
 SOURCE_FILE_PATH = f"{INPUT_DIR}/Albania BOOST.xlsx"
 TARGET_TABLE = 'prd_mega.boost.alb_publish'
+
+
 
 # COMMAND ----------
 
@@ -274,6 +283,8 @@ for sheet in required_sheets:
 with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=True) as tmp:
     temp_path = tmp.name
 
+    # openpyxl was too resource-intensive for writing Excel files with formatting and styles for our use case.
+    # Given our cluster limitations, xlsxwriter was the only viable solution for efficient output.
     with pd.ExcelWriter(temp_path, engine='xlsxwriter') as writer:
         raw_data = spark_to_pandas_with_reorder(source_wb["Executed"], raw_data)
         raw_data.to_excel(writer, sheet_name='Data_Expenditures', index=False)
