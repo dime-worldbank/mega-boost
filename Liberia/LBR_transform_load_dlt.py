@@ -237,8 +237,6 @@ def boost_silver():
 def boost_gold():
     return (dlt.read(f'lbr_boost_silver')
         .withColumn('country_name', lit(COUNTRY))
-        .filter(col('year') > 2008)
-        .filter(col('year') < 2024)
         .filter(col('actual').isNotNull())
         .select(
                 # 'index', 
