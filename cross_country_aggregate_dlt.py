@@ -10,7 +10,8 @@ boost_intermediate_schema = 'boost_intermediate'
 
 # Adding a new country requires adding the country here
 
-country_codes = ['moz', 'pry', 'ken', 'pak', 'bfa', 'col', 'cod', 'nga', 'tun', 'btn', 'bgd', 'alb', 'ury', "zaf", 'chl', 'lbr', 'gha']
+# country_codes = ['moz', 'pry', 'ken', 'pak', 'bfa', 'col', 'cod', 'nga', 'tun', 'btn', 'bgd', 'alb', 'ury', "zaf", 'chl', 'lbr', 'gha']
+country_codes = ['lbr']
 
 schema = StructType([
     StructField("country_name", StringType(), True, {'comment': 'The name of the country for which the budget data is recorded (e.g., "Kenya", "Brazil").'}),
@@ -124,7 +125,8 @@ def expenditure_by_country_year():
         )
         .join(cpi_factors, on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
-        .join(pop, on=["country_name", "year"], how="inner")
+        # left join to preserve years that are not in the population table for quality checks
+        .join(pop, on=["country_name", "year"], how="left")
         .withColumn("per_capita_expenditure", F.col("expenditure") / F.col("population"))
         .withColumn("per_capita_real_expenditure", F.col("real_expenditure") / F.col("population"))
         .join(year_ranges, on=['country_name'], how='left')
@@ -497,7 +499,8 @@ def quality_boost_func():
     )
     return (
         dlt.read('expenditure_by_country_func_year')
-        .join(quality_cci_func, on=['country_name', 'func', 'year'], how="right")
+        # inner join to exclude years in CCI data that are not in expenditure_by_country_func_year (aka pop) data
+        .join(quality_cci_func, on=['country_name', 'func', 'year'], how="inner")
     )
 
 @dlt.table(name='quality_boost_func_unknown')
@@ -529,7 +532,8 @@ def quality_boost_econ():
     )
     return (
         dlt.read('expenditure_by_country_econ_year')
-        .join(quality_cci_econ, on=['country_name', 'econ', 'year'], how="right")
+        # inner join to exclude years in CCI data that are not in expenditure_by_country_econ_year (aka pop) data
+        .join(quality_cci_econ, on=['country_name', 'econ', 'year'], how="inner")
     )
 
 @dlt.table(name='quality_boost_econ_unknown')
