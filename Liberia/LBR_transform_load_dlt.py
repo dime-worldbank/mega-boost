@@ -197,7 +197,7 @@ def boost_silver():
                 )
                 .when(
                     (col('Econ1_orig').startswith('13') | col('Econ1_orig').startswith('26')) 
-                    & ~col('Func1').startswith('1
+                    & ~col('Func1').startswith('1')
                     & col('budget').startswith('1')
                     & not_dept
                     , 'Other grants and transfers'
