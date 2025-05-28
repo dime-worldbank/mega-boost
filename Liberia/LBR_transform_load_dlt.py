@@ -160,47 +160,47 @@ def boost_silver():
 
     # --- Economic Classifications ---
     df = df.withColumn(
-        'econ', when(col('Econ1_orig').startswith("21"), 
-                    'Wage bill')
-                
-                .when(
-                   col('Econ1_orig').startswith('25'), 
-                   'Subsidies')
-                .when(
-                   (col('Econ1_orig').startswith('22')) 
-                   & (col('budget').startswith('1'))
-                   , 'Goods and services')
-               .when(
-                (col('year').cast('integer') < 2018) & col('Econ1_orig').startswith('24'),
-                'Interest on debt'
+        'econ', when(col('Econ1_orig').startswith("21")
+                     , 'Wage bill'
                 )
                 .when(
-                (col('year').cast('integer') >= 2018) & col('Econ4').startswith('423104'),
-                'Interest on debt'
-                ).when(
+                    col('Econ1_orig').startswith('25')
+                    , 'Subsidies'
+                )
+                .when(
+                    (col('Econ1_orig').startswith('22')) 
+                    & (col('budget').startswith('1'))
+                    , 'Goods and services'
+                )
+                .when(
+                    (col('year').cast('integer') < 2018) & col('Econ1_orig').startswith('24')
+                    , 'Interest on debt'
+                )
+                .when(
+                    (col('year').cast('integer') >= 2018) & col('Econ4').startswith('423104')
+                    , 'Interest on debt'
+                )
+                .when(
                     (col('econ_sub') == 'social assistance') | (col('econ_sub') == 'pensions')
-                    ,'Social benefits'
-                )
-                    # capex - admin2,"<>10401 Revenue",budget,"4*",Econ1,"<>21 Compensation of Employees"
-                    # goods and services - ,Econ1,"22*",budget,"1 Recurrent"
-                    # other grants - Econ1,{"13 grants","26 grants"},Func1,"<>10 Social Protection",Econ0,"<>4 Liabilities",Econ1,"<>32 Financial assets",budget,"1 Recurrent",admin2,"<>10401 Revenue"))
-                    # wage bill - Econ1,"21 Compensation of Employees"
-                .when(
-                    (col('year').cast('integer') == 2018) & 
-                    col('Econ1_orig').startswith('26'),
-                    'Other grants and transfers'
-                ).when(
-                   (col('budget').startswith('4')) 
-                   & not_dept 
-                   & (~col('Econ1_orig').startswith('21'))
-                   , 'Capital expenditures'
+                    , 'Social benefits'
                 )
                 .when(
-                    (col('Econ1_orig').startswith('13') | col('Econ1_orig').startswith('26')) & 
-                    ~col('Func1').startswith('10') & 
-                    col('budget').startswith('1') &  
-                    not_dept,
-                    'Other grants and transfers'
+                    (col('year').cast('integer') == 2018) 
+                    & col('Econ1_orig').startswith('26')
+                    , 'Other grants and transfers'
+                )
+                .when(
+                    (col('budget').startswith('4')) 
+                    & not_dept 
+                    & (~col('Econ1_orig').startswith('21'))
+                    , 'Capital expenditures'
+                )
+                .when(
+                    (col('Econ1_orig').startswith('13') | col('Econ1_orig').startswith('26')) 
+                    & ~col('Func1').startswith('1
+                    & col('budget').startswith('1')
+                    & not_dept
+                    , 'Other grants and transfers'
                 )
                .otherwise('Other expenses')
     )
