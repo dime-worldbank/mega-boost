@@ -15,6 +15,8 @@ CSV_READ_OPTIONS = {
     "escape": '"',
 }
 
+end_year = 2024
+
 # COMMAND ----------
 
 @dlt.table(name=f'quality_cci_bronze')
@@ -51,6 +53,7 @@ def quality_total_silver():
             valueColumnName="amount"
         )
         .filter(F.col('amount').isNotNull())
+        .filter(F.col('year') < end_year)
     )
 
 # COMMAND ----------
@@ -106,6 +109,7 @@ def quality_functional_silver():
             valueColumnName="amount"
         )
         .filter(F.col('amount').isNotNull())
+        .filter(F.col('year') < end_year)
     )
 
 # COMMAND ----------
@@ -207,6 +211,7 @@ def quality_economic_silver():
             valueColumnName="amount"
         )
         .filter(F.col('amount').isNotNull())
+        .filter(F.col('year') < end_year)
     )
 
 # COMMAND ----------
@@ -283,6 +288,7 @@ def quality_judiciary_silver():
             valueColumnName="amount"
         )
         .filter(F.col('amount').isNotNull())
+        .filter(F.col('year') < end_year)
     )
 
 # COMMAND ----------
@@ -315,6 +321,7 @@ def quality_total_subnat_silver():
             valueColumnName="amount"
         )
         .filter(F.col('amount').isNotNull())
+        .filter(F.col('year') < end_year)
     )
 
 # COMMAND ----------
@@ -346,6 +353,7 @@ def quality_total_foreign_silver():
             valueColumnName="amount"
         )
         .filter(F.col('amount').isNotNull())
+        .filter(F.col('year') < end_year)
     )
 
 # COMMAND ----------
