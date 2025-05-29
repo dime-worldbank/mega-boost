@@ -51,7 +51,7 @@ def boost_rev_bronze():
 @dlt.table(name=f'alb_2023_onward_boost_rev_bronze')
 def boost_2023_onward_rev_bronze():
     file_paths = [x for x in glob(f"{RAW_COUNTRY_MICRODATA_DIR}/*.csv") if 'rev' in x]
-    dfs = []
+    bronze_df = None
     for f in file_paths:
         df = (spark.read
               .format("csv")
@@ -59,9 +59,10 @@ def boost_2023_onward_rev_bronze():
               .option("inferSchema", "true")
               .option("header", "true")
               .load(f))
-        dfs.append(df)
-
-    bronze_df = reduce(lambda df1, df2: df1.unionByName(df2, allowMissingColumns=True), dfs)
+        if bronze_df is None:
+            bronze_df = df
+        else:
+            bronze_df = bronze_df.unionByName(df, allowMissingColumns=True)
     bronze_df = bronze_df.withColumn('year', col('year').cast('int'))
     bronze_df = bronze_df.dropna(how='all')
     return bronze_df
@@ -90,10 +91,11 @@ def boost_silver():
                     .otherwise(0))
                 .filter(
                     ~(
-                        ((col('econ2') == "75") & ~((col('admin2').isin("003", "004")) & (col('admin3') == "00"))) |
-                        ((col('econ2') == "72") & (col('transfer') == 0))
-                    ) &
-                    col('econ1').isNotNull()))
+                        ((col("econ2") == 75) | ((col("econ2") == 72) & (col("transfer") == 0)))
+                        & ~( ((col("admin2") == 3) | (col("admin2") == 4)) & (col("admin3") == 0) )
+                    )
+                ).filter(col("econ1").isNotNull())
+    )
 
     for column_name, mapping in labels.items():
         if column_name in silver_df.columns:

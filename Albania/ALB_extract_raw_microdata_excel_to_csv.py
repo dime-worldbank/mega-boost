@@ -158,10 +158,9 @@ for year in years:
 # Revenue data extraction into CSV
 
 rev_col_names_7_digit = ['admin2', 'admin3', 'admin4', 'econ5', 'admin5', 'executed']
-
 for year in years:
     revenue_data_files = [file for file in glob(f'{RAW_INPUT_DIR}/{COUNTRY}/{year}/*.xlsx') if any(y in file.lower() for y in ['rev', '46655'])]
-    for f in expense_data_files:
+    for f in revenue_data_files:
         if 'rev' in f.lower():
             df_7_rev = pd.read_excel(f, dtype=str)
             assert df_7_rev.shape[1] == 6
