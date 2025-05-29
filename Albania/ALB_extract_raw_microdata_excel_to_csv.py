@@ -9,6 +9,30 @@ import numpy as np
 COUNTRY = 'Albania'
 raw_microdata_csv_dir = prepare_raw_microdata_csv_dir(COUNTRY)
 
+col_format_map_7 = {
+    "admin2": r"\d{3}",
+    "admin3": r"\d{2}",
+    "admin4": r"\d{7}",
+    "fin_source": r"^\d{2}$",
+    "func3": r"^[A-Za-z0-9]{5}$",
+    "econ5": r"^\d{7}$",
+    "admin5": r"\d{1,4}",
+    "project": r"^[A-Za-z0-9]{1,7}$",
+}
+
+col_format_map_3 = {
+    "admin2": r"\d{3}",
+    "admin3": r"\d{2}",
+    "admin4": r"\d{7}",
+    "fin_source": r"\d{2}",
+    "func3": r"^[A-Za-z0-9]{5}$",
+    "econ3": r"\d{3,4}",
+    "project": r"^[A-Za-z0-9]{7}$"
+}
+
+def validate_col_format(regex, col, df):
+    assert df[col].astype(str).str.fullmatch(regex).all(), f"{col} does not follow {regex}"
+
 # helper function to map to regions:
 def map_to_region(admin2_item):
     loc_code = admin2_item[:3]
@@ -124,6 +148,8 @@ for year in years:
             df_7.columns = col_names_7_digit
             df_7 = df_7[df_7.admin2.notna()]
             df_7 = df_7.dropna(how='all')
+            for col, regex in col_format_map_7.items():
+                validate_col_format(regex, col, df_7)
             df_7 = df_7.astype({col:'str' for col in df_7.columns if col!='executed'})
             df_7['executed'] = df_7['executed'].map(format_float)
             df_7['econ3'] = df_7['econ5'].str[:3]
@@ -141,6 +167,10 @@ for year in years:
             df_3.drop_duplicates(inplace=True)
             df_3['executed'] = np.nan
             df_3.dropna(how='all', inplace=True)
+
+            for col, regex in col_format_map_3.items():
+                validate_col_format(regex, col, df_3)
+
             df_3['year'] = year
             df_3['src'] = '3 digit'
             df_3 = df_3[df_3.econ3.map(lambda x: len(str(x))==3)]
