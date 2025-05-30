@@ -1,9 +1,11 @@
 # Databricks notebook source
 import dlt
 import json
-from pyspark.sql.functions import col, when, lit, substring, udf
-from pyspark.sql.types import StringType
+import unicodedata
+from pyspark.sql.functions import col, lower, regexp_extract, regexp_replace, when, lit, substring, expr, floor, concat, udf, lpad
+from pyspark.sql.types import StringType, DoubleType
 from glob import glob
+from functools import reduce
 
 
 # Note DLT requires the path to not start with /dbfs

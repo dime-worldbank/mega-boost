@@ -1,5 +1,5 @@
 # Databricks notebook source
-from pyspark.sql.functions import col, lower, when, lit, substring, concat, udf, lpad
+from pyspark.sql.functions import col, lower, regexp_extract, when, lit, substring, concat, udf, lpad
 from pyspark.sql.types import StringType, DoubleType
 from glob import glob
 from functools import reduce
