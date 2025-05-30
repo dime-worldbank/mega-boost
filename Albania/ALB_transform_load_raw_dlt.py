@@ -1,8 +1,5 @@
 # Databricks notebook source
-import dlt
-import json
-import unicodedata
-from pyspark.sql.functions import col, lower, regexp_extract, regexp_replace, when, lit, substring, expr, floor, concat, udf, lpad
+from pyspark.sql.functions import col, lower, regexp_extract, when, lit, substring, concat, udf, lpad
 from pyspark.sql.types import StringType, DoubleType
 from glob import glob
 from functools import reduce
@@ -15,6 +12,7 @@ COUNTRY = 'Albania'
 COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/microdata_csv/{COUNTRY}'
 RAW_COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/raw_microdata_csv/{COUNTRY}'
 RAW_INPUT_DIR = f"{TOP_DIR}/Documents/input/Data from authorities/"
+ADMIN2_PAD_LENGTH = 3
 
 CSV_READ_OPTIONS = {
     "header": "true",
@@ -154,7 +152,7 @@ def boost_silver():
                 ((col("econ3") == 604) & (col("admin4") == 1025096) & (col("admin3") == 25)) |
                 ((col("econ3") == 604) & (col("admin4") == 1010226) & (col("admin3") == 10)), 1)
             .otherwise(lit(0))
-        ).withColumn('admin2', lpad(col('admin2').cast('int').cast("string"), 3, "0"))
+        ).withColumn('admin2', lpad(col('admin2').cast('int').cast("string"), ADMIN2_PAD_LENGTH, "0"))
     for column_name, mapping in labels.items():
         if column_name in silver_df.columns:
             silver_df = silver_df.withColumn(column_name, replacement_udf(column_name)(col(column_name)))
