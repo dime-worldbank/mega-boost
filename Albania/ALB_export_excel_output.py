@@ -356,25 +356,29 @@ spark.sql(tagging_sql)
 cols_with_labels = ['admin1', 'admin2', 'admin3', 'admin4', 'admin5', 'econ1', 'econ2', 'econ3', 'econ4', 'econ5', 'func1', 'func2', 'program']
 df = spark.read.table('prd_mega.boost_intermediate.alb_2023_onward_boost_silver').toPandas()
 
-with pd.ExcelWriter(OUTPUT_MISSING_DESC_FILE_PATH, engine='xlsxwriter') as writer:
-    for col in cols_with_labels:
-        digit_entries = df[col].astype(str)
-        digit_entries = digit_entries[digit_entries.str.isdigit()]
-        
-        if not digit_entries.empty:
-            sheet_df = pd.DataFrame({
-                'code': digit_entries.values,
-                'label': [''] * len(digit_entries)
-            }).drop_duplicates().sort_values('code')
-            sheet_df.to_excel(writer, sheet_name=col, index=False)
+with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=True) as tmp:
+    temp_path = tmp.name
 
-    is_missing_lab = df['project_lab'].isnull() | (df['project_lab'].astype(str).str.strip() == '')
-    project_codes = df.loc[is_missing_lab, 'project'].dropna().astype(str)
-    # handle project_lab seperately since the column will not have the codes. It just only descriptions
-    if not project_codes.empty:
-        project_lab_df = pd.DataFrame({
-            'code': project_codes.values,
-            'label': [''] * len(project_codes)
-        }).drop_duplicates().sort_values('code')
-        project_lab_df.to_excel(writer, sheet_name='project_lab', index=False)
-    
+    with pd.ExcelWriter(OUTPUT_MISSING_DESC_FILE_PATH, engine='xlsxwriter') as writer:
+        for col in cols_with_labels:
+            digit_entries = df[col].astype(str)
+            digit_entries = digit_entries[digit_entries.str.isdigit()]
+            
+            if not digit_entries.empty:
+                sheet_df = pd.DataFrame({
+                    'code': digit_entries.values,
+                    'label': [''] * len(digit_entries)
+                }).drop_duplicates().sort_values('code')
+                sheet_df.to_excel(writer, sheet_name=col, index=False)
+
+        is_missing_lab = df['project_lab'].isnull() | (df['project_lab'].astype(str).str.strip() == '')
+        project_codes = df.loc[is_missing_lab, 'project'].dropna().astype(str)
+        # handle project_lab seperately since the column will not have the codes. It just only descriptions
+        if not project_codes.empty:
+            project_lab_df = pd.DataFrame({
+                'code': project_codes.values,
+                'label': [''] * len(project_codes)
+            }).drop_duplicates().sort_values('code')
+            project_lab_df.to_excel(writer, sheet_name='project_lab', index=False)
+            
+    shutil.copy(temp_path, OUTPUT_MISSING_DESC_FILE_PATH)
