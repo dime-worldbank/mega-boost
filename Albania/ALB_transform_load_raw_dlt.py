@@ -1,15 +1,13 @@
 # Databricks notebook source
 import dlt
 import json
-import unicodedata
 from distutils.util import strtobool
-from pyspark.sql.functions import col, lower, regexp_extract, regexp_replace, when, lit, substring, expr, floor, concat, udf, lpad, create_map, monotonically_increasing_id
+from pyspark.sql.functions import col, lower,when, lit, substring,  concat, udf, lpad, create_map, monotonically_increasing_id
 from pyspark.sql.types import StringType, DoubleType
+from itertools import chain
 from glob import glob
 from functools import reduce
-from itertools import chain
-
-
+import json
 
 # Note DLT requires the path to not start with /dbfs
 TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
@@ -19,6 +17,7 @@ COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/microdata_csv/{COUNTRY}'
 RAW_COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/raw_microdata_csv/{COUNTRY}'
 RAW_INPUT_DIR = f"{TOP_DIR}/Documents/input/Data from authorities/"
 PUBLISH_WITH_BOOST = strtobool(spark.conf.get("PUBLISH_WITH_BOOST", "true"))
+ADMIN2_PAD_LENGTH = 3
 
 CSV_READ_OPTIONS = {
     "header": "true",
@@ -164,8 +163,9 @@ def boost_silver():
                 ((col("econ3") == 604) & (col("admin4") == 1025096) & (col("admin3") == 25)) |
                 ((col("econ3") == 604) & (col("admin4") == 1010226) & (col("admin3") == 10)), 1)
             .otherwise(lit(0))
-        ).withColumn('admin2', lpad(col('admin2').cast('int').cast("string"), 3, "0")
         ).withColumn("project_lab", project_map[col("project")])
+        ).withColumn('admin2', lpad(col('admin2').cast('int').cast("string"), ADMIN2_PAD_LENGTH, "0"))
+    
     for column_name, mapping in labels.items():
         if column_name in silver_df.columns:
             silver_df = silver_df.withColumn(column_name, replacement_udf(column_name)(col(column_name)))
