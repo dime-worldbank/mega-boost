@@ -3,7 +3,7 @@ from pyspark.sql.functions import col, lower, regexp_extract, when, lit, substri
 from pyspark.sql.types import StringType, DoubleType
 from glob import glob
 from functools import reduce
-
+import json
 
 # Note DLT requires the path to not start with /dbfs
 TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"

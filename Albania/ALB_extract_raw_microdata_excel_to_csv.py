@@ -121,10 +121,10 @@ for year in years:
 
     assert len(seven_digit_files) == 1, f"Expected exactly one '7 digit' file, found {len(seven_digit_files)}"
     assert len(three_digit_files) == 1, f"Expected exactly one '3 digit' file, found {len(three_digit_files)}"
-
+    df_7 = pd.DataFrame()
+    df_3 = pd.DataFrame()
     for f in expense_data_files:
-        df_7 = pd.DataFrame()
-        df_3 = pd.DataFrame()
+
         if '7 digit' in f:
             sheet_name = pd.ExcelFile(f).sheet_names[-1]
             df_7 = pd.read_excel(f, sheet_name = sheet_name)
