@@ -8,6 +8,7 @@ import pandas as pd
 import numpy as np
 COUNTRY = 'Albania'
 raw_microdata_csv_dir = prepare_raw_microdata_csv_dir(COUNTRY)
+ADMIN2_PAD_LENGTH = 3
 
 # helper function to map to regions:
 def map_to_region(admin2_item):
@@ -115,7 +116,15 @@ col_names_7_digit = [
 for year in years:
     expense_data_files = [file for file in glob(f'{RAW_INPUT_DIR}/{COUNTRY}/{year}/*.xlsx') if (('ex' in file.lower()) & ('rev' not in file.lower()))]
 
+    seven_digit_files = [f for f in expense_data_files if '7 digit' in f.lower()]
+    three_digit_files = [f for f in expense_data_files if '3 digit' in f.lower()]
+
+    assert len(seven_digit_files) == 1, f"Expected exactly one '7 digit' file, found {len(seven_digit_files)}"
+    assert len(three_digit_files) == 1, f"Expected exactly one '3 digit' file, found {len(three_digit_files)}"
+
     for f in expense_data_files:
+        df_7 = pd.DataFrame()
+        df_3 = pd.DataFrame()
         if '7 digit' in f:
             sheet_name = pd.ExcelFile(f).sheet_names[-1]
             df_7 = pd.read_excel(f, sheet_name = sheet_name)
@@ -149,7 +158,7 @@ for year in years:
             df_3 = df_3[df_3.econ3.map(lambda x: len(str(x))==3)]
 
     df = pd.concat([df_7, df_3], ignore_index=True)
-    df['counties'] = df.admin2.map(lambda x: map_to_region(pad_left(str(x).split('.')[0], length=3)))
+    df['counties'] = df.admin2.map(lambda x: map_to_region(pad_left(str(x).split('.')[0], length=ADMIN2_PAD_LENGTH)))
     outfile = f'{raw_microdata_csv_dir}/{year}.csv'
     df.to_csv(outfile, index=False)
 
