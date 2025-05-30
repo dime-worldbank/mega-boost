@@ -5,9 +5,10 @@
 
 import re
 import pandas as pd
-
+import numpy as np
 COUNTRY = 'Albania'
 raw_microdata_csv_dir = prepare_raw_microdata_csv_dir(COUNTRY)
+ADMIN2_PAD_LENGTH = 3
 
 # helper function to map to regions:
 def map_to_region(admin2_item):
@@ -76,76 +77,115 @@ def pad_left(code, length = 3):
     while len(code)<length:
         code = '0'+code
     return code
+        
+def format_float(x):
+    if pd.isna(x):
+        return x
+    x = str(x).strip()
+    try:
+        return float(x)
+    except ValueError:
+        pass
+    euro_thousands_pattern = r'^\d{1,3}(\.\d{3})+,\d{2}$'
+    if re.match(euro_thousands_pattern, x):
+        try:
+            x = x.replace('.', '').replace(',', '.')
+            return float(x)
+        except ValueError:
+            return pd.NA
+    comma_decimal_pattern = r'^\d+,\d{1,2}$'
+    if re.match(comma_decimal_pattern, x):
+        try:
+            x = x.replace(',', '.')
+            return float(x)
+        except ValueError:
+            return pd.NA
+    return pd.NA
 
 # COMMAND ----------
 
-col_names = {
-    'Gov Entity':'admin2',
-    'Gov. Entity':'admin2',
-    'Gov.Entity':'admin2',
-    'Gov':'admin2',
-    'ge':'admin2',
-    'Line Ministri':'admin3',
-    'Line Ministry':'admin3',
-    'Ministry':'admin3',
-    'lm':'admin3',
-    'Inst.':'admin4',
-    'Institution':'admin4',
-    'institution': 'admin4',
-    'Chapter':'fin_source',
-    'ch':'fin_source',
-    'program':'func3',
-    'Program':'func3',
-    'Progr':'func3',
-    'Account':'econ5',
-    'Economic Account':'econ5',
-    'eccaccount':'econ5',
-    'TDO':'admin5',
-    'tdo':'admin5',
-    'FYTD Actual':'executed',
-    'actual':'executed',
-    'Actual':'executed',
-    'Operational Budget':'revised',
-    'operationalbudget':'revised',
-    'Initial Budget':'approved',
-    'initialbudget':'approved',
-    'Project':'project',
-    'Account Description': 'Account_Description',
-    'Institution Description':'Institution_Description'
-
-}
-sheet_map = {
-    ('3 digit', 2023): ('Vendori', 0),
-    ('3 digit', 2024): ('Sheet2', 1),
-}
-
-required_col_names = [
-    'admin2', 'admin3', 'admin4', 'admin5', 'fin_source', 'func3', 'econ5', 'project', 'executed', 'revised', 'approved'
-    ]
-
 years = [2023, 2024]
+
+# COMMAND ----------
+
+col_names_3_digit = [
+    'admin2', 'admin3', 'admin4', 'fin_source', 'func3', 'econ3', 'admin5', 'project', 'executed', 'revised', 'approved']
+col_names_7_digit = [
+    'admin2', 'admin3', 'admin4', 'fin_source', 'func3', 'econ5', 'admin5', 'project', 'executed']
+
 for year in years:
-    expense_data_files = glob(f'{RAW_INPUT_DIR}/{COUNTRY}/{year}/*.xlsx')
+    expense_data_files = [file for file in glob(f'{RAW_INPUT_DIR}/{COUNTRY}/{year}/*.xlsx') if (('ex' in file.lower()) & ('rev' not in file.lower()))]
+
+    seven_digit_files = [f for f in expense_data_files if '7 digit' in f.lower()]
+    three_digit_files = [f for f in expense_data_files if '3 digit' in f.lower()]
+
+    assert len(seven_digit_files) == 1, f"Expected exactly one '7 digit' file, found {len(seven_digit_files)}"
+    assert len(three_digit_files) == 1, f"Expected exactly one '3 digit' file, found {len(three_digit_files)}"
+    df_7 = pd.DataFrame()
+    df_3 = pd.DataFrame()
     for f in expense_data_files:
+
         if '7 digit' in f:
-            df_7 = pd.read_excel(f, header=1).rename(
-                columns=lambda c: col_names.get(c.strip(), c))
+            sheet_name = pd.ExcelFile(f).sheet_names[-1]
+            df_7 = pd.read_excel(f, sheet_name = sheet_name)
+            header_idx = df_7.apply(lambda x: x.notna().sum(), axis=1).gt(5).idxmax()
+            df_7.columns = df_7.iloc[header_idx]
+            df_7 = df_7[header_idx+1:]
+            df_7 = df_7[[col for col in df_7.columns if 'description' not in col.lower()]]
+            assert df_7.shape[1] == 9
+            df_7.columns = col_names_7_digit
+            df_7 = df_7[df_7.admin2.notna()]
             df_7 = df_7.dropna(how='all')
-            df_7['econ3'] = df_7['econ5'].astype(str).str[:3].astype(float)
+            df_7 = df_7.astype({col:'str' for col in df_7.columns if col!='executed'})
+            df_7['executed'] = df_7['executed'].map(format_float)
+            df_7['econ3'] = df_7['econ5'].str[:3]
             df_7['year'] = year
             df_7['src'] = '7 digit'
+
         if '3 digit' in f:
-            sheet_name, header_row = sheet_map.get(('3 digit', year))
-            df_3 = pd.read_excel(f, sheet_name=sheet_name, header=header_row).rename(
-                columns=lambda c: col_names.get(c.strip(), c))
-            df_3 = df_3.dropna(how='all')
-            df_3['econ3'] = df_3['econ5'] # because 'Economic Account' is mapped to econ5 by the dict above
+            sheet_names = pd.ExcelFile(f).sheet_names[-2:]
+            df_3 = pd.concat([
+                d[d[d.columns[0]].astype(str).str.isdigit()].set_axis(col_names_3_digit, axis=1)
+                for d in pd.read_excel(f, sheet_name=sheet_names, dtype=str).values()
+                ], axis=0, ignore_index=True)
+            float_cols = ['executed', 'revised', 'approved']
+            df_3[float_cols] = df_3[float_cols].applymap(format_float)
+            df_3.drop_duplicates(inplace=True)
+            df_3['executed'] = np.nan
+            df_3.dropna(how='all', inplace=True)
             df_3['year'] = year
             df_3['src'] = '3 digit'
+            df_3 = df_3[df_3.econ3.map(lambda x: len(str(x))==3)]
+
     df = pd.concat([df_7, df_3], ignore_index=True)
-    missing_cols = [col for col in required_col_names if col not in df.columns]
-    assert not missing_cols, f"Missing required columns: {missing_cols}"
-    df['counties'] = df.admin2.map(lambda x: map_to_region(pad_left(str(x).split('.')[0], length=3)))
+    df['counties'] = df.admin2.map(lambda x: map_to_region(pad_left(str(x).split('.')[0], length=ADMIN2_PAD_LENGTH)))
     outfile = f'{raw_microdata_csv_dir}/{year}.csv'
-    
+    df.to_csv(outfile, index=False)
+
+# COMMAND ----------
+
+# Revenue data extraction into CSV
+
+rev_col_names_7_digit = ['admin2', 'admin3', 'admin4', 'econ5', 'admin5', 'executed']
+for year in years:
+    revenue_data_files = [file for file in glob(f'{RAW_INPUT_DIR}/{COUNTRY}/{year}/*.xlsx') if any(y in file.lower() for y in ['rev', '46655'])]
+    for f in revenue_data_files:
+        if 'rev' in f.lower():
+            df_7_rev = pd.read_excel(f, dtype=str)
+            assert df_7_rev.shape[1] == 6
+            df_7_rev.columns = rev_col_names_7_digit
+            df_7_rev = df_7_rev[df_7_rev.admin2.map(lambda x: str(x).isdigit())]
+            df_7_rev['executed'] = df_7_rev.executed.astype('float')
+            df_7_rev['src'] = '7 digit rev'
+        elif '46655' in f:
+            df_46655 = pd.read_excel(f, dtype=str)
+            assert df_46655.shape[1] == 6
+            df_46655.columns = rev_col_names_7_digit
+            df_46655 = df_46655[df_46655.admin2.map(lambda x: str(x).isdigit())]
+            df_46655['executed'] = df_46655.executed.astype('float')
+            df_46655['src'] = '46655'
+
+    df = pd.concat([df_7_rev, df_46655], ignore_index=True)
+    df['year'] = year
+    outfile = f'{raw_microdata_csv_dir}/{year}_rev.csv'
     df.to_csv(outfile, index=False)

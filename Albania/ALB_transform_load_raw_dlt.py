@@ -1,12 +1,9 @@
 # Databricks notebook source
-import dlt
-import json
-import unicodedata
-from pyspark.sql.functions import col, lower, regexp_extract, regexp_replace, when, lit, substring, expr, floor, concat, udf, lpad
+from pyspark.sql.functions import col, lower, regexp_extract, when, lit, substring, concat, udf, lpad
 from pyspark.sql.types import StringType, DoubleType
 from glob import glob
 from functools import reduce
-
+import json
 
 # Note DLT requires the path to not start with /dbfs
 TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
@@ -15,6 +12,7 @@ COUNTRY = 'Albania'
 COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/microdata_csv/{COUNTRY}'
 RAW_COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/raw_microdata_csv/{COUNTRY}'
 RAW_INPUT_DIR = f"{TOP_DIR}/Documents/input/Data from authorities/"
+ADMIN2_PAD_LENGTH = 3
 
 CSV_READ_OPTIONS = {
     "header": "true",
@@ -70,6 +68,9 @@ def boost_bronze():
 @dlt.table(name=f'alb_2023_onward_boost_silver')
 def boost_silver():
     silver_df  = (dlt.read(f'alb_2023_onward_boost_bronze')
+        ).withColumn("executed",
+            when(col('src')=='3 digit', lit(None))
+            .otherwise(col('executed'))
         ).filter(~lower(col("project").substr(1, 5)).contains("total")
         ).withColumn("admin1", substring(col("admin4").cast("string"), 1, 1)
         ).withColumn("admin3", 
@@ -85,6 +86,7 @@ def boost_silver():
             .otherwise(substring(col("econ3").cast("string"), 1, 2).cast("int"))
         ).withColumn("econ4",
             when(col("econ5").isNotNull(), substring(col("econ5").cast("string"), 1, 4).cast("int"))
+            .otherwise(lit(None))
         ).filter((col("econ3").isNull()) | ((col("econ3") != 255) & (col("econ3") >= 230))
         ).filter(~col("econ1").isin([16, 17])
         ).withColumn("econ1",
@@ -150,7 +152,7 @@ def boost_silver():
                 ((col("econ3") == 604) & (col("admin4") == 1025096) & (col("admin3") == 25)) |
                 ((col("econ3") == 604) & (col("admin4") == 1010226) & (col("admin3") == 10)), 1)
             .otherwise(lit(0))
-        )
+        ).withColumn('admin2', lpad(col('admin2').cast('int').cast("string"), ADMIN2_PAD_LENGTH, "0"))
     for column_name, mapping in labels.items():
         if column_name in silver_df.columns:
             silver_df = silver_df.withColumn(column_name, replacement_udf(column_name)(col(column_name)))
@@ -164,8 +166,8 @@ def boost_silver():
             when(col('counties')=='Central', 'Central Scope')
             .otherwise(col('counties'))
         ).withColumn('admin2_tmp',
-            when(col('counties')=='Central', col('admin3'))
-            .otherwise(col('counties'))
+            when(col('admin2').startswith('00'), 'Central')
+            .otherwise(col('admin2'))
         ).withColumn('geo1', col('admin1_tmp')
         ).withColumn('func_sub',
             # spending in Judiciary
@@ -246,7 +248,7 @@ def boost_silver():
             .when(col('econ2').startswith('65') | col('econ2').startswith('66'), 'Interest on debt')
             # other expenses
             .otherwise('Other expenses')
-        )
+        ).withColumn('admin2_new', col('admin2'))
     return silver_df
 
 
@@ -262,7 +264,7 @@ def boost_silver():
                         when(col('counties')=='Central', 'Central Scope')
                         .otherwise(col('counties'))
             ).withColumn('admin2_tmp',
-                        when(col('counties')=='Central', col('admin3'))
+                        when(col('counties')=='Central', col('admin2'))
                         .otherwise(col('counties'))
             ).withColumn('geo1', col('admin1_tmp')
             ).withColumn('func_sub',
