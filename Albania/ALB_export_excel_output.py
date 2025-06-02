@@ -36,8 +36,8 @@ CCI_FILE_PATH = f"{TOP_DIR}/Workspace/cci_csv/ALB/Executed.csv"
 
 OUTPUT_FILE_PATH = f"{OUTPUT_DIR}/Albania BOOST.xlsx"
 SOURCE_FILE_PATH = f"{INPUT_DIR}/Albania BOOST.xlsx"
-TARGET_TABLE = 'prd_mega.boost_intermediate.alb_publish'
-TARGET_TABLE_REVENUE = 'prd_mega.boost.alb_boost_rev_gold'
+TARGET_TABLE = 'prd_mega.boost.alb_publish'
+TARGET_TABLE_REVENUE = 'prd_mega.boost_intermediate.alb_boost_rev_gold'
 OUTPUT_MISSING_DESC_FILE_PATH = f"{OUTPUT_DIR}/Albania_missing_code_descriptions.xlsx"
 
 
