@@ -3,6 +3,10 @@
 
 # COMMAND ----------
 
+# MAGIC %run ../quality/load_code_label_mapping
+
+# COMMAND ----------
+
 # MAGIC %pip install xlsxwriter
 
 # COMMAND ----------
@@ -21,21 +25,24 @@ logger = logging.getLogger()  # Get the root logger
 logging.getLogger("py4j").setLevel(logging.WARNING)
 logger.setLevel(logging.INFO)
 
+PUBLISH_WITH_BOOST = True
 APPLY_BLUE_FONT_IF_MISSING = False
 
 OUTPUT_DIR = f"{TOP_DIR}/Workspace/output_excel"
 AUXI_DIR = f"{TOP_DIR}/Documents/input/Auxiliary"
 INPUT_AUXI_DIR = f"{TOP_DIR}/Documents/input/Auxiliary"
 
-OUTPUT_FILE_PATH = f"{OUTPUT_DIR}/Albania_BOOST.xlsx"
-SOURCE_FILE_PATH = f"{INPUT_DIR}/Albania BOOST.xlsx"
-TARGET_TABLE = 'prd_mega.boost.alb_publish'
+CCI_FILE_PATH = f"{TOP_DIR}/Workspace/cci_csv/ALB/Executed.csv"
 
+OUTPUT_FILE_PATH = f"{OUTPUT_DIR}/Albania BOOST.xlsx"
+SOURCE_FILE_PATH = f"{INPUT_DIR}/Albania BOOST.xlsx"
+TARGET_TABLE = 'prd_mega.boost_intermediate.alb_publish'
+TARGET_TABLE_REVENUE = 'prd_mega.boost.alb_boost_rev_gold'
 OUTPUT_MISSING_DESC_FILE_PATH = f"{OUTPUT_DIR}/Albania_missing_code_descriptions.xlsx"
 
 
-# COMMAND ----------
 
+# COMMAND ----------
 
 # Load and filter
 raw_data = (
@@ -44,29 +51,13 @@ raw_data = (
     .cache()
 )
 
-required_columns = [
-    "boost_admin0",
-    "boost_admin1",
-    "boost_admin2",
-    "boost_econ",
-    "boost_econ_sub",
-    "boost_func",
-    "boost_func_sub",
-    "boost_is_foreign",
-    "boost_approved",
-    "boost_executed",
-    "boost_year",
-]
+pd.DataFrame.from_dict(CODE_LABEL_MAPPING)
+tag_code_mapping = pd.DataFrame.from_dict(CODE_LABEL_MAPPING, orient="index").reset_index().rename(columns={'index': 'code'}).fillna("")
 
-for col_name in required_columns:
-    if col_name not in raw_data.columns:
-        raise KeyError(f"Required column '{col_name}' is missing in the DataFrame.")
-
-tag_code_mapping = pd.read_csv(f"{AUXI_DIR}/tag_label_mapping.csv") 
 years = [str(year) for year in sorted(raw_data.select("year").distinct().rdd.flatMap(lambda x: x).collect())]
 
 def create_pivot(df, parent, child, agg_col ):
-    filtered_mapping = tag_code_mapping[tag_code_mapping['subnational'].isna()]
+    filtered_mapping = tag_code_mapping[~tag_code_mapping['subnational']]
 
     # Step 1: Get detailed level e.g. (econ + econ_sub + year)
     detailed = (
@@ -99,10 +90,10 @@ def create_pivot(df, parent, child, agg_col ):
     filtered_mapping_spark = spark.createDataFrame(filtered_mapping)
     result = (
         pivoted.join(filtered_mapping_spark, on=["parent", "child"])
-        .drop("Categories", "parent", "child", "parent_type", "child_type", "subnational")
+        .drop("category", "parent", "child", "parent_type", "child_type", "subnational")
     )
 
-    total_matches = result.select("Code").distinct().rdd.flatMap(lambda x: x).collect()
+    total_matches = result.select("code").distinct().rdd.flatMap(lambda x: x).collect()
     logging.info(f"Matched {agg_col} entries for {parent}, {child} : {len(total_matches)} ")
 
     return result
@@ -115,7 +106,7 @@ def create_pivot_total(df, agg_col):
     total = (
         df.groupBy("boost_year")
         .agg(F.sum(agg_col).alias(agg_col))
-        .withColumn("Code", F.lit("EXP_ECON_TOT_EXP_EXE"))
+        .withColumn("code", F.lit("EXP_ECON_TOT_EXP_EXE"))
     )
 
     # Step 2: Calculate foreign expenditure by year
@@ -123,7 +114,7 @@ def create_pivot_total(df, agg_col):
         df.filter(F.col("boost_is_foreign") == True)
         .groupBy("boost_year")
         .agg(F.sum(agg_col).alias(agg_col))
-        .withColumn("Code", F.lit("EXP_ECON_TOT_EXP_FOR_EXE"))
+        .withColumn("code", F.lit("EXP_ECON_TOT_EXP_FOR_EXE"))
     )
 
     # Step 3: Combine total and foreign expenditure
@@ -131,7 +122,7 @@ def create_pivot_total(df, agg_col):
 
     # Step 4: Pivot to wide format
     pivoted = (
-        combined.groupBy("Code")
+        combined.groupBy("code")
         .pivot("boost_year")
         .agg(F.first(agg_col))
         .fillna(0)  
@@ -168,20 +159,20 @@ approved = generate_combined_pivots(pairs, "boost_approved")
 
 # Helper functions to update the EXCEL sheets
 #todo: move to utils for reusability when we have more than one country
-EXCEL_COL_LIST =  [
-    "Code", "Categories", "2006", "2007", "2008", "2009", "2010", "2011", "2012", "2013", "2014", 
-    "2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026", 
-    "2027", "2028", "2029", "2030", "AVG", "Country", "Country", "Fomrulas", "Coverage", 
-    "Fiscal year", "Region", "Income", "Basis", "Source", "Rigidity", "empty"
+
+# download the executed sheet from cci_csv to obtain the column list. 
+template = pd.read_csv(CCI_FILE_PATH, dtype="str")
+EXECUTED_TEMP_COL_LIST = [
+    str(col).rstrip('.0').rstrip('.00') if str(col).replace('.', '', 1).isdigit() else str(col)
+    for col in template.columns
 ]
 
-def spark_to_pandas_with_reorder(ws, raw_data):
+def spark_to_pandas_with_reorder(ws, raw_data, include_boost_col=True):
     # make sure that the data expendture column specific order so that the formula will work
     raw_data = raw_data.toPandas()
-    ws = source_wb['Data_Expenditures']
     column_names = [cell.value for cell in ws[1] if cell.value is not None]  # Row 1 is typically the header
 
-    remaining = [col for col in raw_data.columns if col not in column_names]
+    remaining = [col for col in raw_data.columns if col not in column_names] if include_boost_col else []
     new_order = column_names + remaining
     for col in column_names:
         if col not in raw_data.columns:
@@ -221,7 +212,7 @@ def copy_font(cell, blue_text_format=False):
         'valign': 'vcenter',
         'num_format': num_format,
         'font_color':font_color,
-        "bg_color": bg_color
+        "bg_color": bg_color,
     }
 
 def set_width(target_ws,max_col_index):
@@ -237,9 +228,8 @@ def set_width(target_ws,max_col_index):
 def get_col_name(col_inedex):
     # Some year columns in the original file use formulas (e.g., =U1+1),
     # which makes evaluating the actual column names dynamically too costly.
-    # As a workaround, we hardcoded the column names from the original file
-    # and iterate through that list instead of computing them.
-    col_name = EXCEL_COL_LIST[col_inedex]
+    # As a workaround, we get the list of col names from the cci_csv file.
+    col_name = EXECUTED_TEMP_COL_LIST[col_inedex]
     return col_name
 
 
@@ -258,7 +248,8 @@ def update_excel_with_new_values(target_ws, source_ws, df):
 
             default_cell_format = target_wb.add_format(copy_font(source_cell))
 
-            if str(col_name) not in years or code not in df.Code.values:
+            if str(col_name) not in years or code not in df.code.values:
+                # TODO write formula for the new years which do not exist in the original file (e.g. Consider openpyxl.formula.translate)
                 if source_cell.data_type == 'f':
                     cell_format = target_wb.add_format(copy_font(source_cell, blue_text_format=APPLY_BLUE_FONT_IF_MISSING))
                     formula = getattr(source_cell.value, "text", source_cell.value)
@@ -266,13 +257,14 @@ def update_excel_with_new_values(target_ws, source_ws, df):
                 else:
                     target_ws.write(row_index, col_inedx, source_cell.value,default_cell_format)
             else:                
-                boost_value = df[str(col_name)][df['Code'] == code].values[0]
+                boost_value = df[str(col_name)][df['code'] == code].values[0]
                 target_ws.write(row_index, col_inedx, boost_value,default_cell_format)
         set_width(target_ws, max_col)
 
 # COMMAND ----------
 
 # Load an existing workbook
+
 source_wb = load_workbook(SOURCE_FILE_PATH,  data_only=False, read_only=True,)  # Important: data_only=False to get formulas
 required_sheets = ["Executed", "Approved"]
 for sheet in required_sheets:
@@ -287,10 +279,11 @@ with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=True) as tmp:
     # openpyxl was too resource-intensive for writing Excel files with formatting and styles for our use case.
     # Given our cluster limitations, xlsxwriter was the only viable solution for efficient output.
     with pd.ExcelWriter(temp_path, engine='xlsxwriter') as writer:
-        raw_data = spark_to_pandas_with_reorder(source_wb["Executed"], raw_data)
+        raw_data = spark_to_pandas_with_reorder(source_wb["Data_Expenditures"], raw_data, PUBLISH_WITH_BOOST)
         raw_data.to_excel(writer, sheet_name='Data_Expenditures', index=False)
 
-        revenue = pd.DataFrame() # revenue data sheet is currently empty but needed for the formula reference
+        revenue = spark.table(TARGET_TABLE_REVENUE)
+        revenue = spark_to_pandas_with_reorder(source_wb["Data_Revenues"], revenue, PUBLISH_WITH_BOOST)
         revenue.to_excel(writer, sheet_name='Data_Revenues', index=False)
 
         # Access the xlsxwriter workbook and sheet objects
@@ -324,7 +317,6 @@ coverage_country = "Albania"
 tagging_sql = f"""
 ALTER TABLE {TARGET_TABLE} SET TAGS (
     'name' = 'Albania BOOST {coverage_start}-{coverage_end}',
-    'comment' = 'The Ministry of Finance of Albania together with the World Bank developed and published a BOOST platform obtained from the National Treasury System in order to facilitate access to the detailed public finance data for comprehensive budget analysis. In this context, the Albania BOOST Public Finance Portal aims to strengthen the disclosure and demand for availability of public finance information at all level of government in the country from 2010 onward.Note that 2020 execution only covers 6 months.',
     'subject' = 'Finance',
     'classification' = 'Official Use Only',
     'category' = 'Public Sector',

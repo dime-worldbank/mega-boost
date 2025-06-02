@@ -1,7 +1,6 @@
 # Databricks notebook source
 import dlt
 import json
-from distutils.util import strtobool
 from pyspark.sql.functions import col, lower,when, lit, substring,  concat, udf, lpad, create_map, monotonically_increasing_id
 from pyspark.sql.types import StringType, DoubleType
 from itertools import chain
@@ -16,7 +15,6 @@ COUNTRY = 'Albania'
 COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/microdata_csv/{COUNTRY}'
 RAW_COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/raw_microdata_csv/{COUNTRY}'
 RAW_INPUT_DIR = f"{TOP_DIR}/Documents/input/Data from authorities/"
-PUBLISH_WITH_BOOST = strtobool(spark.conf.get("PUBLISH_WITH_BOOST", "true"))
 ADMIN2_PAD_LENGTH = 3
 
 CSV_READ_OPTIONS = {
@@ -56,9 +54,11 @@ def boost_2023_onward_bronze():
         dfs.append(df)
 
     bronze_df = reduce(lambda df1, df2: df1.unionByName(df2, allowMissingColumns=True), dfs)
-
+    #todo Move all the transformation logic down to silver
     bronze_df = bronze_df.withColumn('year', col('year').cast('int')).withColumn(
-         "id", concat(lit("alb_1_"), monotonically_increasing_id()))
+         "id", concat(lit("alb_1_"), monotonically_increasing_id())).withColumn(
+             "approved", when(((col("econ3") == "606") & (col("func3").startswith("102"))), col("executed")).otherwise(col("approved"))
+         )
     bronze_df = bronze_df.dropna(how='all')
     return bronze_df
 
@@ -163,7 +163,7 @@ def boost_silver():
                 ((col("econ3") == 604) & (col("admin4") == 1025096) & (col("admin3") == 25)) |
                 ((col("econ3") == 604) & (col("admin4") == 1010226) & (col("admin3") == 10)), 1)
             .otherwise(lit(0))
-        ).withColumn("project_lab", project_map[col("project")])
+        ).withColumn("project_lab", project_map[col("project")]
         ).withColumn('admin2', lpad(col('admin2').cast('int').cast("string"), ADMIN2_PAD_LENGTH, "0"))
     
     for column_name, mapping in labels.items():
@@ -414,7 +414,8 @@ def alb_boost_gold():
     return df_before_2023.unionByName(df_from_2023).drop("id")
 
 
-@dlt.table(name='boost.alb_publish')
+@dlt.table(name='boost.alb_publish',
+           comment='The Ministry of Finance of Albania together with the World Bank developed and published a BOOST platform obtained from the National Treasury System in order to facilitate access to the detailed public finance data for comprehensive budget analysis. In this context, the Albania BOOST Public Finance Portal aims to strengthen the disclosure and demand for availability of public finance information at all level of government in the country from 2010 onward.Note that 2020 execution only covers 6 months.')
 def alb_publish():
     alb_bronze_before_2023 = dlt.read('alb_2022_and_before_boost_bronze')
     alb_bronze_from_2023 = dlt.read('alb_2023_onward_boost_silver')
@@ -422,9 +423,6 @@ def alb_publish():
     alb_bronze_from_2023 = alb_bronze_from_2023.select(col_list)
     alb_bronze_before_2023 = alb_bronze_before_2023.select(col_list)
     alb_bronze_union = alb_bronze_before_2023.unionByName(alb_bronze_from_2023)
-
-    if not PUBLISH_WITH_BOOST:
-        return alb_bronze_union 
     
     alb_gold_from_2023 = dlt.read(f'alb_2023_onward_boost_gold')
     alb_gold_before_2023 = dlt.read('alb_2022_and_before_boost_gold')
