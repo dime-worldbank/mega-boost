@@ -2,7 +2,7 @@
 import dlt
 import unicodedata
 from pyspark.sql.functions import col, lower, initcap, trim, regexp_extract, regexp_replace, when, lit, substring, expr
-from pyspark.sql.types import StringType
+from pyspark.sql.types import StringType, DoubleType
 
 
 TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
@@ -464,7 +464,7 @@ def boost_2008_to_2014_silver():
                     'Pensions']),
                 'Social benefits')
             .otherwise('Other expenses') 
-        )
+        ).withColumn('BUDGET', lit(None).cast(DoubleType()))
     )
 
 # COMMAND ----------
