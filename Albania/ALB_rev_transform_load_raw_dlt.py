@@ -174,6 +174,7 @@ def alb_2022_and_before_boost_rev_gold():
                 'econ3',
                 'econ4',
                 'econ5',
+                'transfer',
                 'econ_rev_sub',
                 'econ_rev',
                 'executed'))
@@ -195,6 +196,7 @@ def alb_2023_onward_boost_rev_gold():
                 'econ3',
                 'econ4',
                 'econ5',
+                'transfer',
                 'econ_rev_sub',
                 'econ_rev',
                 'executed'))

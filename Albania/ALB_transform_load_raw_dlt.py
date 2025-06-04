@@ -1,6 +1,9 @@
 # Databricks notebook source
-from pyspark.sql.functions import col, lower, regexp_extract, when, lit, substring, concat, udf, lpad
+import dlt
+import json
+from pyspark.sql.functions import col, lower,when, lit, substring,  concat, udf, lpad, create_map, monotonically_increasing_id
 from pyspark.sql.types import StringType, DoubleType
+from itertools import chain
 from glob import glob
 from functools import reduce
 import json
@@ -21,8 +24,12 @@ CSV_READ_OPTIONS = {
     "escape": '"',
 }
 
-with open(f"{RAW_INPUT_DIR}/{COUNTRY}/2023/labels_en_v01_overall.json", 'r') as json_file:
+with open(f"{RAW_INPUT_DIR}/{COUNTRY}/labels_en_v01_overall.json", 'r') as json_file:
     labels = json.load(json_file)
+
+with open(f"{RAW_INPUT_DIR}/{COUNTRY}/project_labels.json", 'r') as json_file:
+    project_description_map = json.load(json_file)['project']
+project_map = create_map([lit(x) for x in chain(*project_description_map.items())])
 
 def replacement_udf(column_name):
     def replace_value(value):
@@ -47,8 +54,11 @@ def boost_2023_onward_bronze():
         dfs.append(df)
 
     bronze_df = reduce(lambda df1, df2: df1.unionByName(df2, allowMissingColumns=True), dfs)
-
-    bronze_df = bronze_df.withColumn('year', col('year').cast('int'))
+    #todo Move all the transformation logic down to silver
+    bronze_df = bronze_df.withColumn('year', col('year').cast('int')).withColumn(
+         "id", concat(lit("alb_1_"), monotonically_increasing_id())).withColumn(
+             "approved", when(((col("econ3") == "606") & (col("func3").startswith("102"))), col("executed")).otherwise(col("approved"))
+         )
     bronze_df = bronze_df.dropna(how='all')
     return bronze_df
 
@@ -56,13 +66,14 @@ def boost_2023_onward_bronze():
 @dlt.expect_or_drop("year_not_null", "YEAR IS NOT NULL")
 @dlt.table(name=f'alb_2022_and_before_boost_bronze')
 def boost_bronze():
-    return (spark.read
-            .format("csv")
-            .options(**CSV_READ_OPTIONS)
-            .option("inferSchema", "true")
-            .load(f'{COUNTRY_MICRODATA_DIR}/Data_Expenditures.csv')
-            .filter(col("year") < 2023)
-    )
+    return (
+         spark.read.format("csv")
+         .options(**CSV_READ_OPTIONS)
+         .option("inferSchema", "true")
+         .load(f"{COUNTRY_MICRODATA_DIR}/Data_Expenditures.csv").withColumn(
+             "id",concat(lit("alb_2_"),  monotonically_increasing_id())).filter(col("year") < 2023)
+
+     )
 
 
 @dlt.table(name=f'alb_2023_onward_boost_silver')
@@ -152,13 +163,14 @@ def boost_silver():
                 ((col("econ3") == 604) & (col("admin4") == 1025096) & (col("admin3") == 25)) |
                 ((col("econ3") == 604) & (col("admin4") == 1010226) & (col("admin3") == 10)), 1)
             .otherwise(lit(0))
+        ).withColumn("project_lab", project_map[col("project")]
         ).withColumn('admin2', lpad(col('admin2').cast('int').cast("string"), ADMIN2_PAD_LENGTH, "0"))
+    
     for column_name, mapping in labels.items():
         if column_name in silver_df.columns:
             silver_df = silver_df.withColumn(column_name, replacement_udf(column_name)(col(column_name)))
 
-    silver_df = silver_df.filter(col('transfer')=='Excluding transfers'
-        ).withColumn('is_foreign', col('fin_source').startswith('2')
+    silver_df = silver_df.withColumn('is_foreign', col('fin_source').startswith('2')
         ).withColumn('admin0', 
             when(col('counties')=='Central', 'Central')
             .otherwise('Regional')    
@@ -248,7 +260,8 @@ def boost_silver():
             .when(col('econ2').startswith('65') | col('econ2').startswith('66'), 'Interest on debt')
             # other expenses
             .otherwise('Other expenses')
-        ).withColumn('admin2_new', col('admin2'))
+        ).withColumn('admin2_new', col('admin2')
+        )
     return silver_df
 
 
@@ -366,13 +379,15 @@ def alb_2022_and_before_boost_gold():
                 'func_sub',
                 'func',
                 'econ_sub',
-                'econ')
+                'econ',
+                'id')
     )
 
 
 @dlt.table(name=f'alb_2023_onward_boost_gold')
 def alb_2023_onward_boost_gold():
     return (dlt.read(f'alb_2023_onward_boost_silver')
+        .filter(col('transfer')=='Excluding transfers')
         .withColumn('country_name', lit(COUNTRY))
         .select('country_name',
                 'year',
@@ -387,7 +402,8 @@ def alb_2023_onward_boost_gold():
                 'func_sub',
                 'func',
                 'econ_sub',
-                'econ')
+                'econ',
+                'id')
     )
 
 @dlt.table(name="alb_boost_gold")
@@ -395,6 +411,26 @@ def alb_boost_gold():
     df_before_2023 = dlt.read("alb_2022_and_before_boost_gold")
     df_from_2023 = dlt.read("alb_2023_onward_boost_gold")
 
-    return df_before_2023.unionByName(df_from_2023)
+    return df_before_2023.unionByName(df_from_2023).drop("id")
 
-           
+
+@dlt.table(name='boost.alb_publish',
+           comment='The Ministry of Finance of Albania together with the World Bank developed and published a BOOST platform obtained from the National Treasury System in order to facilitate access to the detailed public finance data for comprehensive budget analysis. In this context, the Albania BOOST Public Finance Portal aims to strengthen the disclosure and demand for availability of public finance information at all level of government in the country from 2010 onward.Note that 2020 execution only covers 6 months.')
+def alb_publish():
+    alb_bronze_before_2023 = dlt.read('alb_2022_and_before_boost_bronze')
+    alb_bronze_from_2023 = dlt.read('alb_2023_onward_boost_silver')
+    col_list = [col for col in alb_bronze_before_2023.columns if col in alb_bronze_from_2023.columns]
+    alb_bronze_from_2023 = alb_bronze_from_2023.select(col_list)
+    alb_bronze_before_2023 = alb_bronze_before_2023.select(col_list)
+    alb_bronze_union = alb_bronze_before_2023.unionByName(alb_bronze_from_2023)
+    
+    alb_gold_from_2023 = dlt.read(f'alb_2023_onward_boost_gold')
+    alb_gold_before_2023 = dlt.read('alb_2022_and_before_boost_gold')
+    alb_gold_union = alb_gold_before_2023.unionByName(alb_gold_from_2023)
+
+    prefix = "boost_"
+    for column in alb_gold_union.columns:
+        alb_gold_union = alb_gold_union.withColumnRenamed(column, prefix + column)
+
+    return alb_bronze_union.join(alb_gold_union, on=[alb_gold_union['boost_id'] == alb_bronze_union['id']], how='left').drop("id", "boost_id")
+
