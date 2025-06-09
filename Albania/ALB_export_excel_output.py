@@ -3,10 +3,6 @@
 
 # COMMAND ----------
 
-# MAGIC %run ../quality/load_code_label_mapping
-
-# COMMAND ----------
-
 # MAGIC %pip install xlsxwriter
 
 # COMMAND ----------
@@ -29,7 +25,6 @@ PUBLISH_WITH_BOOST = True
 APPLY_BLUE_FONT_IF_MISSING = False
 
 OUTPUT_DIR = f"{TOP_DIR}/Workspace/output_excel"
-AUXI_DIR = f"{TOP_DIR}/Documents/input/Auxiliary"
 INPUT_AUXI_DIR = f"{TOP_DIR}/Documents/input/Auxiliary"
 
 CCI_FILE_PATH = f"{TOP_DIR}/Workspace/cci_csv/ALB/Executed.csv"
@@ -51,9 +46,7 @@ raw_data = (
     .cache()
 )
 
-pd.DataFrame.from_dict(CODE_LABEL_MAPPING)
-tag_code_mapping = pd.DataFrame.from_dict(CODE_LABEL_MAPPING, orient="index").reset_index().rename(columns={'index': 'code'}).fillna("")
-
+tag_code_mapping =  pd.read_csv(f"{AUXI_DIR}/tag_code_mapping.csv")
 years = [str(year) for year in sorted(raw_data.select("year").distinct().rdd.flatMap(lambda x: x).collect())]
 
 def create_pivot(df, parent, child, agg_col ):

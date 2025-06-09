@@ -3,7 +3,10 @@
 
 # COMMAND ----------
 
-# MAGIC %sh cp "./tag_code_mapping.csv" "/Volumes/prd_mega/sboost4/vboost4/Documents/input/Auxiliary/tag_code_mapping.csv"
+import shutil
+# Syncing the tag code mapping file to the volume.
+# NOTE: This only works when running from a repo, NOT from a personal workspace (e.g., /Users/ysuzuki2@worldbank.org/...).
+shutil.copy("./tag_code_mapping.csv", AUXI_DIR + "/tag_code_mapping.csv")
 
 # COMMAND ----------
 

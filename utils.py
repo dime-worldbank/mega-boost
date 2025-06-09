@@ -14,6 +14,7 @@ TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
 INPUT_DIR = f"{TOP_DIR}/Documents/input/Countries"
 RAW_INPUT_DIR = f"{TOP_DIR}/Documents/input/Data from authorities"
 WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
+AUXI_DIR = f"{TOP_DIR}/Documents/input/Auxiliary"
 
 # COMMAND ----------
 
