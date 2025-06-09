@@ -6,8 +6,8 @@ from pyspark.sql.types import StructType, StructField, StringType, IntegerType, 
 
 catalog = 'prd_mega'
 indicator_schema = 'indicator'
-boost_intermediate_schema = 'boost_intermediate'
-boost_staging_schema = 'default'
+quality_source_schema = spark.conf.get("QUALITY_SOURCE_SCHEMA", 'boost_intermediate')
+country_source_schema = spark.conf.get("COUNTRY_SOURCE_SCHEMA", 'boost_intermediate')
 
 # Adding a new country requires adding the country here
 country_codes = ['moz', 'pry', 'ken', 'pak', 'bfa', 'col', 'cod', 'nga', 'tun', 'btn', 'bgd', 'alb', 'ury', "zaf", 'chl', 'gha']
@@ -40,7 +40,7 @@ schema = StructType([
 def boost_gold():
     unioned_df = None
     for code in country_codes:
-        table_name = f'{catalog}.{boost_intermediate_schema}.{code}_boost_gold'
+        table_name = f'{catalog}.{country_source_schema}.{code}_boost_gold'
         current_df = spark.table(table_name)
         for col_name in ["func", "func_sub", "econ", "econ_sub", "admin0", "admin1", "admin2", "geo1", "revised", "is_foreign"]:
             if col_name not in current_df.columns:
@@ -399,7 +399,7 @@ def quality_boost_country():
     assert boost_countries.count() == len(country_codes),\
         f'expect all BOOST countries ({country_codes_upper}) to be present in {catalog}.{indicator_schema}.country table ({boost_countries.select("country_code").collect()})'
 
-    quality_cci_total = (spark.table(f'{catalog}.{boost_staging_schema}.quality_total_gold')
+    quality_cci_total = (spark.table(f'{catalog}.{quality_source_schema}.quality_total_gold')
         .filter(~excluded_country_year_conditions)
         .join(boost_countries, on=['country_name'], how="right")
     )
@@ -459,7 +459,7 @@ def quality_boost_admin1_central_scope():
 @dlt.expect_or_fail('country has func agg budget for year', 'budget IS NOT NULL OR (budget is NULL and approved is NULL)')
 def quality_boost_func():
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
-    quality_cci_func = (spark.table(f'{catalog}.{boost_staging_schema}.quality_functional_gold')
+    quality_cci_func = (spark.table(f'{catalog}.{quality_source_schema}.quality_functional_gold')
         .filter(~excluded_country_year_conditions)
         .join(boost_countries, on=['country_name'], how="right")
     )
@@ -474,7 +474,7 @@ def quality_boost_func_exact():
     # This doesn't check by year on purpose as new years may be added to pipeline
     # without the CCI excel being updated.
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
-    quality_cci_func = (spark.table(f'{catalog}.{boost_staging_schema}.quality_functional_gold')
+    quality_cci_func = (spark.table(f'{catalog}.{quality_source_schema}.quality_functional_gold')
         .groupBy('country_name', 'func')
         .agg(F.count('*').alias('cci_row_count'))
         .join(boost_countries, on=['country_name'], how="right")
@@ -492,7 +492,7 @@ def quality_boost_func_sub_exact():
     # This doesn't check by year on purpose as new years may be added to pipeline
     # without the CCI excel being updated.
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
-    quality_cci_func = (spark.table(f'{catalog}.{boost_staging_schema}.quality_functional_sub_gold')
+    quality_cci_func = (spark.table(f'{catalog}.{quality_source_schema}.quality_functional_sub_gold')
         .groupBy('country_name', 'func_sub')
         .agg(F.count('*').alias('cci_row_count'))
         .join(boost_countries, on=['country_name'], how="right")
@@ -510,7 +510,7 @@ def quality_boost_func_sub_exact():
 @dlt.expect_or_fail('country has econ agg approved for year', 'budget IS NOT NULL OR (budget is NULL and approved is NULL)')
 def quality_boost_econ():
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
-    quality_cci_econ = (spark.table(f'{catalog}.{boost_staging_schema}.quality_economic_gold')
+    quality_cci_econ = (spark.table(f'{catalog}.{quality_source_schema}.quality_economic_gold')
         .filter(~excluded_country_year_conditions)
         .join(boost_countries, on=['country_name'], how="right")
     )
@@ -523,7 +523,7 @@ def quality_boost_econ():
 @dlt.expect_or_fail('country has no unknown econ agg', 'cci_row_count IS NOT NULL')
 def quality_boost_econ_unknown():
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
-    quality_cci_econ = (spark.table(f'{catalog}.{boost_staging_schema}.quality_economic_gold')
+    quality_cci_econ = (spark.table(f'{catalog}.{quality_source_schema}.quality_economic_gold')
         .groupBy('country_name', 'econ')
         .agg(F.count('*').alias('cci_row_count'))
         .join(boost_countries, on=['country_name'], how="right")
@@ -539,7 +539,7 @@ def quality_boost_econ_unknown():
 @dlt.expect_or_fail('country has no unknown econ sub agg', 'cci_row_count IS NOT NULL')
 def quality_boost_econ_sub_unknown():
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
-    quality_cci_econ = (spark.table(f'{catalog}.{boost_staging_schema}.quality_economic_sub_gold')
+    quality_cci_econ = (spark.table(f'{catalog}.{quality_source_schema}.quality_economic_sub_gold')
         .groupBy('country_name', 'econ_sub')
         .agg(F.count('*').alias('cci_row_count'))
         .join(boost_countries, on=['country_name'], how="right")
@@ -556,7 +556,7 @@ def quality_boost_econ_sub_unknown():
 @dlt.expect_or_fail('country has foreign agg', 'row_count IS NOT NULL')
 def quality_boost_foreign():
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
-    quality_cci_foreign = (spark.table(f'{catalog}.{boost_staging_schema}.quality_total_foreign_gold')
+    quality_cci_foreign = (spark.table(f'{catalog}.{quality_source_schema}.quality_total_foreign_gold')
         .groupBy('country_name')
         .agg(F.count('*').alias('cci_row_count'))
         .join(boost_countries, on=['country_name'], how="inner")
