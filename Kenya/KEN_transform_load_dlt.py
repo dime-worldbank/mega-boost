@@ -232,7 +232,7 @@ def boost_gold():
         .select('country_name',
                 'year',
                 col('Final_Budget_Approved_Estimate').alias('approved').cast(DoubleType()),
-                col('Final_Budget_Approved_Estimate').alias('revised').cast(DoubleType()),
+                col('approved').alias('revised'),
                 col('`Final_Expenditure_Total_Payment_Comm.`').alias('executed').cast(DoubleType()),
                 'admin0',
                 'admin1',
