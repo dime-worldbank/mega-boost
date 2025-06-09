@@ -3,6 +3,10 @@
 
 # COMMAND ----------
 
+# MAGIC %sh cp "./tag_code_mapping.csv" "/Volumes/prd_mega/sboost4/vboost4/Documents/input/Auxiliary/tag_code_mapping.csv"
+
+# COMMAND ----------
+
 def get_cci_metadata(prune=False):
     files = glob(f"{INPUT_DIR}/*.xlsx")
     files.sort(key=os.path.getmtime, reverse=True)
