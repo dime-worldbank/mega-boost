@@ -14,7 +14,8 @@ TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
 INPUT_DIR = f"{TOP_DIR}/Documents/input/Countries"
 RAW_INPUT_DIR = f"{TOP_DIR}/Documents/input/Data from authorities"
 WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
-AUXI_DIR = f"{TOP_DIR}/Documents/input/Auxiliary"
+
+TAG_MAPPING_URL = 'https://raw.githubusercontent.com/dime-worldbank/mega-boost/refs/heads/main/quality/tag_code_mapping.csv'
 
 # COMMAND ----------
 

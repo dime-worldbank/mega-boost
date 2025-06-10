@@ -46,7 +46,7 @@ raw_data = (
     .cache()
 )
 
-tag_code_mapping =  pd.read_csv(f"{AUXI_DIR}/tag_code_mapping.csv")
+tag_code_mapping =  pd.read_csv(TAG_MAPPING_URL)
 years = [str(year) for year in sorted(raw_data.select("year").distinct().rdd.flatMap(lambda x: x).collect())]
 
 def create_pivot(df, parent, child, agg_col ):
