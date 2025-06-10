@@ -3,6 +3,13 @@
 
 # COMMAND ----------
 
+import shutil
+# Syncing the tag code mapping file to the volume.
+# NOTE: This only works when running from a repo, NOT from a personal workspace (e.g., /Users/ysuzuki2@worldbank.org/...).
+shutil.copy("./tag_code_mapping.csv", AUXI_DIR + "/tag_code_mapping.csv")
+
+# COMMAND ----------
+
 def get_cci_metadata(prune=False):
     files = glob(f"{INPUT_DIR}/*.xlsx")
     files.sort(key=os.path.getmtime, reverse=True)
