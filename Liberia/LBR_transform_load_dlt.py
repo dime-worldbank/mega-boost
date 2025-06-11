@@ -185,7 +185,6 @@ def boost_silver():
                     & ~social_assistance_filter
                     , 'Goods and services'
                 )
-                
                 .when(
                     (col('year').cast('integer') < 2018) & col('Econ1_orig').startswith('24')
                     & ~social_assistance_filter
@@ -196,7 +195,6 @@ def boost_silver():
                     & ~social_assistance_filter
                     , 'Interest on debt'
                 )
-                
                 .when(
                     social_benefits_filter
                     , 'Social benefits'
@@ -206,7 +204,6 @@ def boost_silver():
                     & col('Econ1_orig').startswith('26')
                     , 'Other grants and transfers'
                 )
-                
                 .when(
                     (col('Econ1_orig').startswith('13') | col('Econ1_orig').startswith('26')) 
                     & ~col('Func1').startswith('1')
