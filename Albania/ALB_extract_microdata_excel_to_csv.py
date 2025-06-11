@@ -91,7 +91,7 @@ for sheet_name in ['Data_Expenditures', 'Data_Revenues']:
     df = df[header]
     df = df.dropna(how='all')
     df = df.applymap(normalize_cell)
-    if sheet_name == 'Data Expenditures':
+    if sheet_name == 'Data_Expenditures':
         df['counties'] = df.admin2.map(lambda x: map_to_region(x))
 
     min_num_rows = 829223 if sheet_name == 'Data Expenditures' else 79577

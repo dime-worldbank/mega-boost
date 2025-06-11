@@ -309,9 +309,10 @@ coverage_end = raw_data.year.max()
 coverage_country = "Albania"
 tagging_sql = f"""
 ALTER TABLE {TARGET_TABLE} SET TAGS (
-    'name' = 'Albania BOOST {coverage_start}-{coverage_end}',
+    'name' = 'Albania BOOST platform',
+    'ddh_dataset_id' = "0038087",
     'subject' = 'Finance',
-    'classification' = 'Official Use Only',
+    'classification' = 'Public',
     'category' = 'Public Sector',
     'subcategory' = 'Financial Management',
     'frequency' = 'Annually',
@@ -321,7 +322,6 @@ ALTER TABLE {TARGET_TABLE} SET TAGS (
     'subdomain' = 'Budget & Cost Accounting',
     'excel_link' = '/Volumes/prd_mega/sboost4/vboost4/Workspace/output_excel/Albania_BOOST.xlsx',
     'destinations' = 'dataexplorer, ddh',
-    'exception' = '7. Member Countries/Third Party Confidence',
     'license' = 'Creative Commons Attribution-Non Commercial 4.0',
     'topics' = 'Economic Growth, Macroeconomic and Structural Policies, Public Sector Management',
     'coverage_year_start' = '{coverage_start}',
@@ -344,7 +344,7 @@ df = spark.read.table('prd_mega.boost_intermediate.alb_2023_onward_boost_silver'
 with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=True) as tmp:
     temp_path = tmp.name
 
-    with pd.ExcelWriter(OUTPUT_MISSING_DESC_FILE_PATH, engine='xlsxwriter') as writer:
+    with pd.ExcelWriter(temp_path, engine='xlsxwriter') as writer:
         for col in cols_with_labels:
             digit_entries = df[col].astype(str)
             digit_entries = digit_entries[digit_entries.str.isdigit()]
