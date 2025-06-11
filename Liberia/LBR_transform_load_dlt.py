@@ -30,8 +30,8 @@ def boost_bronze():
         .load(f'{COUNTRY_MICRODATA_DIR}/Data.csv'))
 
     # Add index column
-    # window_spec = Window.orderBy(lit(1))
-    # df = df.withColumn("index", row_number().over(window_spec))
+    window_spec = Window.orderBy(lit(1))
+    df = df.withColumn("index", row_number().over(window_spec))
 
     return df
 
@@ -159,29 +159,46 @@ def boost_silver():
     )
 
     # --- Economic Classifications ---
+    subsidy_filter = col('Econ1_orig').startswith('25')
+    social_benefits_filter= ((col('econ_sub') == 'social assistance') | (col('econ_sub') == 'pensions'))
     df = df.withColumn(
-        'econ', when(col('Econ1_orig').startswith("21")
+        'econ', 
+                when(col('Econ1_orig').startswith("21")
+                     & ~social_assistance_filter
                      , 'Wage bill'
                 )
                 .when(
-                    col('Econ1_orig').startswith('25')
+                    (col('budget') == '4 Public Investment (PSIP)') 
+                    & not_dept 
+                    & ~(col('Econ1_orig') == '21 Compensation of Employees')
+                    & ~social_assistance_filter
+                    , 'Capital expenditures'
+                )
+                .when(
+                    subsidy_filter
+                    & ~social_assistance_filter
                     , 'Subsidies'
                 )
                 .when(
                     (col('Econ1_orig').startswith('22')) 
                     & (col('budget').startswith('1'))
+                    & ~social_assistance_filter
                     , 'Goods and services'
                 )
+                
                 .when(
                     (col('year').cast('integer') < 2018) & col('Econ1_orig').startswith('24')
+                    & ~social_assistance_filter
                     , 'Interest on debt'
                 )
                 .when(
                     (col('year').cast('integer') >= 2018) & col('Econ4').startswith('423104')
+                    & ~social_assistance_filter
                     , 'Interest on debt'
                 )
+                
                 .when(
-                    (col('econ_sub') == 'social assistance') | (col('econ_sub') == 'pensions')
+                    social_benefits_filter
                     , 'Social benefits'
                 )
                 .when(
@@ -189,12 +206,7 @@ def boost_silver():
                     & col('Econ1_orig').startswith('26')
                     , 'Other grants and transfers'
                 )
-                .when(
-                    (col('budget').startswith('4')) 
-                    & not_dept 
-                    & (~col('Econ1_orig').startswith('21'))
-                    , 'Capital expenditures'
-                )
+                
                 .when(
                     (col('Econ1_orig').startswith('13') | col('Econ1_orig').startswith('26')) 
                     & ~col('Func1').startswith('1')
@@ -239,10 +251,10 @@ def boost_gold():
         .withColumn('country_name', lit(COUNTRY))
         .filter(col('actual').isNotNull())
         .select(
-                # 'index', 
-                # 'Admin2_orig',
-                # "Econ1_orig",
-                # 'budget',
+                'index', 
+                    'Admin2_orig',
+                    "Econ1_orig",
+                    'budget',
                 'country_name',
                 col('year').cast('integer'),
                 col('approved'),
