@@ -326,6 +326,20 @@ def boost_silver():
             )
             .when(
                 (
+                    (col("year") == 2023)
+                    & (
+                        col("econ2_lower")
+                        == "52 transferencias corrientes al sector privado"
+                    )
+                    | (
+                        col("econ2_lower")
+                        == "54 transferencias de capital al sector privado"
+                    )
+                ),
+                "Subsidies",
+            )
+            .when(
+                (
                     (col("year") < 2020)
                     & (
                         col("econ2_lower")
