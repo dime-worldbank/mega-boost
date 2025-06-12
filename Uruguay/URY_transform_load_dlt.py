@@ -45,9 +45,9 @@ def boost_bronze():
 def boost_silver():
     return (
         dlt.read(f"ury_boost_bronze")
-        .withColumn('year', col('year').cast('int'))
-        .withColumn('approved', col('approved').cast('double'))
-        .withColumn('executed', col('executed').cast('double'))
+        .withColumn("year", col("year").cast("int"))
+        .withColumn("approved", col("approved").cast("double"))
+        .withColumn("executed", col("executed").cast("double"))
         .withColumn("econ2_lower", lower(col("econ2")))
         .withColumn("exp_type_lower", lower(col("exp_type")))
         .withColumn("admin0", lit("Central"))  # No subnational data available
@@ -217,7 +217,7 @@ def boost_silver():
             .when(col("econ2_lower") == "21 servicios basicos", "Basic Services")
             .when(
                 (
-                    (col("year") < 2019)
+                    ((col("year") < 2019) | (col("year") >= 2023))
                     & (
                         col("econ2_lower")
                         == "28 servicios tecnicos, profesionales y artisticos(dec.17/003)"
@@ -326,37 +326,45 @@ def boost_silver():
             )
             .when(
                 (
-                    (col("year") < 2020)
+                    (col("year") <= 2019)
                     & (
-                        col("econ2_lower")
-                        == "52 transferencias corrientes al sector privado"
+                        col("econ2_lower").startswith("52 ")
                     )
                     | (
-                        col("econ2_lower")
-                        == "54 transferencias de capital al sector privado"
+                        col("econ2_lower").startswith("54 ")
                     )
                     | (
-                        col("econ2_lower")
-                        == "04 transferencias de capital al sector privado"
+                        col("econ2_lower").startswith("04 ")
                     )
                     | (
-                        col("econ2_lower")
-                        == "02 transferencias corrientes al sector privado"
+                        col("econ2_lower").startswith("02 ")
                     )
                 ),
                 "Subsidies",
             )
             .when(
                 (
-                    (col("year") >= 2020)
+                    ((col("year") < 2023) | (col("year") > 2019))
                     & (
                         (
-                            col("econ2_lower")
-                            == "04 transferencias de capital al sector privado"
+                            col("econ2_lower").startswith("02 ")
                         )
                         | (
-                            col("econ2_lower")
-                            == "02 transferencias corrientes al sector privado"
+                            col("econ2_lower").startswith("04 ")
+                        )
+                    )
+                ),
+                "Subsidies",
+            )
+            .when(
+                (
+                    (col("year") >= 2023)
+                    & (
+                        (
+                            col("econ2_lower").startswith("52 ")
+                        )
+                        | (
+                            col("econ2_lower").startswith("54 ")
                         )
                     )
                 ),

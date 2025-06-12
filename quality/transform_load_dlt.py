@@ -44,7 +44,7 @@ def quality_total_silver():
     bronze = dlt.read('quality_cci_bronze')
     year_cols = list(col_name for col_name in bronze.columns if col_name.isnumeric())
     return (bronze
-        .filter(F.col('category') == 'Spending: Total Expenditures')
+        .filter(F.trim(F.col('category')) == 'Spending: Total Expenditures')
         .melt(ids=["country_name", "approved_or_executed"], 
             values=year_cols, 
             variableColumnName="year", 
