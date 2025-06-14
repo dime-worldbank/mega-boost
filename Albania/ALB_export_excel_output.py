@@ -15,6 +15,7 @@ from pyspark.sql import functions as F
 
 import pandas as pd
 from openpyxl import load_workbook
+from openpyxl.formula.translate import Translator
 
 import logging
 logger = logging.getLogger()  # Get the root logger
@@ -153,12 +154,20 @@ approved = generate_combined_pivots(pairs, "boost_approved")
 # Helper functions to update the EXCEL sheets
 #todo: move to utils for reusability when we have more than one country
 
+def get_latest_cci_year(cci_df):
+    year_columns = [col for col in cci_df.columns if col.split(".")[0].isdigit()]
+    year_columns.sort(reverse=True)
+    for year in year_columns:
+        if not pd.isnull(cci_df[cci_df.Code == "EXP_ECON_TOT_EXP_EXE"][year].values[0]):
+            return int(float(year))
+
 # download the executed sheet from cci_csv to obtain the column list. 
 template = pd.read_csv(CCI_FILE_PATH, dtype="str")
 EXECUTED_TEMP_COL_LIST = [
-    str(col).rstrip('.0').rstrip('.00') if str(col).replace('.', '', 1).isdigit() else str(col)
-    for col in template.columns
+   col.split(".")[0] for col in template.columns
 ]
+BOOST_LATEST_YEAR  = int(max(years))
+CCI_LATEST_YEAR = get_latest_cci_year(template)
 
 def spark_to_pandas_with_reorder(ws, raw_data, include_boost_col=True):
     # make sure that the data expendture column specific order so that the formula will work
@@ -242,13 +251,23 @@ def update_excel_with_new_values(target_ws, source_ws, df):
             default_cell_format = target_wb.add_format(copy_font(source_cell))
 
             if str(col_name) not in years or code not in df.code.values:
-                # TODO write formula for the new years which do not exist in the original file (e.g. Consider openpyxl.formula.translate)
+                # Fall back to formula
                 if source_cell.data_type == 'f':
                     cell_format = target_wb.add_format(copy_font(source_cell, blue_text_format=APPLY_BLUE_FONT_IF_MISSING))
                     formula = getattr(source_cell.value, "text", source_cell.value)
                     target_ws.write_formula(row_index, col_inedx, formula, cell_format)  
                 else:
-                    target_ws.write(row_index, col_inedx, source_cell.value,default_cell_format)
+                    # Expand formula for years not existent on the original Excel but existent on MEGA
+                    if col_name.isdigit() and int(col_name) <= BOOST_LATEST_YEAR and int(col_name) > CCI_LATEST_YEAR:
+                        previous_cell = source_ws.cell(row=row_index+1, column=col_inedx)
+                        previous_formula = getattr(previous_cell.value, "text", previous_cell.value)
+                        if previous_formula and previous_formula != "..":
+                            current_formula = Translator(previous_formula, origin=previous_cell.coordinate).translate_formula(source_cell.coordinate)
+                            target_ws.write_formula(row_index, col_inedx, current_formula, cell_format)
+                        else:
+                            target_ws.write(row_index, col_inedx, source_cell.value,default_cell_format)
+                    else:
+                        target_ws.write(row_index, col_inedx, source_cell.value,default_cell_format)
             else:                
                 boost_value = df[str(col_name)][df['code'] == code].values[0]
                 target_ws.write(row_index, col_inedx, boost_value,default_cell_format)
