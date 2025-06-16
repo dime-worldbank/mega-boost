@@ -29,6 +29,8 @@ def clean_col_names(df):
 @dlt.expect_or_drop("year_not_null", "Year IS NOT NULL")
 @dlt.table(name=f'ken_boost_bronze')
 def boost_bronze():
+    # We read the files individually and explicitly union them, rather than reading the entire directory at once,
+    # to avoid schema mismatches across files that could lead to data corruption.
     file_paths = glob(f"{COUNTRY_MICRODATA_DIR}/*.csv")
     bronze_df = spark.read.format("csv").options(**CSV_READ_OPTIONS).option("inferSchema", "true").load(file_paths[0])
     bronze_df = clean_col_names(bronze_df)

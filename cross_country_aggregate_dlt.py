@@ -389,7 +389,9 @@ excluded_country_year_conditions = (
 
 @dlt.table(name='quality_boost_country')
 @dlt.expect_or_fail('country has total agg expenditure for year', 'expenditure IS NOT NULL')
-@dlt.expect_or_fail('country has total agg budget for year', 'budget IS NOT NULL OR (budget is NULL and approved is NULL)')
+@dlt.expect_or_fail(
+    'total budget must be present unless both MEGA budget and CCI approved are null',
+    'budget IS NOT NULL OR (budget IS NULL AND approved IS NULL)')
 def quality_boost_country():
     country_codes_upper = [c.upper() for c in country_codes]
     boost_countries = (spark.table(f'{catalog}.{indicator_schema}.country')
@@ -456,7 +458,10 @@ def quality_boost_admin1_central_scope():
 
 @dlt.table(name='quality_boost_func')
 @dlt.expect_or_fail('country has func agg expenditure for year', 'expenditure IS NOT NULL')
-@dlt.expect_or_fail('country has func agg budget for year', 'budget IS NOT NULL OR (budget is NULL and approved is NULL)')
+@dlt.expect_or_fail(
+    'func budget is required unless both MEGA budget and CCI approved are null',
+    'budget IS NOT NULL OR (budget IS NULL AND approved IS NULL)'
+)
 def quality_boost_func():
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
     quality_cci_func = (spark.table(f'{catalog}.{quality_source_schema}.quality_functional_gold')
@@ -507,7 +512,10 @@ def quality_boost_func_sub_exact():
 
 @dlt.table(name='quality_boost_econ')
 @dlt.expect_or_fail('country has econ agg expenditure for year', 'expenditure IS NOT NULL')
-@dlt.expect_or_fail('country has econ agg approved for year', 'budget IS NOT NULL OR (budget is NULL and approved is NULL)')
+@dlt.expect_or_fail(
+    'econ budget is required unless both MEGA budget and CCI approved are null',
+    'budget IS NOT NULL OR (budget IS NULL AND approved IS NULL)'
+)
 def quality_boost_econ():
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
     quality_cci_econ = (spark.table(f'{catalog}.{quality_source_schema}.quality_economic_gold')
