@@ -3,7 +3,7 @@ import dlt
 import unicodedata
 from pyspark.sql.functions import col, lower, initcap, trim, regexp_replace, when, lit, substring, concat
 from pyspark.sql.types import StringType, DoubleType
-
+from glob import glob
 
 TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
 INPUT_DIR = f"{TOP_DIR}/Documents/input/Countries"
@@ -17,18 +17,32 @@ CSV_READ_OPTIONS = {
     "quote": '"',
     "escape": '"',
 }
+
+def clean_col_names(df):
+    for old_col_name in df.columns:
+        new_col_name = old_col_name.replace(" ", "_").replace("(", "").replace(")", "").replace(",", "")
+        if new_col_name != old_col_name:
+            df = df.withColumnRenamed(old_col_name, new_col_name)
+    return df
+
+
 @dlt.expect_or_drop("year_not_null", "Year IS NOT NULL")
 @dlt.table(name=f'ken_boost_bronze')
 def boost_bronze():
-    # Load the data from CSV
-    bronze_df = (spark.read
-                 .format("csv")
-                 .options(**CSV_READ_OPTIONS)
-                 .option("inferSchema", "true")
-                 .load(COUNTRY_MICRODATA_DIR))
-    for old_col_name in bronze_df.columns:
-        new_col_name = old_col_name.replace(" ", "_").replace("(", "").replace(")", "").replace(",", "")
-        bronze_df = bronze_df.withColumnRenamed(old_col_name, new_col_name)
+    # We read the files individually and explicitly union them, rather than reading the entire directory at once,
+    # to avoid schema mismatches across files that could lead to data corruption.
+    file_paths = glob(f"{COUNTRY_MICRODATA_DIR}/*.csv")
+    bronze_df = spark.read.format("csv").options(**CSV_READ_OPTIONS).option("inferSchema", "true").load(file_paths[0])
+    bronze_df = clean_col_names(bronze_df)
+    for f in file_paths[1:]:
+        # Load the data from CSV
+        df = (spark.read
+                    .format("csv")
+                    .options(**CSV_READ_OPTIONS)
+                    .option("inferSchema", "true")
+                    .load(f))
+        df = clean_col_names(df)
+        bronze_df = bronze_df.unionByName(df, allowMissingColumns=True)
     return bronze_df
 
 def contains_any(column, words_to_check):
@@ -219,8 +233,8 @@ def boost_gold():
         .withColumn('country_name', lit(COUNTRY))
         .select('country_name',
                 'year',
-                col('Initial_Budget_Printed_Estimate').alias('approved').cast(DoubleType()),
-                col('Final_Budget_Approved_Estimate').alias('revised').cast(DoubleType()),
+                col('Final_Budget_Approved_Estimate').alias('approved').cast(DoubleType()),
+                col('approved').alias('revised'),
                 col('`Final_Expenditure_Total_Payment_Comm.`').alias('executed').cast(DoubleType()),
                 'admin0',
                 'admin1',
