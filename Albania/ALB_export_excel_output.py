@@ -197,7 +197,7 @@ def copy_font(cell, blue_text_format=False):
         font_color = "#FFFFFF"
         bg_color = "#4d93d9"
     else:
-        font_color = 'blue' if blue_text_format else None
+        font_color = 'blue' if blue_text_format else '#000000'
         bg_color = "#FFFFFF"
     
     if cell.column < 3:
@@ -260,8 +260,8 @@ def update_excel_with_new_values(target_ws, source_ws, df):
                     # Expand formula for years not existent on the original Excel but existent on MEGA
                     if col_name.isdigit() and int(col_name) <= BOOST_LATEST_YEAR and int(col_name) > CCI_LATEST_YEAR:
                         previous_cell = source_ws.cell(row=row_index+1, column=col_inedx)
-                        previous_formula = getattr(previous_cell.value, "text", previous_cell.value)
-                        if previous_formula and previous_formula != "..":
+                        if previous_cell.data_type == 'f':
+                            previous_formula = getattr(previous_cell.value, "text", previous_cell.value)
                             current_formula = Translator(previous_formula, origin=previous_cell.coordinate).translate_formula(source_cell.coordinate)
                             target_ws.write_formula(row_index, col_inedx, current_formula, cell_format)
                         else:
