@@ -91,7 +91,8 @@ This is the file you will use to create the formulas in your ETL. The root for t
 ### 13. Verify your results in the production pipeline
   - Execute the "BOOST Agg" DLT workflow to perform the stacking and aggregation: Workflows > Delta Live Tables > BOOST Agg > Start.
   - Verify your code still passes quality checks.
-### 14. Check the [Production Dashbord](https://datanalytics-int.worldbank.org/connect/#/apps/d3cb7d42-473c-4c6b-a696-964fea40b0a6) to ensure the new country is reflected and its narratives are correctly presented.
+### 14. Check the [Production Dashbord](https://datanalytics-int.worldbank.org/connect/#/apps/d3cb7d42-473c-4c6b-a696-964fea40b0a6) 
+  - ensure the new country is reflected and its narratives are correctly presented.
 
 ## boost_gold
 
