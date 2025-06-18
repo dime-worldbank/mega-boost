@@ -26,6 +26,7 @@ In your Workspace in the top right click `Create`->`Git Folder`. The path to the
 ##### 3. Locate the source data in the volume
 This is the path you will use in your ETL. The root for the volume with country data can be found [here](https://adb-6102124407836814.14.azuredatabricks.net/explore/data/volumes/prd_mega/sboost4/vboost4?o=6102124407836814&volumePath=%2FVolumes%2Fprd_mega%2Fsboost4%2Fvboost4%2FDocuments%2Finput%2FCountries%2F).
 ##### 4. Write a notebook to extract raw data
+(example notebook name)
 <img width="267" alt="image" src="https://github.com/user-attachments/assets/b8c89132-6935-48fd-a9c8-dd5388117d3b" />
 
   -  If the raw data is already in a [format supported by DLT load](https://docs.databricks.com/en/delta-live-tables/load.html), such as CSV, you may skip this step/notebook altogether. This is required for .xlsx files
