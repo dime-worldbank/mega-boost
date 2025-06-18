@@ -43,7 +43,9 @@ This is the path you will use in your ETL. The root for the volume with country 
   - Test the code. Run the notebook in Databricks with the assigned project compute cluster (e.g. ITSDA_DAP_TEAM_boostprocessed).
 ##### 7. Modify the [Boost Agg Staging Pipeline](https://adb-6102124407836814.14.azuredatabricks.net/pipelines/f6ebfe50-a3a3-4e61-92dc-106cc08089c6/updates/ad6c8814-2c92-41f1-b89a-8657a4216449?o=6102124407836814) to run quality checks against your data. 
   - add your three letter country code to the list of countries (or comment the others out and just include yours for speed)
-  - Verify that your code passes all quality checks
+  - Verify that your code passes all quality checks (the graph elements should be all green like below)
+  - ![image](https://github.com/user-attachments/assets/731d2d42-35bb-431c-b06c-ca0f91b7949b)
+  - resolve quality checks
 ##### 8. Use the [staging dashboard](https://adb-6102124407836814.14.azuredatabricks.net/dashboardsv3/01f045fc363315389c9c88986ca5fc60/published?o=6102124407836814) to verify that your calculations match those in the Excel workbook.
   - Filter Countries to the newly added country. Check that the year coverage range and number of functional & economic category coverage are as expected.
   - Further filter by Discrepancy $, set min as 1, and investigate discrepancies at various dimensions (e.g., func/econ/total). Resolution may involve an iterative process of updating the pre-existing BOOST Excel workflows and/or updating the ETL pipeline code.
