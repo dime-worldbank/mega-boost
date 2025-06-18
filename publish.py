@@ -49,7 +49,8 @@ ALTER TABLE {TARGET_TABLE} SET TAGS (
     'coverage_year_end' = '{coverage_end}',
     'coverage_countries' = '{coverage_countries}',
     'team_lead' = 'mmastruzzi@worldbank.org',
-    'collaborators' = 'icapita@worldbank.org, agirongordillo@worldbank.org, sbhupatiraju@worldbank.org, ysuzuki2@worldbank.org, elysenko@worldbank.org, wlu4@worldbank.org'
+    'collaborators' = 'icapita@worldbank.org, agirongordillo@worldbank.org, sbhupatiraju@worldbank.org, ysuzuki2@worldbank.org, elysenko@worldbank.org, wlu4@worldbank.org',
+    'alt_url_link' = 'https://dataexplorer.worldbank.org/search/dataset/details?id=DS04237'
 );
 """
 
