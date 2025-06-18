@@ -62,9 +62,11 @@ This is the path you will use in your ETL. The root for the volume with country 
   - Check that the step dependencies are configured correctly.
 ##### 11. Add the country to the cross-country aggregation DLT pipeline
   - Update [cross_country_aggregate_dlt.py](./cross_country_aggregate_dlt.py) with the country's three letter code to add the table you produce in step 6.
+##### 12. Pull request your work
+##### 13. Verify your results in the production pipeline
   - Execute the "BOOST Agg" DLT workflow to perform the stacking and aggregation: Workflows > Delta Live Tables > BOOST Agg > Start.
   - Verify your code still passes quality checks.
-##### 12. Check the [PowerBI report](https://app.powerbi.com/groups/75fff923-5acd-443e-877b-d2c6e88cdb31/reports/a28af24a-6a8a-4241-bd42-40a4c4af5716/) to ensure the new country is reflected and its narratives are correctly presented.
+##### 14. Check the [PowerBI report](https://app.powerbi.com/groups/75fff923-5acd-443e-877b-d2c6e88cdb31/reports/a28af24a-6a8a-4241-bd42-40a4c4af5716/) to ensure the new country is reflected and its narratives are correctly presented.
 
 ## boost_gold
 
