@@ -1,6 +1,10 @@
 # mega-boost
 
-mega-boost is an ETL system that ingests raw BOOST public finance microdata, cleans and harmonizes it across countries, and outputs both micro- and aggregate-level data for policy analysis and reporting. This documentation guides new contributors through the process of onboarding a country—from data ingestion and transformation to validation, quality assurance, and integration into cross-country pipelines and dashboards.
+**NOTE: images viewable on github**
+
+mega-boost is an ETL system that ingests raw BOOST public finance microdata, cleans and harmonizes it across countries, and outputs both micro- and aggregate-level data for policy analysis and reporting. 
+
+This documentation guides new contributors through the process of onboarding a country—from data ingestion and transformation to validation, quality assurance, and integration into cross-country pipelines and dashboards.
 
 ## Cross-Country Harmonization
 
@@ -12,7 +16,7 @@ BOOST data is country-specific — for instance, some ministries of finance have
 - [cross_country_aggregate_dlt.py](./cross_country_aggregate_dlt.py) vertically stacks all countries' micro-level data into the `boost_gold` table and creates aggregates at various levels.
 - [/quality](./quality/) contains the ETL code for processing BOOST Cross Country Interface (CCI) Excel files' "Approved" and "Executed" sheets for all available countries. The resulting tables are used for both:
   - Programmatic quality checks in [cross_country_aggregate_dlt.py](./cross_country_aggregate_dlt.py), and
-  - Manual review and resolution of discrepancies along critical dimensions (total, functional, economic, etc.) in the [Quality Dashboard](https://adb-6102124407836814.14.azuredatabricks.net/dashboardsv3/01ef07bf07d615bb98b5ff5b37e6fa69/published)
+  - Manual review and resolution of discrepancies along critical dimensions (total, functional, economic, etc.) in the [Quality Dashboard](https://adb-6102124407836814.14.azuredatabricks.net/dashboardsv3/01f046114d601912a5d6b21824bb78e2/published?o=6102124407836814)
 
 ## How to Add a New Country
 ### 0. Clone the repository (if not already done)
@@ -77,10 +81,17 @@ This is the file you will use to create the formulas in your ETL. The root for t
 
   - Update [cross_country_aggregate_dlt.py](./cross_country_aggregate_dlt.py) with the country's three letter code to add the table you produce in step 6.
 ### 12. Pull request your work
+**Pull Request Checklist**
+- [ ] Extraction notebook complete
+- [ ] DLT transformation validated
+- [ ] Quality checks pass
+- [ ] Dashboard discrepancies < 5%
+- [ ] Excel reconciliation complete
+
 ### 13. Verify your results in the production pipeline
   - Execute the "BOOST Agg" DLT workflow to perform the stacking and aggregation: Workflows > Delta Live Tables > BOOST Agg > Start.
   - Verify your code still passes quality checks.
-### 14. Check the [PowerBI report](https://app.powerbi.com/groups/75fff923-5acd-443e-877b-d2c6e88cdb31/reports/a28af24a-6a8a-4241-bd42-40a4c4af5716/) to ensure the new country is reflected and its narratives are correctly presented.
+### 14. Check the [Production Dashbord](https://datanalytics-int.worldbank.org/connect/#/apps/d3cb7d42-473c-4c6b-a696-964fea40b0a6) to ensure the new country is reflected and its narratives are correctly presented.
 
 ## boost_gold
 
