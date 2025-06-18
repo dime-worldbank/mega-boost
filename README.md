@@ -21,7 +21,7 @@ In your Workspace in the top right click `Create`->`Git Folder`. The path to the
 - Navigate into the directory 
 - Click on the tag for the Main branch
 - Click `create branch`
-##### 2. Create a new folder named using the country name.
+##### 2. Create a new folder named using the country name (see image below).
 ![image](https://github.com/user-attachments/assets/d5118b17-519d-4094-a3dc-9cc3d41a92ce)
 ##### 3. Locate the source data in the volume
 This is the path you will use in your ETL. The root for the volume with country data can be found [here](https://adb-6102124407836814.14.azuredatabricks.net/explore/data/volumes/prd_mega/sboost4/vboost4?o=6102124407836814&volumePath=%2FVolumes%2Fprd_mega%2Fsboost4%2Fvboost4%2FDocuments%2Finput%2FCountries%2F).
