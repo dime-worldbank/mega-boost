@@ -15,16 +15,16 @@ BOOST data is country-specific — for instance, some ministries of finance have
   - Manual review and resolution of discrepancies along critical dimensions (total, functional, economic, etc.) in the [Quality Dashboard](https://adb-6102124407836814.14.azuredatabricks.net/dashboardsv3/01ef07bf07d615bb98b5ff5b37e6fa69/published)
 
 ## How to Add a New Country
-##### 0. Clone the repository (if not already done)
+### 0. Clone the repository (if not already done)
 In your Workspace in the top right click `Create`->`Git Folder`. The path to the git repository is `https://github.com/dime-worldbank/mega-boost.git`
 ![image](https://github.com/user-attachments/assets/bc28adea-89e7-4bc6-b172-aed3708ba46a)
-##### 1. Create a new branch for your country
+### 1. Create a new branch for your country
 - Navigate into the directory 
 - Click on the tag for the Main branch
 - Click `create branch`
-##### 2. Create a new folder named using the country name (see image below).
+### 2. Create a new folder named using the country name (see image below).
 ![image](https://github.com/user-attachments/assets/d5118b17-519d-4094-a3dc-9cc3d41a92ce)
-##### 3. Write a notebook to extract raw data
+### 3. Write a notebook to extract raw data
   -  If the raw data is already in a [format supported by DLT load](https://docs.databricks.com/en/delta-live-tables/load.html), such as CSV, you may skip this step/notebook altogether. This is required for .xlsx files
   - Name the file 
     - Prefix the file name with the three letter country code of your country (so the boost pipelines can pick it up later). [3-letter ISO 3166 country codes](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-3).
@@ -32,47 +32,55 @@ In your Workspace in the top right click `Create`->`Git Folder`. The path to the
     - <img width="267" alt="image" src="https://github.com/user-attachments/assets/b8c89132-6935-48fd-a9c8-dd5388117d3b" />   
   - Extract the BOOST/raw data from the Excel sheet(s) (e.g. [ALB_extract_microdata_excel_to_csv](./Albania/ALB_extract_microdata_excel_to_csv.py)). The resulting CSV files can then be loaded directly by a subsequent Delta Live Table (DLT) script (described later).
   - This notebook should save the data in CSV format. See [Albania on Github](https://github.com/dime-worldbank/mega-boost/blob/main/Albania/ALB_extract_raw_microdata_excel_to_csv.py) as an example. 
-##### 4. Ingest subnational population data. See [mega-boost-indicators](https://github.com/dime-worldbank/mega-indicators) for more documentation.
+### 4. Ingest subnational population data. See [mega-boost-indicators](https://github.com/dime-worldbank/mega-indicators) for more documentation.
   -  Find official statistics and projections from the country's national statistics office if available. Otherwise, check if [census.gov](https://www.census.gov/geographies/mapping-files/time-series/demo/international-programs/subnationalpopulation.html) might provide subnational population statistics for the given country. Nigeria's subnational population estimates come from census.gov, for [example](https://github.com/dime-worldbank/mega-indicators/blob/main/population/NGA/nga_subnational_population.py).
   -  Add the ETL code to the [mega-indicator repo](https://github.com/weilu/mega-indicators/tree/main/population) because it's a public good by itself. Make sure the region names in the subnational population dataset align with the BOOST subnational names for the given country, as the two datasets will be joined on the subnational region names.
   -  Add the country's ETL script to the subnational population pipeline "Indicators on Demand": Workflow > Jobs > Indicators on Demand > Tasks > + Add task.
   -  Global Data Lab's [subnational human development datasets](https://globaldatalab.org/shdi/table/) are used as some outcome indicators. Align subnational region names with those of population and BOOST if necessary.
-##### 5. Locate the source data in the volume
+### 5. Locate the source data in the volume
 ![image](https://github.com/user-attachments/assets/70619e3c-c867-4356-b967-5e6c256a71b3)
 This is the file you will use to create the formulas in your ETL. The root for the volume with country data can be found [here](https://adb-6102124407836814.14.azuredatabricks.net/explore/data/volumes/prd_mega/sboost4/vboost4?o=6102124407836814&volumePath=%2FVolumes%2Fprd_mega%2Fsboost4%2Fvboost4%2FDocuments%2Finput%2FCountries%2F).  
-##### 6. Write a notebook to transform the data (i.e. emulate the calculations in the Excel/CSV document)
-  - Emulate the formulas in the source data to create a table with the tags below (e.g. country_name, year, etc.).
+### 6. Write a notebook to transform the data (i.e. emulate the calculations in the Excel/CSV document)
+  - Emulate the formulas in the source data to create a table with the tags in the `boost_gold` table below (e.g. country_name, year, etc.).
   - The code hould follow the DLT Notebook format (e.g. [ALB_transform_load_dlt](./Albania/ALB_transform_load_dlt.py)).
-  - The table should be created in the `boost_intermediate` schema under the `prd_mega` catalog in the [Databricks Catalog](https://adb-6102124407836814.14.azuredatabricks.net/explore/data?o=6102124407836814).
   - Validate your results by running the notebook with the `ITSDA_DAP_TEAM_boostprocessed` cluster. Reference an existing country's DLT pipeline settings for other configurations.
+  
+  ![image](https://github.com/user-attachments/assets/d1f2e0fc-f883-4ef2-997b-c3a8129c9699)
+
+  - After running, the table should appear in the `boost_intermediate` schema under the `prd_mega` catalog in the [Databricks Catalog](https://adb-6102124407836814.14.azuredatabricks.net/explore/data?o=6102124407836814).
+  ![image](https://github.com/user-attachments/assets/f1058907-6801-4f09-9a4d-990dfb3f1cbf)
   - Be sure to follow the naming convention (code folder & file names, table names, pipeline names, etc.) referencing existing countries. When a country code is needed, use the [3-letter ISO 3166 country codes](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-3).
-##### 7. Modify the [Boost Agg Staging Pipeline](https://adb-6102124407836814.14.azuredatabricks.net/pipelines/f6ebfe50-a3a3-4e61-92dc-106cc08089c6/updates/ad6c8814-2c92-41f1-b89a-8657a4216449?o=6102124407836814) to run quality checks against your data. 
+### 7. Modify the [Boost Agg Staging Pipeline](https://adb-6102124407836814.14.azuredatabricks.net/pipelines/f6ebfe50-a3a3-4e61-92dc-106cc08089c6/updates/ad6c8814-2c92-41f1-b89a-8657a4216449?o=6102124407836814) to run quality checks against your data. 
   - add your three letter country code to the list of countries (or comment the others out and just include yours for speed)
     ![image](https://github.com/user-attachments/assets/19743ebe-175c-4084-9cf9-182a9b1d8de9)
   - Verify that your code passes all quality checks (the graph elements should be all green like below)
     ![image](https://github.com/user-attachments/assets/731d2d42-35bb-431c-b06c-ca0f91b7949b)
   - resolve quality checks if there are problems
-##### 8. Use the [staging dashboard](https://adb-6102124407836814.14.azuredatabricks.net/dashboardsv3/01f046114d601912a5d6b21824bb78e2/published/pages/f41ac407?o=6102124407836814) to verify that your calculations match those in the Excel workbook.
+### 8. Use the [staging dashboard](https://adb-6102124407836814.14.azuredatabricks.net/dashboardsv3/01f046114d601912a5d6b21824bb78e2/published/pages/f41ac407?o=6102124407836814) to verify that your calculations match those in the Excel workbook.
   - Filter Countries to the newly added country. Check that the year coverage range and number of functional & economic category coverage are as expected.
   - Further filter by Discrepancy $, set min as 1, and investigate discrepancies at various dimensions (e.g., func/econ/total). Resolution may involve an iterative process of updating the pre-existing BOOST Excel workflows and/or updating the ETL pipeline code.
   - ![image](https://github.com/user-attachments/assets/09ab481b-a1c8-4705-aa73-43e7c2ac7ec9)
   - **Our current acceptable threshold of discrepancy is 5%**. 
-##### 9. Update Excel calculations (if necessary)
+### 9. Update Excel calculations (if necessary)
   - If there are formulas in Excel that need to be revised because of double counting (e.g. `Capital Expenditure` and `Social Assistance` have overlapping costs), tag them under [Questions for Massimo](https://docs.google.com/document/d/10wdHD5x2IYw6VC-savb2TcC7y1adIPle2dMKOE0D7sI/edit?tab=t.0). See items there for examples.
   - If there needs to be a fix in the BOOST CCI EXCEL sheets, document the content of the changes and leave the logs in the following document: [BOOST CCI changes reconciliations](https://worldbankgroup-my.sharepoint.com/:x:/r/personal/wlu4_worldbank_org/_layouts/15/Doc.aspx?sourcedoc=%7B19BCE6C7-E183-4F11-A41F-E4BBB792ABFC%7D&file=BOOST%20CCI%20changes%20reconciled.xlsx&action=default&mobileredirect=true).
   - Make sure that the EXCEL is updated at both [BOOST's shared project folder](https://worldbankgroup-my.sharepoint.com/:f:/r/personal/mmastruzzi_worldbank_org/Documents/BOOST/Cross-Country%20Interface/Countries?csf=1&web=1&e=eUcv12) and [MEGA project folder for databricks processing](https://worldbankgroup.sharepoint.com/:f:/r/sites/dap/BOOSTProcessed/Shared%20Documents/input/Countries?csf=1&web=1&e=ArX7md). 
   - Any changes to the Excel document should reflect in **Massimo's** source document as well- update his if necessary.
-##### 10. Add the new country's ETL pipeline steps to the ["BOOST Harmonize" job](https://adb-6102124407836814.14.azuredatabricks.net/jobs/239032633239734?o=6102124407836814): Workflows > Jobs > BOOST Harmonize > Tasks > + Add task
+### 10. Add the new country's ETL pipeline steps to the ["BOOST Harmonize" job](https://adb-6102124407836814.14.azuredatabricks.net/jobs/239032633239734?o=6102124407836814): Workflows > Jobs > BOOST Harmonize > Tasks > + Add task
+![image](https://github.com/user-attachments/assets/ddfed213-f83e-4e98-ad12-ba1d67bd243e)
+
   - Add the extraction step using Type: Notebook, and Source: git. Use the default cluster (`ITSDA_DAP_TEAM_boostprocessed`) as the compute.
   - Add the DLT step using Type: Delta Live Table pipeline, and select your DLT pipeline.
   - Check that the step dependencies are configured correctly.
-##### 11. Add the country to the cross-country aggregation DLT pipeline
+### 11. Add the country to the cross-country aggregation DLT pipeline
+![image](https://github.com/user-attachments/assets/19743ebe-175c-4084-9cf9-182a9b1d8de9)
+
   - Update [cross_country_aggregate_dlt.py](./cross_country_aggregate_dlt.py) with the country's three letter code to add the table you produce in step 6.
-##### 12. Pull request your work
-##### 13. Verify your results in the production pipeline
+### 12. Pull request your work
+### 13. Verify your results in the production pipeline
   - Execute the "BOOST Agg" DLT workflow to perform the stacking and aggregation: Workflows > Delta Live Tables > BOOST Agg > Start.
   - Verify your code still passes quality checks.
-##### 14. Check the [PowerBI report](https://app.powerbi.com/groups/75fff923-5acd-443e-877b-d2c6e88cdb31/reports/a28af24a-6a8a-4241-bd42-40a4c4af5716/) to ensure the new country is reflected and its narratives are correctly presented.
+### 14. Check the [PowerBI report](https://app.powerbi.com/groups/75fff923-5acd-443e-877b-d2c6e88cdb31/reports/a28af24a-6a8a-4241-bd42-40a4c4af5716/) to ensure the new country is reflected and its narratives are correctly presented.
 
 ## boost_gold
 
