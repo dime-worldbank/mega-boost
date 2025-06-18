@@ -42,7 +42,7 @@ In your Workspace in the top right click `Create`->`Git Folder`. The path to the
 This is the file you will use to create the formulas in your ETL. The root for the volume with country data can be found [here](https://adb-6102124407836814.14.azuredatabricks.net/explore/data/volumes/prd_mega/sboost4/vboost4?o=6102124407836814&volumePath=%2FVolumes%2Fprd_mega%2Fsboost4%2Fvboost4%2FDocuments%2Finput%2FCountries%2F).  
 ##### 6. Write a notebook to transform the data (i.e. emulate the calculations in the Excel/CSV document)
   - Emulate the formulas in the source data to create a table with the tags below (e.g. country_name, year, etc.).
-  - sThe code hould follow the DLT Notebook format (e.g. [ALB_transform_load_dlt](./Albania/ALB_transform_load_dlt.py)).
+  - The code hould follow the DLT Notebook format (e.g. [ALB_transform_load_dlt](./Albania/ALB_transform_load_dlt.py)).
   - The table should be created in the `boost_intermediate` schema under the `prd_mega` catalog in the [Databricks Catalog](https://adb-6102124407836814.14.azuredatabricks.net/explore/data?o=6102124407836814).
   - Validate your results by running the notebook with the `ITSDA_DAP_TEAM_boostprocessed` cluster. Reference an existing country's DLT pipeline settings for other configurations.
   - Be sure to follow the naming convention (code folder & file names, table names, pipeline names, etc.) referencing existing countries. When a country code is needed, use the [3-letter ISO 3166 country codes](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-3).
