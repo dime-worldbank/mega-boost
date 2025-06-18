@@ -17,6 +17,7 @@ BOOST data is country-specific — for instance, some ministries of finance have
 ## How to Add a New Country
 ##### 0. Clone the repository (if not already done)
 In your Workspace in the top right click `Create`->`Git Folder`. The path to the git repository is `https://github.com/dime-worldbank/mega-boost.git`
+![image](https://github.com/user-attachments/assets/bc28adea-89e7-4bc6-b172-aed3708ba46a)
 ##### 1. Create a new branch for your country
 - Navigate into the directory 
 - Click on the tag for the Main branch
