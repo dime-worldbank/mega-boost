@@ -43,7 +43,7 @@ ALTER TABLE {TARGET_TABLE} SET TAGS (
     'subdomain' = 'Budget & Cost Accounting',
     'destinations' = 'dataexplorer, ddh',
     'exception' = '7. Member Countries/Third Party Confidence',
-    'license' = 'Creative Commons Attribution-Non Commercial 4.0',
+    'license' = 'License Not Applicable (AMS 6.21A)',
     'topics' = 'Economic Growth, Macroeconomic and Structural Policies, Public Sector Management',
     'coverage_year_start' = '{coverage_start}',
     'coverage_year_end' = '{coverage_end}',
