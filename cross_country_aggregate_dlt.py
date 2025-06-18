@@ -96,11 +96,7 @@ def cpi_factor():
 @dlt.table(name=f'expenditure_by_country_year')
 def expenditure_by_country_year():
     boost_gold = dlt.read('boost_gold')
-    year_ranges = (boost_gold
-        .groupBy("country_name")
-        .agg(F.min("year").alias("earliest_year"), 
-             F.max("year").alias("latest_year"))
-    )
+    window_spec = Window.partitionBy("country_name")
     cpi_factors = dlt.read('cpi_factor')
 
     pop = (spark.table(f'{catalog}.{indicator_schema}.population')
@@ -139,21 +135,19 @@ def expenditure_by_country_year():
         .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
         .withColumn("real_budget", F.col("budget") / F.col("cpi_factor"))
         .join(pop, on=["country_name", "year"], how="inner")
+        .withColumn("latest_year", F.max("year").over(window_spec))
+        .withColumn("earliest_year", F.min("year").over(window_spec))
         .withColumn("per_capita_expenditure", F.col("expenditure") / F.col("population"))
         .withColumn("per_capita_real_expenditure", F.col("real_expenditure") / F.col("population"))
         .withColumn("per_capita_budget", F.col("budget") / F.col("population"))
         .withColumn("per_capita_real_budget", F.col("real_budget") / F.col("population"))
-        .join(year_ranges, on=['country_name'], how='left')
     )
 
 @dlt.table(name='expenditure_by_country_geo1_func_year')
 def expenditure_by_country_geo1_func_year():
     boost_gold = dlt.read('boost_gold')
-    year_ranges = (boost_gold
-        .groupBy("country_name")
-        .agg(F.min("year").alias("earliest_year"), 
-             F.max("year").alias("latest_year"))
-    )
+    window_spec = Window.partitionBy("country_name")
+
     cpi_factors = dlt.read('cpi_factor')
 
     subnat_pop = spark.table(f'{catalog}.{indicator_schema}.subnational_population')
@@ -174,8 +168,9 @@ def expenditure_by_country_geo1_func_year():
         .join(cpi_factors, on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
         .withColumn("real_budget", F.col("budget") / F.col("cpi_factor"))
-        .join(year_ranges, on=['country_name'], how='left')
         .join(pop, on=["country_name", "adm1_name", "year"], how="inner")
+        .withColumn("latest_year", F.max("year").over(window_spec))
+        .withColumn("earliest_year", F.min("year").over(window_spec))
         .withColumn("per_capita_expenditure", F.col("expenditure") / F.col("population"))
         .withColumn("per_capita_real_expenditure", F.col("real_expenditure") / F.col("population"))
         .withColumn("per_capita_budget", F.col("budget") / F.col("population"))
@@ -243,6 +238,8 @@ def expenditure_by_country_geo1_year():
 
 @dlt.table(name=f'expenditure_by_country_admin_func_sub_econ_sub_year')
 def expenditure_by_country_admin_func_sub_econ_sub_year():
+    window_spec = Window.partitionBy("country_name", "func")
+
     with_decentralized = (dlt.read('boost_gold')
         .withColumn("is_foreign", F.when(F.col("is_foreign").isNull(), False).otherwise(F.col("is_foreign")))
         .groupBy("country_name", "year", "admin0", "admin1", "admin2", "func", "func_sub", "econ", "econ_sub", "is_foreign").agg(
@@ -251,19 +248,17 @@ def expenditure_by_country_admin_func_sub_econ_sub_year():
         )
         .join(dlt.read(f'cpi_factor'), on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
+        .withColumn("earliest_year", F.min("year").over(window_spec)) 
+        .withColumn("latest_year", F.max("year").over(window_spec))
         .withColumn("real_budget", F.col("budget") / F.col("cpi_factor"))
     )
 
-    year_ranges = (with_decentralized
-        .groupBy("country_name", "func")
-        .agg(F.min("year").alias("earliest_year"), 
-             F.max("year").alias("latest_year"))
-    )
-
-    return with_decentralized.join(year_ranges, on=['country_name', 'func'], how='inner')
+    return with_decentralized
 
 @dlt.table(name='expenditure_by_country_geo0_func_sub_year')
 def expenditure_by_country_geo0_func_sub_year():
+    window_spec = Window.partitionBy("country_name", "func")
+
     with_decentralized = (dlt.read('boost_gold')
         .groupBy("country_name", "year", "geo0", "func", "func_sub").agg(
             F.sum("executed").alias("expenditure"),
@@ -273,15 +268,11 @@ def expenditure_by_country_geo0_func_sub_year():
         .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
         .withColumn("real_budget", F.col("budget") / F.col("cpi_factor"))
         .filter(F.col("real_expenditure").isNotNull())
+        .withColumn("earliest_year", F.min("year").over(window_spec)) 
+        .withColumn("latest_year", F.max("year").over(window_spec))
     )
 
-    year_ranges = (with_decentralized
-        .groupBy("country_name", "func")
-        .agg(F.min("year").alias("earliest_year"), 
-             F.max("year").alias("latest_year"))
-    )
-
-    return with_decentralized.join(year_ranges, on=['country_name', 'func'], how='inner')
+    return with_decentralized
     
 @dlt.table(name=f'expenditure_by_country_func_econ_year')
 def expenditure_by_country_func_econ_year():
