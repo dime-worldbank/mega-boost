@@ -51,11 +51,11 @@ This is the path you will use in your ETL. The root for the volume with country 
   - Further filter by Discrepancy $, set min as 1, and investigate discrepancies at various dimensions (e.g., func/econ/total). Resolution may involve an iterative process of updating the pre-existing BOOST Excel workflows and/or updating the ETL pipeline code.
   - ![image](https://github.com/user-attachments/assets/09ab481b-a1c8-4705-aa73-43e7c2ac7ec9)
   - **Our current acceptable threshold of discrepancy is 5%**. 
-##### 9. Update Excel calculations
+##### 9. Update Excel calculations (if necessary)
   - If there are formulas in Excel that need to be revised because of double counting, tag them under [Questions for Massimo](https://docs.google.com/document/d/10wdHD5x2IYw6VC-savb2TcC7y1adIPle2dMKOE0D7sI/edit?tab=t.0). See items there for examples.
   - If there needs to be a fix in the BOOST CCI EXCEL sheets, document the content of the changes and leave the logs in the following document: [BOOST CCI changes reconciliations](https://worldbankgroup-my.sharepoint.com/:x:/r/personal/wlu4_worldbank_org/_layouts/15/Doc.aspx?sourcedoc=%7B19BCE6C7-E183-4F11-A41F-E4BBB792ABFC%7D&file=BOOST%20CCI%20changes%20reconciled.xlsx&action=default&mobileredirect=true).
   - Make sure that the EXCEL is updated at both [BOOST's shared project folder](https://worldbankgroup-my.sharepoint.com/:f:/r/personal/mmastruzzi_worldbank_org/Documents/BOOST/Cross-Country%20Interface/Countries?csf=1&web=1&e=eUcv12) and [MEGA project folder for databricks processing](https://worldbankgroup.sharepoint.com/:f:/r/sites/dap/BOOSTProcessed/Shared%20Documents/input/Countries?csf=1&web=1&e=ArX7md). 
-  - if you are resolving [Questions for Massimo](https://docs.google.com/document/d/10wdHD5x2IYw6VC-savb2TcC7y1adIPle2dMKOE0D7sI/edit?tab=t.0), update his source document as well
+  - Any changes to the Excel document should update **Massimo's** source document as well
 ##### 10. Add the new country's ETL pipeline steps to the ["BOOST Harmonize" job](https://adb-6102124407836814.14.azuredatabricks.net/jobs/239032633239734?o=6102124407836814): Workflows > Jobs > BOOST Harmonize > Tasks > + Add task
   - Add the extraction step using Type: Notebook, and Source: git. Use the default cluster as the compute.
   - Add the DLT step using Type: Delta Live Table pipeline, and select your DLT pipeline.
