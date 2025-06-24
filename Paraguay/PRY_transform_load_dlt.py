@@ -53,14 +53,14 @@ def boost_bronze_cen():
             ).drop(
                 'geo1_tmp'
             ).withColumn('func_sub',
-                when(col('FUNCTION2').startswith('120'), "Judiciary")
-                .when(col('FUNCTION2').startswith('220'), "Public Safety")
-                .when((col('FUNCTION3').startswith('311')) & ((col('PROGRAM1').startswith('001') | col('PROGRAM1').startswith('007')) & (col('hospital').isNull())), "Primary and Secondary Health")
-                .when((col('FUNCTION2').startswith('310')) & (col('ECON2').startswith('120') & col('ECON5').startswith('240')), "Tertiary and Quaternary Health")
-                .when(col('FUNCTION3').startswith('341'), "Primary Education")
-                .when(col('FUNCTION3').startswith('342'), "Secondary Education") # No further information about higher education 
+                when(col('FUNCTION2').startswith('120'), "judiciary")
+                .when(col('FUNCTION2').startswith('220'), "public safety")
+                .when((col('FUNCTION3').startswith('311')) & ((col('PROGRAM1').startswith('001') | col('PROGRAM1').startswith('007')) & (col('hospital').isNull())), "primary and secondary health")
+                .when((col('FUNCTION2').startswith('310')) & (col('ECON2').startswith('120') & col('ECON5').startswith('240')), "tertiaty and quaternary health")
+                .when(col('FUNCTION3').startswith('341'), "primary education")
+                .when(col('FUNCTION3').startswith('342'), "secondary education") # No further information about higher education 
             ).withColumn('func', 
-                when(col("func_sub").isin("Judiciary", "Public Safety"), "Public order and safety")
+                when(col("func_sub").isin("judiciary", "public safety"), "Public order and safety")
                 .when(col('FUNCTION2').startswith('210'), 'Defence')
                 .when(col('FUNCTION2').startswith('440'), 'Environmental protection') # env needs to be before economic affairs due to overlap
                 .when(col('FUNCTION2').startswith('310'), 'Health')
@@ -71,16 +71,16 @@ def boost_bronze_cen():
                 .when((col('FUNCTION1').startswith('400') | col('FUNCTION1').startswith('600')), 'Economic affairs')
                 .otherwise('General public services')
             ).withColumn('econ_sub',
-                when((~col('is_transfer')) & col('FUNCTION2').startswith('320') , 'Social Assistance')
-                .when((~col('is_transfer')) & col('ECON5').startswith('820'), 'Pensions')
+                when((~col('is_transfer')) & col('FUNCTION2').startswith('320') , 'social assistance')
+                .when((~col('is_transfer')) & col('ECON5').startswith('820'), 'pensions')
                 .when((~col('is_transfer')) & col('ECON4').startswith('100') & 
                       (col('ECON5').startswith('100') | col('ECON5').startswith('110') |
-                       col('ECON5').startswith('120') | col('ECON5').startswith('140') | col('ECON5').startswith('160')), 'Basic Wages')
+                       col('ECON5').startswith('120') | col('ECON5').startswith('140') | col('ECON5').startswith('160')), 'basic wages')
                 .when((~col('is_transfer')) & col('ECON4').startswith('100') & 
-                      (col('ECON5').startswith('130') | col('ECON5').startswith('180') | col('ECON5').startswith('190')), 'Allowances')
-                .when(col('ECON5').startswith('210'), 'Basic Services')
-                .when(col('ECON5').startswith('260'), 'Employment Contracts')
-                .when(col('ECON5').startswith('240') & col('ECON2').startswith('120'), 'Recurrent Maintenance')
+                      (col('ECON5').startswith('130') | col('ECON5').startswith('180') | col('ECON5').startswith('190')), 'allowances')
+                .when(col('ECON5').startswith('210'), 'basic services')
+                .when(col('ECON5').startswith('260'), 'employment contracts')
+                .when(col('ECON5').startswith('240') & col('ECON2').startswith('120'), 'recurrent maintenance')
             ).withColumn('econ',
                 # wage bill
                 when((col('ECON4').startswith('100') & (~col('is_transfer'))), 'Wage bill')
@@ -98,7 +98,7 @@ def boost_bronze_cen():
                 # subsidies 
                 .when(((~col('is_transfer')) & (col('ECON6').isNotNull()) &(col('ECON6').startswith('871') | col('ECON6').startswith('876') | col('ECON6').startswith('879'))), 'Subsidies')
                 # social benefits
-                .when(col('econ_sub').isin(['Social Assistance', 'Pensions']), 'Social benefits')
+                .when(col('econ_sub').isin(['social assistance', 'pensions']), 'Social benefits')
                 # interest on debt
                 .when((~col('is_transfer')) & ((col('ECON5').startswith('710')) | (col('ECON5').startswith('720'))), 'Interest on debt')
                 .otherwise('Other expenses')
@@ -131,9 +131,9 @@ def boost_bronze_municipal():
             ).withColumn('geo1', col('admin1')
             ).withColumnRenamed("approved", "APPROVED"
             ).withColumn('econ_sub',
-                when(col('ECON5').startswith('210'), 'Basic Services')
-                .when(col('ECON5').startswith('260'), 'Employment Contracts')
-                .when(col('ECON5').startswith('870'), 'Subsidies to Production')
+                when(col('ECON5').startswith('210'), 'basic services')
+                .when(col('ECON5').startswith('260'), 'employment contracts')
+                .when(col('ECON5').startswith('870'), 'subsidies to production')
             ).withColumn( 'econ',
                 # wage bill
                 when(col('ECON4').startswith('100'), 'Wage bill')

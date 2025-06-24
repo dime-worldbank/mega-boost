@@ -54,11 +54,11 @@ def boost_silver():
             .otherwise(col('admin1_tmp'))
         ).withColumn(
             'func_sub',
-            when(col('func2').startswith('031'), 'Judiciary')
-            .when((col('func1').startswith('03') & (~col('func2').startswith('031'))), 'Public Safety')
-            .when(col('func2').startswith('091'), 'Primary Education')
-            .when(col('func2').startswith('092'), 'Secondary Education')
-            .when(col('func2').startswith('093'), 'Tertiary Education')
+            when(col('func2').startswith('031'), 'judiciary')
+            .when((col('func1').startswith('03') & (~col('func2').startswith('031'))), 'public order')
+            .when(col('func2').startswith('091'), 'primary education')
+            .when(col('func2').startswith('092'), 'secondary education')
+            .when(col('func2').startswith('093'), 'tertiary education')
         ).withColumn(
             'func',
             when(col('func1').startswith('02'), 'Defence')
@@ -73,13 +73,13 @@ def boost_silver():
             .otherwise(lit('General public services'))
         ).withColumn(
             'econ_sub',
-            when(col('econ2').startswith('A011'), 'Basic Wages')
-            .when(col('econ2').startswith('A012'), 'Allowances')
-            .when(((col('econ2').startswith('A033')) | (col('econ2').startswith('A034'))), 'Basic Services')
-            .when(col('econ1').startswith('A13'), 'Recurrent Maintenance')
-            .when(col('econ2').startswith('A051'), 'Subsidies to Production')
-            .when((col('func1').startswith('10') & col('econ1').startswith('A05')), 'Social Assistance')
-            .when(col('econ1').startswith('A04'), 'Pensions')
+            when(col('econ2').startswith('A011'), 'basic wages')
+            .when(col('econ2').startswith('A012'), 'allowances')
+            .when(((col('econ2').startswith('A033')) | (col('econ2').startswith('A034'))), 'basic services')
+            .when(col('econ1').startswith('A13'), 'recurrent maintenance')
+            .when(col('econ2').startswith('A051'), 'subsidies to production')
+            .when((col('func1').startswith('10') & col('econ1').startswith('A05')), 'social assistance')
+            .when(col('econ1').startswith('A04'), 'pensions')
         ).withColumn(
             'econ',
             # subsidies
@@ -91,7 +91,7 @@ def boost_silver():
             # goods and services
             .when(((col('econ1').startswith('A03')) & (~col('econ2').startswith('A051')) & ((col('capital') != 'y') | col('capital').isNull())), 'Goods and services')
             # social benefits
-            .when(col('econ_sub').isin('Social Assistance', 'Pensions'), 'Social benefits')
+            .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
             # other grants and transfers
             .when((col('econ1').startswith('A05')) & (~col('func1').startswith('10')) & (~col('econ2').startswith('A051')), 'Other grants and transfers')
             # interest on debt

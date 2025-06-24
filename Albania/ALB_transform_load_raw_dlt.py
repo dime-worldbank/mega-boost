@@ -1,12 +1,10 @@
 # Databricks notebook source
 import dlt
 import json
-from pyspark.sql.functions import col, lower,when, lit, substring,  concat, udf, lpad, create_map, monotonically_increasing_id
-from pyspark.sql.types import StringType, DoubleType
-from itertools import chain
+import unicodedata
+from pyspark.sql.functions import col, lower, regexp_extract, regexp_replace, when, lit, substring, expr, floor, concat, udf, lpad
+from pyspark.sql.types import StringType
 from glob import glob
-from functools import reduce
-import json
 
 # Note DLT requires the path to not start with /dbfs
 TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
@@ -15,7 +13,6 @@ COUNTRY = 'Albania'
 COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/microdata_csv/{COUNTRY}'
 RAW_COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/raw_microdata_csv/{COUNTRY}'
 RAW_INPUT_DIR = f"{TOP_DIR}/Documents/input/Data from authorities/"
-ADMIN2_PAD_LENGTH = 3
 
 CSV_READ_OPTIONS = {
     "header": "true",
@@ -24,12 +21,8 @@ CSV_READ_OPTIONS = {
     "escape": '"',
 }
 
-with open(f"{RAW_INPUT_DIR}/{COUNTRY}/labels_en_v01_overall.json", 'r') as json_file:
+with open(f"{RAW_INPUT_DIR}/{COUNTRY}/2023/labels_en_v01_overall.json", 'r') as json_file:
     labels = json.load(json_file)
-
-with open(f"{RAW_INPUT_DIR}/{COUNTRY}/project_labels.json", 'r') as json_file:
-    project_description_map = json.load(json_file)['project']
-project_map = create_map([lit(x) for x in chain(*project_description_map.items())])
 
 def replacement_udf(column_name):
     def replace_value(value):
@@ -43,22 +36,12 @@ def replacement_udf(column_name):
 @dlt.table(name=f'alb_2023_onward_boost_bronze')
 def boost_2023_onward_bronze():
     file_paths = glob(f"{RAW_COUNTRY_MICRODATA_DIR}/*.csv")
-    dfs = []
-    for f in file_paths:
-        df = (spark.read
-              .format("csv")
-              .options(**CSV_READ_OPTIONS)
-              .option("inferSchema", "true")
-              .option("header", "true")
-              .load(f))
-        dfs.append(df)
-
-    bronze_df = reduce(lambda df1, df2: df1.unionByName(df2, allowMissingColumns=True), dfs)
-    #todo Move all the transformation logic down to silver
-    bronze_df = bronze_df.withColumn('year', col('year').cast('int')).withColumn(
-         "id", concat(lit("alb_1_"), monotonically_increasing_id())).withColumn(
-             "approved", when(((col("econ3") == "606") & (col("func3").startswith("102"))), col("executed")).otherwise(col("approved"))
-         )
+    bronze_df = (spark.read
+                 .format("csv")
+                 .options(**CSV_READ_OPTIONS)
+                 .option("inferSchema", "true")
+                 .load(file_paths))
+    bronze_df = bronze_df.withColumn('year', col('year').cast('int'))
     bronze_df = bronze_df.dropna(how='all')
     return bronze_df
 
@@ -66,22 +49,19 @@ def boost_2023_onward_bronze():
 @dlt.expect_or_drop("year_not_null", "YEAR IS NOT NULL")
 @dlt.table(name=f'alb_2022_and_before_boost_bronze')
 def boost_bronze():
-    return (
-         spark.read.format("csv")
-         .options(**CSV_READ_OPTIONS)
-         .option("inferSchema", "true")
-         .load(f"{COUNTRY_MICRODATA_DIR}/Data_Expenditures.csv").withColumn(
-             "id",concat(lit("alb_2_"),  monotonically_increasing_id())).filter(col("year") < 2023)
-
-     )
+    return (spark.read
+            .format("csv")
+            .options(**CSV_READ_OPTIONS)
+            .option("inferSchema", "true")
+            .load(f'{COUNTRY_MICRODATA_DIR}/Data_Expenditures.csv')
+            .filter(col("year") < 2023)
+    )
 
 
 @dlt.table(name=f'alb_2023_onward_boost_silver')
 def boost_silver():
     silver_df  = (dlt.read(f'alb_2023_onward_boost_bronze')
-        ).withColumn("executed",
-            when(col('src')=='3 digit', lit(None))
-            .otherwise(col('executed'))
+        ).filter(col("approved").isNull()
         ).filter(~lower(col("project").substr(1, 5)).contains("total")
         ).withColumn("admin1", substring(col("admin4").cast("string"), 1, 1)
         ).withColumn("admin3", 
@@ -97,8 +77,7 @@ def boost_silver():
             .otherwise(substring(col("econ3").cast("string"), 1, 2).cast("int"))
         ).withColumn("econ4",
             when(col("econ5").isNotNull(), substring(col("econ5").cast("string"), 1, 4).cast("int"))
-            .otherwise(lit(None))
-        ).filter((col("econ3").isNull()) | ((col("econ3") != 255) & (col("econ3") >= 230))
+        ).filter((col("econ3") != 255) & (col("econ3") >= 230)
         ).filter(~col("econ1").isin([16, 17])
         ).withColumn("econ1",
             when(col("executed").isNull(), substring(col("econ3").cast("string"), 1, 1).cast("int"))
@@ -125,10 +104,8 @@ def boost_silver():
         ).withColumn("func1", (col("func3") / 1000).cast("int")
         ).withColumn("func1", lpad(col('func1'), 2, "0")
         ).withColumn("func2",(col("func3") / 100).cast("int")
-        ).withColumn("func2", lpad(col('func2'), 3, "0")        
-        ).withColumn("program_tmp", col("func3")
+        ).withColumn("func2", lpad(col('func2'), 3, "0"      )        
         ).withColumnRenamed("func3", "program"
-        ).withColumn("program", lpad(col("program").cast("int").cast("string"), 5, "0")
         # expense type
         ).withColumn("exp_type", lit(None).cast("integer")
         ).withColumn("exp_type", when(col("econ3").isin([600, 601]), 1).otherwise(col("exp_type"))
@@ -163,44 +140,43 @@ def boost_silver():
                 ((col("econ3") == 604) & (col("admin4") == 1025096) & (col("admin3") == 25)) |
                 ((col("econ3") == 604) & (col("admin4") == 1010226) & (col("admin3") == 10)), 1)
             .otherwise(lit(0))
-        ).withColumn("project_lab", project_map[col("project")]
-        ).withColumn('admin2', lpad(col('admin2').cast('int').cast("string"), ADMIN2_PAD_LENGTH, "0"))
-    
+        )
     for column_name, mapping in labels.items():
         if column_name in silver_df.columns:
             silver_df = silver_df.withColumn(column_name, replacement_udf(column_name)(col(column_name)))
 
-    silver_df = silver_df.withColumn('is_foreign', col('fin_source').startswith('2')
+    silver_df = silver_df.filter(col('transfer')=='Excluding transfers'
+        ).withColumn('is_foreign', col('fin_source').startswith('2')
         ).withColumn('admin0', 
-            when(col('counties')=='Central', 'Central')
+            when(col('admin2').startswith('00') | col('admin2').startswith('999'), 'Central')
             .otherwise('Regional')    
         ).withColumn('admin1_tmp',
             when(col('counties')=='Central', 'Central Scope')
             .otherwise(col('counties'))
         ).withColumn('admin2_tmp',
-            when(col('admin2').startswith('00'), 'Central')
-            .otherwise(col('admin2'))
+            when(col('counties')=='Central', col('admin3'))
+            .otherwise(col('counties'))
         ).withColumn('geo1', col('admin1_tmp')
         ).withColumn('func_sub',
-            # spending in Judiciary
-            when(col('func2').startswith('033'), 'Judiciary')
-            # Public Safety
-            .when(col('func2').substr(1,3).isin(['031', '034', '035']), 'Public Safety')
-            # spending in Energy
+            # spending in judiciary
+            when(col('func2').startswith('033'), 'judiciary')
+            # public safety
+            .when(col('func2').substr(1,3).isin(['031', '034', '035']), 'public safety')
+            # spending in energy
             .when(col('func2').startswith('043'), 'Energy')
-            # Primary and Secondary Health
-            .when(col('func2').startswith('072') | col('func2').startswith('074'), 'Primary and Secondary Health')
+            # primary and secondary health
+            .when(col('func2').startswith('072') | col('func2').startswith('074'), 'primary and secondary health')
             # tertitaey and quaternary health
-            .when(col('func2').startswith('073'), 'Tertiary and Quaternary Health')
-            # Primary Education
-            .when(col('func1').startswith('09') & col('func2').startswith('091'), 'Primary Education')
-            # Secondary Education
-            .when(col('func1').startswith('09') & col('func2').startswith('092'), 'Secondary Education')
-            # Tertiary Education
-            .when(col('func1').startswith('09') & col('func2').startswith('094'), 'Tertiary Education')
+            .when(col('func2').startswith('073'), 'tertiary and quaternary health')
+            # primary education
+            .when(col('func1').startswith('09') & col('func2').startswith('091'), 'primary education')
+            # secondary education
+            .when(col('func1').startswith('09') & col('func2').startswith('092'), 'secondary education')
+            # tertiary education
+            .when(col('func1').startswith('09') & col('func2').startswith('094'), 'tertiary education')
         ).withColumn('func',
             # public order and safety
-            when(col('func_sub').isin('Judiciary', 'Public Safety'), 'Public order and safety')
+            when(col('func_sub').isin('judiciary', 'public safety'), 'Public order and safety')
             # defense
             .when(col('func1').startswith('02'), 'Defence')
             # economic relations
@@ -220,29 +196,29 @@ def boost_silver():
             # general public services
             .otherwise('General public services')
         ).withColumn('econ_sub',
-            # Allowances
+            # allowances
             when((col('econ3').startswith('600') & 
-                    col('econ5').substr(1, 7).isin(['6001005', '6001003', '6001006', '6001009', '6001099', '6001008', '6001014', '6001007', '6001012', '6001004'])), 'Allowances')
-            # Basic Wages
-            .when(col('econ3').startswith('600') | col('econ3').startswith('601'), 'Basic Wages')
+                    col('econ5').substr(1, 7).isin(['6001005', '6001003', '6001006', '6001009', '6001099', '6001008', '6001014', '6001007', '6001012', '6001004'])), 'allowances')
+            # basic wages
+            .when(col('econ3').startswith('600') | col('econ3').startswith('601'), 'basic wages')
             # pension contributions
-            .when(col('econ3').startswith('601'), 'Social Benefits (pension contributions)') # note this will be zero since it is subsumed into above category
+            .when(col('econ3').startswith('601'), 'social benefits (pension contributions)') # note this will be zero since it is subsumed into above category
             # capital expenditures (foreign funded)
-            .when(col('is_foreign') & col('exp_type').startswith('3'), 'Capital Expenditure (foreign spending)')
-            # no entry for Capital Maintenance
-            # goods and services (Basic Services)
-            .when(col('econ4').startswith('6022') | col('econ4').startswith('6026'), 'Basic Services')
-            # no entry for Employment Contracts
-            # Recurrent Maintenance
-            .when(col('econ4').startswith('6025'), 'Recurrent Maintenance')
-            # Subsidies to Production
-            .when(col('econ3').startswith('603'), 'Subsidies to Production')
-            # Social Assistance
-            .when(col('econ3').startswith('606') & col('func2').startswith('104'), 'Social Assistance')
-            # Pensions
-            .when(col('econ3').startswith('606') & col('func2').startswith('102'), 'Pensions')
-            # Other Social Benefits
-            .when(col('econ3').startswith('606') & col('func2').startswith('10'), 'Other Social Benefits') # should come after Social Assistance and Pensions
+            .when(col('is_foreign') & col('exp_type').startswith('3'), 'capital expenditure (foreign funded)')
+            # no entry for capital maintenance
+            # goods and services (basic services)
+            .when(col('econ4').startswith('6022') | col('econ4').startswith('6026'), 'basic services')
+            # no entry for employment contracts
+            # recurrent maintenance
+            .when(col('econ4').startswith('6025'), 'recurrent maintenance')
+            # subsidies to production
+            .when(col('econ3').startswith('603'), 'subsidies to production')
+            # social assistance
+            .when(col('econ3').startswith('606') & col('func2').startswith('104'), 'social assistance')
+            # pensions
+            .when(col('econ3').startswith('606') & col('func2').startswith('102'), 'pensions')
+            # other social benefits
+            .when(col('econ3').startswith('606') & col('func2').startswith('10'), 'other social benefits') # should come after social assistance and pensions
         ).withColumn('econ',         
             # wage bill
             when(col('econ3').startswith('601') | col('econ3').startswith('600'), 'Wage bill')
@@ -260,7 +236,6 @@ def boost_silver():
             .when(col('econ2').startswith('65') | col('econ2').startswith('66'), 'Interest on debt')
             # other expenses
             .otherwise('Other expenses')
-        ).withColumn('admin2_new', col('admin2')
         )
     return silver_df
 
@@ -277,29 +252,29 @@ def boost_silver():
                         when(col('counties')=='Central', 'Central Scope')
                         .otherwise(col('counties'))
             ).withColumn('admin2_tmp',
-                        when(col('counties')=='Central', col('admin2'))
+                        when(col('counties')=='Central', col('admin3'))
                         .otherwise(col('counties'))
             ).withColumn('geo1', col('admin1_tmp')
             ).withColumn('func_sub',
-                        # spending in Judiciary
-                        when(col('func2').startswith('033'), 'Judiciary')
-                        # Public Safety
-                        .when(col('func2').substr(1,3).isin(['031', '034', '035']), 'Public Safety')
-                        # spending in Energy
+                        # spending in judiciary
+                        when(col('func2').startswith('033'), 'judiciary')
+                        # public safety
+                        .when(col('func2').substr(1,3).isin(['031', '034', '035']), 'public safety')
+                        # spending in energy
                         .when(col('func2').startswith('043'), 'Energy')
-                        # Primary and Secondary Health
-                        .when(col('func2').startswith('072') | col('func2').startswith('074'), 'Primary and Secondary Health')
+                        # primary and secondary health
+                        .when(col('func2').startswith('072') | col('func2').startswith('074'), 'primary and secondary health')
                         # tertitaey and quaternary health
-                        .when(col('func2').startswith('073'), 'Tertiary and Quaternary Health')
-                        # Primary Education
-                        .when(col('func1').startswith('09') & col('func2').startswith('091'), 'Primary Education')
-                        # Secondary Education
-                        .when(col('func1').startswith('09') & col('func2').startswith('092'), 'Secondary Education')
-                        # Tertiary Education
-                        .when(col('func1').startswith('09') & col('func2').startswith('094'), 'Tertiary Education')
+                        .when(col('func2').startswith('073'), 'tertiary and quaternary health')
+                        # primary education
+                        .when(col('func1').startswith('09') & col('func2').startswith('091'), 'primary education')
+                        # secondary education
+                        .when(col('func1').startswith('09') & col('func2').startswith('092'), 'secondary education')
+                        # tertiary education
+                        .when(col('func1').startswith('09') & col('func2').startswith('094'), 'tertiary education')
             ).withColumn('func',
                         # public order and safety
-                        when(col('func_sub').isin('Judiciary', 'Public Safety'), 'Public order and safety')
+                        when(col('func_sub').isin('judiciary', 'public safety'), 'Public order and safety')
                         # defense
                         .when(col('func1').startswith('02'), 'Defence')
                         # economic relations
@@ -319,29 +294,29 @@ def boost_silver():
                         # general public services
                         .otherwise('General public services')
             ).withColumn('econ_sub',
-                        # Allowances
+                        # allowances
                         when((col('econ3').startswith('600') & 
-                               col('econ5').substr(1, 7).isin(['6001005', '6001003', '6001006', '6001009', '6001099', '6001008', '6001014', '6001007', '6001012', '6001004'])), 'Allowances')
-                        # Basic Wages
-                        .when(col('econ3').startswith('600') | col('econ3').startswith('601'), 'Basic Wages')
+                               col('econ5').substr(1, 7).isin(['6001005', '6001003', '6001006', '6001009', '6001099', '6001008', '6001014', '6001007', '6001012', '6001004'])), 'allowances')
+                        # basic wages
+                        .when(col('econ3').startswith('600') | col('econ3').startswith('601'), 'basic wages')
                         # pension contributions
-                        .when(col('econ3').startswith('601'), 'Social Benefits (pension contributions)') # note this will be zero since it is subsumed into above category
+                        .when(col('econ3').startswith('601'), 'social benefits (pension contributions)') # note this will be zero since it is subsumed into above category
                         # capital expenditures (foreign funded)
-                        .when(col('is_foreign') & col('exp_type').startswith('3'), 'Capital Expenditure (foreign spending)')
-                        # no entry for Capital Maintenance
-                        # goods and services (Basic Services)
-                        .when(col('econ4').startswith('6022') | col('econ4').startswith('6026'), 'Basic Services')
-                        # no entry for Employment Contracts
-                        # Recurrent Maintenance
-                        .when(col('econ4').startswith('6025'), 'Recurrent Maintenance')
-                        # Subsidies to Production
-                        .when(col('econ3').startswith('603'), 'Subsidies to Production')
-                        # Social Assistance
-                        .when(col('econ3').startswith('606') & col('func2').startswith('104'), 'Social Assistance')
-                        # Pensions
-                        .when(col('econ3').startswith('606') & col('func2').startswith('102'), 'Pensions')
-                        # Other Social Benefits
-                        .when(col('econ3').startswith('606') & col('func2').startswith('10'), 'Other Social Benefits') # should come after Social Assistance and Pensions
+                        .when(col('is_foreign') & col('exp_type').startswith('3'), 'capital expenditure (foreign funded)')
+                        # no entry for capital maintenance
+                        # goods and services (basic services)
+                        .when(col('econ4').startswith('6022') | col('econ4').startswith('6026'), 'basic services')
+                        # no entry for employment contracts
+                        # recurrent maintenance
+                        .when(col('econ4').startswith('6025'), 'recurrent maintenance')
+                        # subsidies to production
+                        .when(col('econ3').startswith('603'), 'subsidies to production')
+                        # social assistance
+                        .when(col('econ3').startswith('606') & col('func2').startswith('104'), 'social assistance')
+                        # pensions
+                        .when(col('econ3').startswith('606') & col('func2').startswith('102'), 'pensions')
+                        # other social benefits
+                        .when(col('econ3').startswith('606') & col('func2').startswith('10'), 'other social benefits') # should come after social assistance and pensions
             ).withColumn('econ',         
                         # wage bill
                         when(col('econ3').startswith('601') | col('econ3').startswith('600'), 'Wage bill')
@@ -368,7 +343,7 @@ def alb_2022_and_before_boost_gold():
         .withColumn('country_name', lit(COUNTRY))
         .select('country_name',
                 'year',
-                col('approved').cast(DoubleType()),
+                'approved',
                 'revised',
                 'executed',
                 'is_foreign',
@@ -379,19 +354,17 @@ def alb_2022_and_before_boost_gold():
                 'func_sub',
                 'func',
                 'econ_sub',
-                'econ',
-                'id')
+                'econ')
     )
 
 
 @dlt.table(name=f'alb_2023_onward_boost_gold')
 def alb_2023_onward_boost_gold():
     return (dlt.read(f'alb_2023_onward_boost_silver')
-        .filter(col('transfer')=='Excluding transfers')
         .withColumn('country_name', lit(COUNTRY))
         .select('country_name',
                 'year',
-                col('approved').cast(DoubleType()),
+                'approved',
                 'revised',
                 'executed',
                 'is_foreign',
@@ -402,8 +375,7 @@ def alb_2023_onward_boost_gold():
                 'func_sub',
                 'func',
                 'econ_sub',
-                'econ',
-                'id')
+                'econ')
     )
 
 @dlt.table(name="alb_boost_gold")
@@ -411,26 +383,6 @@ def alb_boost_gold():
     df_before_2023 = dlt.read("alb_2022_and_before_boost_gold")
     df_from_2023 = dlt.read("alb_2023_onward_boost_gold")
 
-    return df_before_2023.unionByName(df_from_2023).drop("id")
+    return df_before_2023.unionByName(df_from_2023)
 
-
-@dlt.table(name='boost.alb_publish',
-           comment='The Ministry of Finance of Albania together with the World Bank developed and published a BOOST platform obtained from the National Treasury System in order to facilitate access to the detailed public finance data for comprehensive budget analysis. In this context, the Albania BOOST Public Finance Portal aims to strengthen the disclosure and demand for availability of public finance information at all level of government in the country from 2010 onward.Note that 2020 execution only covers 6 months.')
-def alb_publish():
-    alb_bronze_before_2023 = dlt.read('alb_2022_and_before_boost_bronze')
-    alb_bronze_from_2023 = dlt.read('alb_2023_onward_boost_silver')
-    col_list = [col for col in alb_bronze_before_2023.columns if col in alb_bronze_from_2023.columns]
-    alb_bronze_from_2023 = alb_bronze_from_2023.select(col_list)
-    alb_bronze_before_2023 = alb_bronze_before_2023.select(col_list)
-    alb_bronze_union = alb_bronze_before_2023.unionByName(alb_bronze_from_2023)
-    
-    alb_gold_from_2023 = dlt.read(f'alb_2023_onward_boost_gold')
-    alb_gold_before_2023 = dlt.read('alb_2022_and_before_boost_gold')
-    alb_gold_union = alb_gold_before_2023.unionByName(alb_gold_from_2023)
-
-    prefix = "boost_"
-    for column in alb_gold_union.columns:
-        alb_gold_union = alb_gold_union.withColumnRenamed(column, prefix + column)
-
-    return alb_bronze_union.join(alb_gold_union, on=[alb_gold_union['boost_id'] == alb_bronze_union['id']], how='left').drop("id", "boost_id")
-
+           

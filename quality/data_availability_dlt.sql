@@ -9,7 +9,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
     FROM
       boost_intermediate.quality_total_gold
     WHERE
-      executed is not NULL
+      approved_or_executed = 'Executed'
     GROUP by
       1
   ),
@@ -17,7 +17,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
     SELECT
       DISTINCT country_name
     FROM
-      boost_intermediate.expenditure_by_country_year
+      boost.expenditure_by_country_year
   ),
   func_coverage AS (
     SELECT
@@ -26,7 +26,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
     FROM
       boost_intermediate.quality_functional_gold
     WHERE
-      executed in not NULL
+      approved_or_executed = 'Executed'
     GROUP BY
       1
   ),
@@ -164,7 +164,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
     FROM
       boost_intermediate.quality_total_subnat_gold
     WHERE
-      executed is not null
+      amount is not null
     GROUP BY
       1
   ),

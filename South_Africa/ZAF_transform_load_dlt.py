@@ -89,21 +89,21 @@ def boost_silver():
                     (col("program") == "02 superior court services")
                     | (col("program") == "02 court services")
                 ),
-                "Judiciary",
+                "judiciary",
             )
             .when(
                 (
                     (col("program") == "02 visible policing")
                     | (col("program") == "02 incarceration")
                 ),
-                "Public Safety",
+                "public safety",
             )
             .when(
                 (
                     (col("func_sub_lower") == "agriculture and rural development")
                     | (col("func_sub_lower") == "agriculture")
                 ),
-                "Agriculture",
+                "agriculture",
             )
             .when(
                 (
@@ -119,18 +119,18 @@ def boost_silver():
                     )
                 )
                 | (col("transfers").startswith("south african national roads")),
-                "Roads",
+                "roads",
             )
             .when(
                 (
                     (col("func_lower") == "03 rail Transport")
                     | (col("func_lower") == "05 gautrain")
                 ),
-                "Water Transport",
+                "railroads",
             )
             .when(
                 (col("program") == "05 civil aviation"),
-                "Air Transport",
+                "air transport",
             )
             .when(
                 (
@@ -143,11 +143,11 @@ def boost_silver():
                         & (col("program").startswith("03 water"))
                     )
                 ),
-                "Water and Sanitation",
+                "water and sanitation",
             )
             .when(
                 (col("program") == "03 university education"),
-                "Tertiary Education",
+                "tertiary education",
             )
             .when(
                 (
@@ -171,7 +171,7 @@ def boost_silver():
                         )
                     )
                 ),
-                "Energy",
+                "energy",
             ),
         )
         .withColumn(
@@ -189,7 +189,7 @@ def boost_silver():
             )
             # public order and safety
             .when(
-                col("func_sub").isin("Public Safety", "Judiciary"),
+                col("func_sub").isin("public safety", "judiciary"),
                 "Public order and safety",
             ).when(
                 ((col("func_lower").startswith("economic"))),
@@ -222,7 +222,7 @@ def boost_silver():
                 "Environmental protection",
             )
             .when(
-                col("func_sub") == "Water and Sanitation",
+                col("func_sub") == "water and sanitation",
                 "Housing and community amenities",
             )
             .when(
@@ -265,23 +265,23 @@ def boost_silver():
             "econ_sub",
             when(
                 (col("econ3") == "Social contributions"),
-                "Social Benefits (pension contributions)",
+                "social benefits (pension contributions)",
             )
             .when(
                 col("econ3").isin("Property payments", "Operating leases"),
-                "Basic Services",
+                "basic services",
             )
             .when(
                 (col("econ3") == "Contractors"),
-                "Employment Contracts",
+                "employment contracts",
             )
             .when(
                 (col("econ2") == "Public corporations and private enterprises"),
-                "Subsidies to Production",
+                "subsidies to production",
             )
             .when(
                 (col("transfers") == "old age"),
-                "Pensions",
+                "pensions",
             )
             .when(
                 (
@@ -301,7 +301,7 @@ def boost_silver():
                         | ((col("func_sub_lower") == "social development"))
                     )
                 ),
-                "Social Assistance",
+                "social assistance",
             ),
         )
         .withColumn(
@@ -342,7 +342,7 @@ def boost_silver():
                 "Other grants and transfers",
             )
             .when(
-                col("econ_sub").isin("Social Assistance", "Pensions"), "Social benefits"
+                col("econ_sub").isin("social assistance", "pensions"), "Social benefits"
             )
             .when(
                 (

@@ -43,14 +43,13 @@ ALTER TABLE {TARGET_TABLE} SET TAGS (
     'subdomain' = 'Budget & Cost Accounting',
     'destinations' = 'dataexplorer, ddh',
     'exception' = '7. Member Countries/Third Party Confidence',
-    'license' = 'License Not Applicable (AMS 6.21A)',
+    'license' = 'Creative Commons Attribution-Non Commercial 4.0',
     'topics' = 'Economic Growth, Macroeconomic and Structural Policies, Public Sector Management',
     'coverage_year_start' = '{coverage_start}',
     'coverage_year_end' = '{coverage_end}',
     'coverage_countries' = '{coverage_countries}',
     'team_lead' = 'mmastruzzi@worldbank.org',
-    'collaborators' = 'icapita@worldbank.org, agirongordillo@worldbank.org, sbhupatiraju@worldbank.org, ysuzuki2@worldbank.org, elysenko@worldbank.org, wlu4@worldbank.org',
-    'alt_url_link' = 'https://dataexplorer.worldbank.org/search/dataset/details?id=DS04237'
+    'collaborators' = 'icapita@worldbank.org, agirongordillo@worldbank.org, sbhupatiraju@worldbank.org, ysuzuki2@worldbank.org, elysenko@worldbank.org, wlu4@worldbank.org'
 );
 """
 

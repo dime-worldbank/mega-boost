@@ -444,18 +444,18 @@ def col_central_boost_silver_from_raw():
     )
     .withColumn('func_sub',
       when(
-        col("func1").isin("RAMA JUDICIAL", "JUSTICIA Y DEL DERECHO") , "Judiciary"
+        col("func1").isin("RAMA JUDICIAL", "JUSTICIA Y DEL DERECHO") , "judiciary"
       ).when(
         (col("admin1").startswith("151100") |
          col("admin1").startswith("151201") |
          col("admin1").startswith("151600") |
          col("admin1").startswith("160101") |
-         col("admin1").startswith("160102")), "Public Safety"
+         col("admin1").startswith("160102")), "public safety"
       )
     )
     .withColumn('func',
       when(
-        col("func_sub").isin("Judiciary", "Public Safety") , "Public order and safety"
+        col("func_sub").isin("judiciary", "public safety") , "Public order and safety"
       ).when(
         col("func1") == "DEFENSA Y POLICÍA", "Defence" # important for this to be after "Public order and safety" to exclude those line items
       ).when(
@@ -490,17 +490,17 @@ def col_central_boost_silver_from_raw():
       )
     ).withColumn('econ_sub',
       when(
-        (col("pension") & (col("econ2") == "Transferencias")), "Pensions"
+        (col("pension") & (col("econ2") == "Transferencias")), "pensions"
       ).when(
-        col("econ3").startswith("03-03-04-052"), "Social Assistance"
+        col("econ3").startswith("03-03-04-052"), "social assistance"
       )
     ).withColumn('econ',
       when(
         col("econ1") == 'Inversion', "Capital expenditures"
       ).when(
         col("econ_sub").isin(
-          "Pensions",
-          "Social Assistance"
+          "pensions",
+          "social assistance"
         ), "Social benefits"
       ).when(
         col("econ2") == 'Gastos de Personal' , "Wage bill"

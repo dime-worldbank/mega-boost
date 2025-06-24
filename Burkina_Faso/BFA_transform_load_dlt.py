@@ -98,17 +98,17 @@ def boost_silver():
         .otherwise(col('geo1_tmp'))
     ).withColumn(
         'func_sub',
-        when(col('FUNCTION2').startswith('033'), 'Judiciary')
-        .when(col('FUNCTION1').startswith('03') & (~col('FUNCTION2').startswith('033')), 'Public Safety')
-        .when(col('FUNCTION2').startswith('072') | col('FUNCTION2').startswith('074'), 'Primary and Secondary Health')
-        .when(col('FUNCTION2').startswith('073'), 'Tertiary and Quaternary Health')
-        .when(col('FUNCTION2').startswith('091') | ((col('SECTOR2').startswith('42')) & (col('FUNCTION2').startswith('095') | col('FUNCTION2').startswith('096'))), 'Primary Education')
-        .when((col('YEAR') < 2017) & (col('FUNCTION2').startswith('092')), 'Secondary Education')
+        when(col('FUNCTION2').startswith('033'), 'judiciary')
+        .when(col('FUNCTION1').startswith('03') & (~col('FUNCTION2').startswith('033')), 'public safety')
+        .when(col('FUNCTION2').startswith('072') | col('FUNCTION2').startswith('074'), 'primary and secondary health')
+        .when(col('FUNCTION2').startswith('073'), 'tertiary and quaternary health')
+        .when(col('FUNCTION2').startswith('091') | ((col('SECTOR2').startswith('42')) & (col('FUNCTION2').startswith('095') | col('FUNCTION2').startswith('096'))), 'primary education')
+        .when((col('YEAR') < 2017) & (col('FUNCTION2').startswith('092')), 'secondary education')
     ).withColumn(
         'func',
         when(col('YEAR') == 2016, lit(None)) # Remove 2016 entirely from func calculation as wage bill is missing
         .when(col('FUNCTION1').startswith('02'), 'Defence')
-        .when(col('func_sub').isin('Judiciary', 'Public Safety'), 'Public order and safety')
+        .when(col('func_sub').isin('judiciary', 'public safety'), 'Public order and safety')
         .when(col('FUNCTION1').startswith('04'), 'Economic affairs')
         .when(col('FUNCTION1').startswith('05'), 'Environmental protection')
         .when(col('FUNCTION1').startswith('06'), 'Housing and community amenities')
@@ -119,29 +119,29 @@ def boost_silver():
         .otherwise('General public services')
     ).withColumn(
         'econ_sub',
-        when(((col('YEAR')==2006) & (col('FUNCTION1').startswith('10') & (col('ECON1').startswith('4 ')))), 'Social Assistance') # different formula for 2006
+        when(((col('YEAR')==2006) & (col('FUNCTION1').startswith('10') & (col('ECON1').startswith('4 ')))), 'social assistance') # different formula for 2006
         .when((((col('YEAR')>2006) & (col('YEAR')<2017)) & 
-               (col('FUNCTION1').startswith('10') & col('ECON1').startswith('4 '))), 'Social Assistance')
-        .when(((col('YEAR')>=2017) & (col('FUNCTION1').startswith('10')) & (col('ECON1').startswith('4 '))), 'Social Assistance') # no formulae for Pensions and Other Social Benefits
+               (col('FUNCTION1').startswith('10') & col('ECON1').startswith('4 '))), 'social assistance')
+        .when(((col('YEAR')>=2017) & (col('FUNCTION1').startswith('10')) & (col('ECON1').startswith('4 '))), 'social assistance') # no formulae for pensions and other social benefits
         .when(((col('YEAR')<2017) & (
             ((~col('SOURCE_FIN1').startswith('1')) & (col('ECON1').startswith('5')) & (~col('ECON2').startswith('66'))) |
             (col('ECON1').startswith('6')) |
             (col('ECON1').startswith('7') & (col('ECON2').startswith('21') | col('ECON2').startswith('22') | col('ECON2').startswith('23'))) |
             (col('ECON1').startswith('7') & (col('ECON4').startswith('62997')) )
             )
-        ), 'Capital Expenditure (foreign spending)')
-        .when(((col('YEAR')>=2017) & (col('ECON1').startswith('5')) & (col('SOURCE_FIN1')!= 'Financement Etat')), 'Capital Expenditure (foreign spending)')
-        .when(col('rep_cap').startswith('y'), 'Capital Maintenance')
-        .when(((col('YEAR')<2017) & (col('ECON3').startswith('625') | col('ECON3').startswith('627'))), 'Basic Services')
-        .when(((col('YEAR')>=2017) & (col('ECON3').startswith('605') | col('ECON3').startswith('612'))), 'Basic Services')
-        .when(((col('YEAR')<2017) & (col('ECON3').startswith('623'))), 'Employment Contracts')
-        .when(((col('YEAR')>=2017) & (col('ECON3').startswith('622'))), 'Employment Contracts')
-        .when(((col('YEAR')<2017) & (col('ECON3').startswith('622'))), 'Recurrent Maintenance')
-        .when(((col('YEAR')>=2017) & (col('ECON3').startswith('614'))), 'Recurrent Maintenance')
-        # Subsidies to Production 
+        ), 'capital expenditure (foreign spending)')
+        .when(((col('YEAR')>=2017) & (col('ECON1').startswith('5')) & (col('SOURCE_FIN1')!= 'Financement Etat')), 'capital expenditure (foreign spending)')
+        .when(col('rep_cap').startswith('y'), 'capital maintenance')
+        .when(((col('YEAR')<2017) & (col('ECON3').startswith('625') | col('ECON3').startswith('627'))), 'basic services')
+        .when(((col('YEAR')>=2017) & (col('ECON3').startswith('605') | col('ECON3').startswith('612'))), 'basic services')
+        .when(((col('YEAR')<2017) & (col('ECON3').startswith('623'))), 'employment contracts')
+        .when(((col('YEAR')>=2017) & (col('ECON3').startswith('622'))), 'employment contracts')
+        .when(((col('YEAR')<2017) & (col('ECON3').startswith('622'))), 'recurrent maintenance')
+        .when(((col('YEAR')>=2017) & (col('ECON3').startswith('614'))), 'recurrent maintenance')
+        # subsidies to production 
         .when((col('YEAR')>=2017) & ((col('ECON2').startswith('63')) | 
-                            (col('PROG3').startswith('1330303') | col('PROG3').startswith('1330313'))), 'Subsidies to Production')
-        .when((col('YEAR')<2017) & (col('ECON2').startswith('63')) & (~col('ECON4').startswith('6322')) &  (~col('ECON4').substr(1, 5).isin(econ4_codes_to_exclude)) , 'Subsidies to Production') # same as 'Subsidies' in econ
+                            (col('PROG3').startswith('1330303') | col('PROG3').startswith('1330313'))), 'subsidies to production')
+        .when((col('YEAR')<2017) & (col('ECON2').startswith('63')) & (~col('ECON4').startswith('6322')) &  (~col('ECON4').substr(1, 5).isin(econ4_codes_to_exclude)) , 'subsidies to production') # same as 'Subsidies' in econ
     ).withColumn(
         'econ',
         # interest on debt
@@ -195,7 +195,7 @@ def boost_silver():
                 )
             ), 'Goods and services')
         # Social benefits
-        .when(col('econ_sub').isin('Social Assistance', 'Pensions', 'Other Social Benefits'), 'Social benefits')
+        .when(col('econ_sub').isin('social assistance', 'pensions', 'other social benefits'), 'Social benefits')
         # subsidies
         .when((col('YEAR')>=2017) & ((col('ECON2').startswith('63')) | 
                             (col('PROG3').startswith('1330303') | col('PROG3').startswith('1330313'))), 'Subsidies')
