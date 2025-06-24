@@ -6,7 +6,8 @@ from pyspark.sql.types import StructType, StructField, StringType, IntegerType, 
 
 catalog = 'prd_mega'
 indicator_schema = 'indicator'
-boost_intermediate_schema = 'boost_intermediate'
+quality_source_schema = spark.conf.get("QUALITY_SOURCE_SCHEMA", 'boost_intermediate')
+country_source_schema = spark.conf.get("COUNTRY_SOURCE_SCHEMA", 'boost_intermediate')
 
 # Adding a new country requires adding the country here
 
@@ -22,9 +23,9 @@ schema = StructType([
     StructField("geo1", StringType(), True, {'comment': 'Geographically, at which first sub-national administrative level the money was spent.'}),
     StructField("adm1_name", StringType(), True, {'comment': 'Legacy alias for geo1'}),
     StructField("func", StringType(), True, {'comment': 'Functional classification of the budget (e.g., Health, Education).'}),
-    StructField("func_sub", StringType(), True, {'comment': 'Sub-functional classification under the main COFOG function (e.g., primary education, secondary education).'}),
+    StructField("func_sub", StringType(), True, {'comment': 'Sub-functional classification under the main COFOG function (e.g., Primary Education, Secondary Education).'}),
     StructField("econ", StringType(), True, {'comment': 'Economic classification of the budget (e.g., Wage bill, Goods and services).'}),
-    StructField("econ_sub", StringType(), True, {'comment': 'Sub-economic classification under the main economic category (e.g., basic wages, allowances).'}),
+    StructField("econ_sub", StringType(), True, {'comment': 'Sub-economic classification under the main economic category (e.g., Basic Wages, Allowances).'}),
     StructField("is_foreign", BooleanType(), True, {'comment': 'Indicator whether the expenditure is foreign funded or not.'}),
     StructField("approved", DoubleType(), True, {'comment': 'Amount of budget in current local currency approved by the relevant authority.'}),
     StructField("revised", DoubleType(), True, {'comment': 'Revised budget in current local currency amount during the fiscal year.'}),
@@ -40,7 +41,7 @@ schema = StructType([
 def boost_gold():
     unioned_df = None
     for code in country_codes:
-        table_name = f'{catalog}.{boost_intermediate_schema}.{code}_boost_gold'
+        table_name = f'{catalog}.{country_source_schema}.{code}_boost_gold'
         current_df = spark.table(table_name)
         for col_name in ["func", "func_sub", "econ", "econ_sub", "admin0", "admin1", "admin2", "geo1", "revised", "is_foreign"]:
             if col_name not in current_df.columns:
@@ -96,11 +97,7 @@ def cpi_factor():
 @dlt.table(name=f'expenditure_by_country_year')
 def expenditure_by_country_year():
     boost_gold = dlt.read('boost_gold')
-    year_ranges = (boost_gold
-        .groupBy("country_name")
-        .agg(F.min("year").alias("earliest_year"), 
-             F.max("year").alias("latest_year"))
-    )
+    window_spec = Window.partitionBy("country_name")
     cpi_factors = dlt.read('cpi_factor')
 
     pop = (spark.table(f'{catalog}.{indicator_schema}.population')
@@ -114,7 +111,14 @@ def expenditure_by_country_year():
             ).alias("decentralized_expenditure"),
             F.sum(
                 F.when(boost_gold["is_foreign"], boost_gold["executed"])
-            ).alias("foreign_funded_expenditure")
+            ).alias("foreign_funded_expenditure"),
+            F.sum("approved").alias("budget"),
+            F.sum(
+                F.when(boost_gold["admin0"] == "Regional", boost_gold["approved"])
+            ).alias("decentralized_budget"),
+            F.sum(
+                F.when(boost_gold["is_foreign"], boost_gold["approved"])
+            ).alias("foreign_funded_budget")
         )
         .withColumn("expenditure_decentralization",
             F.col("decentralized_expenditure") / F.col("expenditure")
@@ -122,36 +126,30 @@ def expenditure_by_country_year():
         .withColumn("expenditure_foreign_ratio",
             F.col("foreign_funded_expenditure") / F.col("expenditure")
         )
+        .withColumn("budget_decentralization",
+            F.col("decentralized_budget") / F.col("budget")
+        )
+        .withColumn("budget_foreign_ratio",
+            F.col("foreign_funded_budget") / F.col("budget")
+        )
         .join(cpi_factors, on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
-        # left join to preserve years that are not in the population table for quality checks
+
+        .withColumn("real_budget", F.col("budget") / F.col("cpi_factor"))
         .join(pop, on=["country_name", "year"], how="left")
+        .withColumn("latest_year", F.max("year").over(window_spec))
+        .withColumn("earliest_year", F.min("year").over(window_spec))
         .withColumn("per_capita_expenditure", F.col("expenditure") / F.col("population"))
         .withColumn("per_capita_real_expenditure", F.col("real_expenditure") / F.col("population"))
-        .join(year_ranges, on=['country_name'], how='left')
-    )
-
-# Pre-query for the rpf dash/PowerBI dashboard
-@dlt.table(name="pov_expenditure_by_country_year")
-def pov_expenditure():
-    return (
-        spark.table(f"{catalog}.{indicator_schema}.poverty").join(
-            dlt.read("expenditure_by_country_year"),
-            on=["year", "country_name"],
-            how="right",
-        )
-        # Only poor215 is required for the dashboard
-        .drop("country_code", "region", "poor365", "poor685", "data_source")
+        .withColumn("per_capita_budget", F.col("budget") / F.col("population"))
+        .withColumn("per_capita_real_budget", F.col("real_budget") / F.col("population"))
     )
 
 @dlt.table(name='expenditure_by_country_geo1_func_year')
 def expenditure_by_country_geo1_func_year():
     boost_gold = dlt.read('boost_gold')
-    year_ranges = (boost_gold
-        .groupBy("country_name")
-        .agg(F.min("year").alias("earliest_year"), 
-             F.max("year").alias("latest_year"))
-    )
+    window_spec = Window.partitionBy("country_name")
+
     cpi_factors = dlt.read('cpi_factor')
 
     subnat_pop = spark.table(f'{catalog}.{indicator_schema}.subnational_population')
@@ -166,13 +164,19 @@ def expenditure_by_country_geo1_func_year():
     
     return (boost_gold
         .groupBy("country_name", "adm1_name", "func", "year")
-        .agg(F.sum("executed").alias("expenditure"))
+        .agg(
+            F.sum("executed").alias("expenditure"),
+            F.sum("approved").alias("budget"))
         .join(cpi_factors, on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
-        .join(year_ranges, on=['country_name'], how='left')
+        .withColumn("real_budget", F.col("budget") / F.col("cpi_factor"))
         .join(pop, on=["country_name", "adm1_name", "year"], how="inner")
+        .withColumn("latest_year", F.max("year").over(window_spec))
+        .withColumn("earliest_year", F.min("year").over(window_spec))
         .withColumn("per_capita_expenditure", F.col("expenditure") / F.col("population"))
         .withColumn("per_capita_real_expenditure", F.col("real_expenditure") / F.col("population"))
+        .withColumn("per_capita_budget", F.col("budget") / F.col("population"))
+        .withColumn("per_capita_real_budget", F.col("real_budget") / F.col("population"))
         .withColumn("adm1_name_for_map", 
             F.when(
                 ((F.col("country_name") == 'Paraguay') & (F.col("adm1_name") == 'Asuncion')),
@@ -214,40 +218,7 @@ def expenditure_by_country_geo1_func_year():
         )
     )
 
-@dlt.table(name=f'expenditure_and_outcome_by_country_geo1_func_year')
-def expenditure_and_outcome_by_country_geo1_func_year():
-    outcome_df = spark.table(f'{catalog}.{indicator_schema}.global_data_lab_hd_index')
-    exp_window = Window.partitionBy("country_name", "year", "func").orderBy(F.col("per_capita_real_expenditure").desc())
-    outcome_window = Window.partitionBy("country_name", "year", "func").orderBy(F.col("outcome_index").desc())
-    geo1_func_df = dlt.read('expenditure_by_country_geo1_func_year')
 
-    ranked_df = (geo1_func_df
-        .join(
-            outcome_df, on=["country_name", "adm1_name", "year"], how="inner"
-        ).withColumn('outcome_index', 
-            F.when(
-                F.col('func') == 'Education', F.col('attendance_6to17yo')
-            ).when(
-                F.col('func') == 'Health', F.col('health_index')
-            )
-        ).filter(
-            F.col('outcome_index').isNotNull()
-        ).withColumn("rank_per_capita_real_exp",
-            F.rank().over(exp_window)
-        ).withColumn("rank_outcome_index",
-            F.rank().over(outcome_window)
-        ).select(
-            "country_name",
-            "adm1_name",
-            "year",
-            "func",
-            "outcome_index",
-            "rank_per_capita_real_exp",
-            "rank_outcome_index",
-        )
-    )
-
-    return geo1_func_df.join(ranked_df, on=["country_name", "adm1_name", "year", "func"], how="left")
 
 @dlt.table(name=f'expenditure_by_country_geo1_year')
 def expenditure_by_country_geo1_year():
@@ -258,6 +229,10 @@ def expenditure_by_country_geo1_year():
             F.sum("real_expenditure").alias("real_expenditure"),
             F.sum("per_capita_expenditure").alias("per_capita_expenditure"),
             F.sum("per_capita_real_expenditure").alias("per_capita_real_expenditure"),
+            F.sum("budget").alias("budget"),
+            F.sum("real_budget").alias("real_budget"),
+            F.sum("per_capita_budget").alias("per_capita_budget"),
+            F.sum("per_capita_real_budget").alias("per_capita_real_budget"),
             F.min("earliest_year").alias("earliest_year"), 
             F.max("latest_year").alias("latest_year")
         )
@@ -265,6 +240,8 @@ def expenditure_by_country_geo1_year():
 
 @dlt.table(name=f'expenditure_by_country_admin_func_sub_econ_sub_year')
 def expenditure_by_country_admin_func_sub_econ_sub_year():
+    window_spec = Window.partitionBy("country_name", "func")
+
     with_decentralized = (dlt.read('boost_gold')
         .withColumn("is_foreign", F.when(F.col("is_foreign").isNull(), False).otherwise(F.col("is_foreign")))
         .groupBy("country_name", "year", "admin0", "admin1", "admin2", "func", "func_sub", "econ", "econ_sub", "is_foreign").agg(
@@ -273,34 +250,31 @@ def expenditure_by_country_admin_func_sub_econ_sub_year():
         )
         .join(dlt.read(f'cpi_factor'), on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
+        .withColumn("earliest_year", F.min("year").over(window_spec)) 
+        .withColumn("latest_year", F.max("year").over(window_spec))
+        .withColumn("real_budget", F.col("budget") / F.col("cpi_factor"))
     )
 
-    year_ranges = (with_decentralized
-        .groupBy("country_name", "func")
-        .agg(F.min("year").alias("earliest_year"), 
-             F.max("year").alias("latest_year"))
-    )
-
-    return with_decentralized.join(year_ranges, on=['country_name', 'func'], how='inner')
+    return with_decentralized
 
 @dlt.table(name='expenditure_by_country_geo0_func_sub_year')
 def expenditure_by_country_geo0_func_sub_year():
+    window_spec = Window.partitionBy("country_name", "func")
+
     with_decentralized = (dlt.read('boost_gold')
         .groupBy("country_name", "year", "geo0", "func", "func_sub").agg(
-            F.sum("executed").alias("expenditure")
+            F.sum("executed").alias("expenditure"),
+            F.sum("approved").alias("budget")
         )
         .join(dlt.read('cpi_factor'), on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
+        .withColumn("real_budget", F.col("budget") / F.col("cpi_factor"))
         .filter(F.col("real_expenditure").isNotNull())
+        .withColumn("earliest_year", F.min("year").over(window_spec)) 
+        .withColumn("latest_year", F.max("year").over(window_spec))
     )
 
-    year_ranges = (with_decentralized
-        .groupBy("country_name", "func")
-        .agg(F.min("year").alias("earliest_year"), 
-             F.max("year").alias("latest_year"))
-    )
-
-    return with_decentralized.join(year_ranges, on=['country_name', 'func'], how='inner')
+    return with_decentralized
     
 @dlt.table(name=f'expenditure_by_country_func_econ_year')
 def expenditure_by_country_func_econ_year():
@@ -322,10 +296,19 @@ def expenditure_by_country_func_econ_year():
                 F.when(~F.col("is_foreign"), F.col("budget"))
             ).alias("domestic_funded_budget"),
             F.sum("budget").alias("budget"),
+            F.sum("real_budget").alias("real_budget"),
+            F.sum(
+                F.when(F.col("admin0") == "Regional", F.col("budget"))
+            ).alias("decentralized_budget"),
+            F.sum(
+                F.when(F.col("admin0") == "Central", F.col("budget"))
+            ).alias("central_budget"),
         )
         .join(pop, on=["country_name", "year"], how="inner")
         .withColumn("per_capita_expenditure", F.col("expenditure") / F.col("population"))
         .withColumn("per_capita_real_expenditure", F.col("real_expenditure") / F.col("population"))
+        .withColumn("per_capita_budget", F.col("budget") / F.col("population"))
+        .withColumn("per_capita_real_budget", F.col("real_budget") / F.col("population"))
     )
 
 # This is intentionally not aggregating from expenditure_by_country_geo1_func_year
@@ -340,12 +323,22 @@ def expenditure_by_country_func_year():
             F.sum("central_expenditure").alias("central_expenditure"),
             F.sum("per_capita_expenditure").alias("per_capita_expenditure"),
             F.sum("per_capita_real_expenditure").alias("per_capita_real_expenditure"),
+
+            F.sum("budget").alias("budget"),
+            F.sum("real_budget").alias("real_budget"),
+            F.sum("decentralized_budget").alias("decentralized_budget"),
+            F.sum("central_budget").alias("central_budget"),
+            F.sum("per_capita_budget").alias("per_capita_budget"),
+            F.sum("per_capita_real_budget").alias("per_capita_real_budget"),
             F.min("population").alias("population"),
             F.min("year").alias("earliest_year"), 
             F.max("year").alias("latest_year")
         )
         .withColumn("expenditure_decentralization",
             F.col("decentralized_expenditure") / F.col("expenditure")
+        )
+        .withColumn("budget_decentralization",
+            F.col("decentralized_budget") / F.col("budget")
         )
     )
 
@@ -359,56 +352,22 @@ def expenditure_by_country_econ_year():
             F.sum("central_expenditure").alias("central_expenditure"),
             F.sum("per_capita_expenditure").alias("per_capita_expenditure"),
             F.sum("per_capita_real_expenditure").alias("per_capita_real_expenditure"),
+            F.sum("budget").alias("budget"),
+            F.sum("real_budget").alias("real_budget"),
+            F.sum("decentralized_budget").alias("decentralized_budget"),
+            F.sum("central_budget").alias("central_budget"),
+            F.sum("per_capita_budget").alias("per_capita_budget"),
+            F.sum("per_capita_real_budget").alias("per_capita_real_budget"),
             F.min("population").alias("population"),
             F.min("year").alias("earliest_year"), 
             F.max("year").alias("latest_year")
         )
+        .withColumn("budget_decentralization",
+            F.col("decentralized_budget") / F.col("budget")
+        )
         .withColumn("expenditure_decentralization",
             F.col("decentralized_expenditure") / F.col("expenditure")
         )
-    )
-
-@dlt.table(name=f'edu_private_expenditure_by_country_year')
-def edu_private_expenditure_by_country_year():
-    edu_pub_exp = (dlt.read('expenditure_by_country_func_year')
-        .filter(F.col('func') == "Education")
-        .select(
-            "country_name",
-            "year",
-            F.col("expenditure").alias("pub_expenditure"),
-            F.col("real_expenditure").alias("real_pub_expenditure"),
-        )
-    )
-
-    cpi_factors = dlt.read('cpi_factor')
-    edu_exp = (spark.table(f'{catalog}.{indicator_schema}.edu_spending')
-        .join(cpi_factors, on=["country_name", "year"], how="inner")
-        .withColumn(
-            "real_edu_spending_current_lcu_icp",
-            F.col("edu_spending_current_lcu_icp") / F.col("cpi_factor")
-        )
-    )
-    return (
-        edu_exp
-        .join(edu_pub_exp, on=["country_name", "year"], how="inner")
-        .withColumn(
-            "expenditure",
-            F.col("edu_spending_current_lcu_icp") - F.col("pub_expenditure")
-        )
-        .withColumn(
-            "real_expenditure",
-            F.col("real_edu_spending_current_lcu_icp") - F.col("real_pub_expenditure")
-        )
-        .filter(F.col("expenditure") >= 0)
-    )
-
-@dlt.table(name=f'health_private_expenditure_by_country_year')
-def health_private_expenditure_by_country_year():
-    cpi_factors = dlt.read('cpi_factor')
-    return (spark.table(f'{catalog}.{indicator_schema}.health_expenditure')
-        .withColumn('oop_expenditure_current_lcu', F.col('che') * F.col('oop_percent_che') / 100)
-        .join(cpi_factors, on=["country_name", "year"], how="inner")
-        .withColumn("real_expenditure", F.col("oop_expenditure_current_lcu") / F.col("cpi_factor"))
     )
 
 # COMMAND ----------
@@ -417,11 +376,15 @@ excluded_country_year_conditions = (
     (F.col('country_name') == 'Burkina Faso') & (F.col('year') == 2016) |
     (F.col('country_name') == 'Bangladesh') & (F.col('year') == 2008) |
     (F.col('country_name') == 'Kenya') & (F.col('year').isin(list(range(2006, 2016)))) |
-    (F.col('country_name') == 'Chile') & (F.col('year') < 2009)
+    (F.col('country_name') == 'Chile') & (F.col('year') < 2009)|
+    (F.col('country_name') == 'Uruguay') & (F.col('year') == 2023)
 )
 
 @dlt.table(name='quality_boost_country')
-@dlt.expect_or_fail('country has total agg for year', 'expenditure IS NOT NULL')
+@dlt.expect_or_fail('country has total agg expenditure for year', 'expenditure IS NOT NULL')
+@dlt.expect_or_fail(
+    'total budget must be present unless both MEGA budget and CCI approved are null',
+    'budget IS NOT NULL OR (budget IS NULL AND approved IS NULL)')
 def quality_boost_country():
     country_codes_upper = [c.upper() for c in country_codes]
     boost_countries = (spark.table(f'{catalog}.{indicator_schema}.country')
@@ -431,8 +394,7 @@ def quality_boost_country():
     assert boost_countries.count() == len(country_codes),\
         f'expect all BOOST countries ({country_codes_upper}) to be present in {catalog}.{indicator_schema}.country table ({boost_countries.select("country_code").collect()})'
 
-    quality_cci_total = (spark.table(f'{catalog}.{boost_intermediate_schema}.quality_total_gold')
-        .filter(F.col('approved_or_executed') == 'Executed')
+    quality_cci_total = (spark.table(f'{catalog}.{quality_source_schema}.quality_total_gold')
         .filter(~excluded_country_year_conditions)
         .join(boost_countries, on=['country_name'], how="right")
     )
@@ -488,11 +450,14 @@ def quality_boost_admin1_central_scope():
         .join(boost_countries, on=['country_name'], how="right"))
 
 @dlt.table(name='quality_boost_func')
-@dlt.expect_or_fail('country has func agg for year', 'expenditure IS NOT NULL')
+@dlt.expect_or_fail('country has func agg expenditure for year', 'expenditure IS NOT NULL')
+@dlt.expect_or_fail(
+    'func budget is required unless both MEGA budget and CCI approved are null',
+    'budget IS NOT NULL OR (budget IS NULL AND approved IS NULL)'
+)
 def quality_boost_func():
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
-    quality_cci_func = (spark.table(f'{catalog}.{boost_intermediate_schema}.quality_functional_gold')
-        .filter(F.col('approved_or_executed') == 'Executed')
+    quality_cci_func = (spark.table(f'{catalog}.{quality_source_schema}.quality_functional_gold')
         .filter(~excluded_country_year_conditions)
         .join(boost_countries, on=['country_name'], how="right")
     )
@@ -508,7 +473,7 @@ def quality_boost_func_exact():
     # This doesn't check by year on purpose as new years may be added to pipeline
     # without the CCI excel being updated.
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
-    quality_cci_func = (spark.table(f'{catalog}.{boost_intermediate_schema}.quality_functional_gold')
+    quality_cci_func = (spark.table(f'{catalog}.{quality_source_schema}.quality_functional_gold')
         .groupBy('country_name', 'func')
         .agg(F.count('*').alias('cci_row_count'))
         .join(boost_countries, on=['country_name'], how="right")
@@ -520,12 +485,34 @@ def quality_boost_func_exact():
         .join(quality_cci_func, on=['country_name', 'func'], how="left")
     )
 
+@dlt.table(name='quality_boost_func_sub_unknown')
+@dlt.expect_or_fail('country has no unknown func_sub', 'cci_row_count IS NOT NULL')
+def quality_boost_func_sub_exact():
+    # This doesn't check by year on purpose as new years may be added to pipeline
+    # without the CCI excel being updated.
+    boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
+    quality_cci_func = (spark.table(f'{catalog}.{quality_source_schema}.quality_functional_sub_gold')
+        .groupBy('country_name', 'func_sub')
+        .agg(F.count('*').alias('cci_row_count'))
+        .join(boost_countries, on=['country_name'], how="right")
+    )
+    return (
+        dlt.read('expenditure_by_country_admin_func_sub_econ_sub_year')
+        .filter(F.col('func_sub').isNotNull())
+        .groupBy('country_name', 'func_sub')
+        .agg(F.count('*').alias('row_count'))
+        .join(quality_cci_func, on=['country_name', 'func_sub'], how="left")
+    )
+
 @dlt.table(name='quality_boost_econ')
-@dlt.expect_or_fail('country has econ agg for year', 'expenditure IS NOT NULL')
+@dlt.expect_or_fail('country has econ agg expenditure for year', 'expenditure IS NOT NULL')
+@dlt.expect_or_fail(
+    'econ budget is required unless both MEGA budget and CCI approved are null',
+    'budget IS NOT NULL OR (budget IS NULL AND approved IS NULL)'
+)
 def quality_boost_econ():
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
-    quality_cci_econ = (spark.table(f'{catalog}.{boost_intermediate_schema}.quality_economic_gold')
-        .filter(F.col('approved_or_executed') == 'Executed')
+    quality_cci_econ = (spark.table(f'{catalog}.{quality_source_schema}.quality_economic_gold')
         .filter(~excluded_country_year_conditions)
         .join(boost_countries, on=['country_name'], how="right")
     )
@@ -539,7 +526,7 @@ def quality_boost_econ():
 @dlt.expect_or_fail('country has no unknown econ agg', 'cci_row_count IS NOT NULL')
 def quality_boost_econ_unknown():
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
-    quality_cci_econ = (spark.table(f'{catalog}.{boost_intermediate_schema}.quality_economic_gold')
+    quality_cci_econ = (spark.table(f'{catalog}.{quality_source_schema}.quality_economic_gold')
         .groupBy('country_name', 'econ')
         .agg(F.count('*').alias('cci_row_count'))
         .join(boost_countries, on=['country_name'], how="right")
@@ -551,11 +538,28 @@ def quality_boost_econ_unknown():
         .join(quality_cci_econ, on=['country_name', 'econ'], how="left")
     )
 
+@dlt.table(name='quality_boost_econ_sub_unknown')
+@dlt.expect_or_fail('country has no unknown econ sub agg', 'cci_row_count IS NOT NULL')
+def quality_boost_econ_sub_unknown():
+    boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
+    quality_cci_econ = (spark.table(f'{catalog}.{quality_source_schema}.quality_economic_sub_gold')
+        .groupBy('country_name', 'econ_sub')
+        .agg(F.count('*').alias('cci_row_count'))
+        .join(boost_countries, on=['country_name'], how="right")
+    )
+    return (
+        dlt.read('expenditure_by_country_admin_func_sub_econ_sub_year')
+        .filter(F.col('econ_sub').isNotNull())
+        .groupBy('country_name', 'econ_sub')
+        .agg(F.count('*').alias('row_count'))
+        .join(quality_cci_econ, on=['country_name', 'econ_sub'], how="left")
+    )
+
 @dlt.table(name='quality_boost_foreign')
 @dlt.expect_or_fail('country has foreign agg', 'row_count IS NOT NULL')
 def quality_boost_foreign():
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
-    quality_cci_foreign = (spark.table(f'{catalog}.{boost_intermediate_schema}.quality_total_foreign_gold')
+    quality_cci_foreign = (spark.table(f'{catalog}.{quality_source_schema}.quality_total_foreign_gold')
         .groupBy('country_name')
         .agg(F.count('*').alias('cci_row_count'))
         .join(boost_countries, on=['country_name'], how="inner")
@@ -566,4 +570,99 @@ def quality_boost_foreign():
         .groupBy('country_name')
         .agg(F.count('*').alias('row_count'))
         .join(quality_cci_foreign, on=['country_name'], how="right")
+    )
+
+# COMMAND ----------
+
+# Outcome tables
+
+# Pre-query for the rpf dash/PowerBI dashboard
+@dlt.table(name="pov_expenditure_by_country_year")
+def pov_expenditure():
+    return (
+        spark.table(f"{catalog}.{indicator_schema}.poverty").join(
+            dlt.read("expenditure_by_country_year"),
+            on=["year", "country_name"],
+            how="right",
+        )
+        # Only poor215 is required for the dashboard
+        .drop("country_code", "region", "poor365", "poor685", "data_source")
+    )
+
+@dlt.table(name=f'expenditure_and_outcome_by_country_geo1_func_year')
+def expenditure_and_outcome_by_country_geo1_func_year():
+    outcome_df = spark.table(f'{catalog}.{indicator_schema}.global_data_lab_hd_index')
+    exp_window = Window.partitionBy("country_name", "year", "func").orderBy(F.col("per_capita_real_expenditure").desc())
+    outcome_window = Window.partitionBy("country_name", "year", "func").orderBy(F.col("outcome_index").desc())
+    geo1_func_df = dlt.read('expenditure_by_country_geo1_func_year')
+
+    ranked_df = (geo1_func_df
+        .join(
+            outcome_df, on=["country_name", "adm1_name", "year"], how="inner"
+        ).withColumn('outcome_index', 
+            F.when(
+                F.col('func') == 'Education', F.col('attendance_6to17yo')
+            ).when(
+                F.col('func') == 'Health', F.col('health_index')
+            )
+        ).filter(
+            F.col('outcome_index').isNotNull()
+        ).withColumn("rank_per_capita_real_exp",
+            F.rank().over(exp_window)
+        ).withColumn("rank_outcome_index",
+            F.rank().over(outcome_window)
+        ).select(
+            "country_name",
+            "adm1_name",
+            "year",
+            "func",
+            "outcome_index",
+            "rank_per_capita_real_exp",
+            "rank_outcome_index",
+        )
+    )
+
+    return geo1_func_df.join(ranked_df, on=["country_name", "adm1_name", "year", "func"], how="left")
+
+@dlt.table(name=f'edu_private_expenditure_by_country_year')
+def edu_private_expenditure_by_country_year():
+    edu_pub_exp = (dlt.read('expenditure_by_country_func_year')
+        .filter(F.col('func') == "Education")
+        .select(
+            "country_name",
+            "year",
+            F.col("expenditure").alias("pub_expenditure"),
+            F.col("real_expenditure").alias("real_pub_expenditure"),
+        )
+    )
+
+    cpi_factors = dlt.read('cpi_factor')
+    edu_exp = (spark.table(f'{catalog}.{indicator_schema}.edu_spending')
+        .join(cpi_factors, on=["country_name", "year"], how="inner")
+        .withColumn(
+            "real_edu_spending_current_lcu_icp",
+            F.col("edu_spending_current_lcu_icp") / F.col("cpi_factor")
+        )
+    )
+    return (
+        edu_exp
+        .join(edu_pub_exp, on=["country_name", "year"], how="inner")
+        .withColumn(
+            "expenditure",
+            F.col("edu_spending_current_lcu_icp") - F.col("pub_expenditure")
+        )
+        .withColumn(
+            "real_expenditure",
+            F.col("real_edu_spending_current_lcu_icp") - F.col("real_pub_expenditure")
+        )
+        .filter(F.col("expenditure") >= 0)
+    )
+
+@dlt.table(name=f'health_private_expenditure_by_country_year')
+def health_private_expenditure_by_country_year():
+    cpi_factors = dlt.read('cpi_factor')
+    return (spark.table(f'{catalog}.{indicator_schema}.health_expenditure')
+        .withColumn('oop_expenditure_current_lcu', F.col('che') * F.col('oop_percent_che') / 100)
+        .join(cpi_factors, on=["country_name", "year"], how="inner")
+        .withColumn("real_expenditure", F.col("oop_expenditure_current_lcu") / F.col("cpi_factor"))
     )

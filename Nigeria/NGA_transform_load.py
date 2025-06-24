@@ -48,13 +48,13 @@ def nga_boost_silver():
     .withColumn('is_foreign', ((~col('is_transfer')) & (col('Econ3').startswith('220402'))))
     .withColumn('admin2', trim(regexp_replace(col("adm2"), '^[0-9\\s]*', '')))
     .withColumn('func_sub',
-        when(col("Func2").startswith('7033') , "judiciary") # Comes before public safety tagging as it is a subcategory
-        .when(col('Func1').startswith('703'), 'public safety'))
+        when(col("Func2").startswith('7033') , "Judiciary") # Comes before Public Safety tagging as it is a subcategory
+        .when(col('Func1').startswith('703'), 'Public Safety'))
         # No breakdown of spending into primary, secondary for health
-        # No breakdown of spending into primary, secondary education
+        # No breakdown of spending into primary, Secondary Education
     .withColumn('func',
         # Public order and safety
-        when((~col("is_transfer")) & (col('Func1').startswith('703')), "Public order and safety") # not defined as sum of judiciary expenses and public safety expenses
+        when((~col("is_transfer")) & (col('Func1').startswith('703')), "Public order and safety") # not defined as sum of Judiciary expenses and Public Safety expenses
         # Environmental protection
         .when(col("Func1").startswith('705'), "Environmental protection")
         # Housing and community amenities
@@ -94,24 +94,24 @@ def nga_boost_silver():
         when((~col('is_transfer')) & (
             ((~col('adm3').startswith('161002')) & (col('Econ4').startswith('22040109') | col('Econ4').startswith('22021007'))) |
             (col('Program').startswith('ERGP22112823')) |
-            col('adm3').startswith('161002')), 'social assistance')
-        .when((col('Econ2').startswith('2101')), 'basic wages') # redundant condition in excel with two conditions on Econ2
-        .when(((~col('is_transfer')) & (col('Econ3').startswith('210201'))), 'allowances')
-        .when(((~col('is_transfer')) & (col('Econ4').startswith('21020202'))), 'social benefits (pension contributions)')
+            col('adm3').startswith('161002')), 'Social Assistance')
+        .when((col('Econ2').startswith('2101')), 'Basic Wages') # redundant condition in excel with two conditions on Econ2
+        .when(((~col('is_transfer')) & (col('Econ3').startswith('210201'))), 'Allowances')
+        .when(((~col('is_transfer')) & (col('Econ4').startswith('21020202'))), 'Social Benefits (pension contributions)')
         .when((
             (~col('is_transfer')) &
             (col('Econ1').startswith('23')) &
-            (col('Econ3').startswith('220402'))), 'capital expenditure (foreign spending)') # no entries in the excel sheet for this entry, but formula is present
-        .when(col('Econ2').startswith('2303'), 'capital maintenance')
-        .when(((~col('is_transfer')) & (col('Econ3').startswith('220202'))), 'basic services')
-        .when(((~col('is_transfer')) & (col('Econ3').startswith('220207'))), 'employment contracts')
-        .when(((~col('is_transfer')) & (col('Econ3').startswith('220204'))), 'recurrent maintenance')
-        .when(((~col('is_transfer')) & (col('Econ2').startswith('2205'))), 'subsidies to production')
+            (col('Econ3').startswith('220402'))), 'Capital Expenditure (foreign spending)') # no entries in the excel sheet for this entry, but formula is present
+        .when(col('Econ2').startswith('2303'), 'Capital Maintenance')
+        .when(((~col('is_transfer')) & (col('Econ3').startswith('220202'))), 'Basic Services')
+        .when(((~col('is_transfer')) & (col('Econ3').startswith('220207'))), 'Employment Contracts')
+        .when(((~col('is_transfer')) & (col('Econ3').startswith('220204'))), 'Recurrent Maintenance')
+        .when(((~col('is_transfer')) & (col('Econ2').startswith('2205'))), 'Subsidies to Production')
         .when(((~col('is_transfer')) &
                 (col('Econ4').startswith('22010102') |
                 col('Econ4').startswith('21030102') |
                 col('Econ4').startswith('22010104') |
-                col('Econ4').startswith('22021059'))), 'pensions'))
+                col('Econ4').startswith('22021059'))), 'Pensions'))
     .withColumn('econ',
         # wage bill
         when(((col('Econ1').startswith('21')) & (~col('Econ2').startswith('2103')) & (~col('Econ4').startswith('21030102'))), 'Wage bill')
@@ -133,7 +133,7 @@ def nga_boost_silver():
         # subsidies
         .when(col('Econ2').startswith('2205'), 'Subsidies')
         # social benefits
-        .when(col('econ_sub').isin('social assistance', 'pensions'), 'Social benefits')
+        .when(col('econ_sub').isin('Social Assistance', 'Pensions'), 'Social benefits')
         # no items for interest on debt
         .otherwise('Other expenses')) # No formula available for 'Other grants and services'    
 )
