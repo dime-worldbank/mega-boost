@@ -15,6 +15,8 @@ CSV_READ_OPTIONS = {
     "escape": '"',
 }
 
+# used to avoid conflicts between boost data and population data where one has more data than the other
+
 end_year = 2024
 
 # COMMAND ----------
@@ -48,9 +50,7 @@ def melt_and_pivot(df, id_vars=["country_name", "approved_or_executed"], groupby
         values=year_cols,
         variableColumnName="year",
         valueColumnName="amount",
-    )
-    .filter(F.col('amount').isNotNull())
-    .filter(F.col('year') < end_year)
+    ).filter(F.col('amount').isNotNull()).filter(F.col('year') < end_year)
             
     pivoted = melted.groupBy(groupby).agg(
         F.sum(
@@ -117,8 +117,6 @@ def quality_functional_silver():
                 F.col("category_code") == "EXP_FUNC_SOC_PRO_EXE", "Social protection"
             ),
         ).filter(F.col("func").isNotNull())
-        .filter(F.col('amount').isNotNull())
-        .filter(F.col('year') < end_year)
     )
     
     return melt_and_pivot(bronze, id_vars=["country_name", "approved_or_executed", "func"], groupby=["country_name", "year", "func"])
@@ -194,10 +192,7 @@ def quality_economic_silver():
             ).when(
                 F.col("category_code") == 'EXP_ECON_INT_DEB_EXE' , "Interest on debt"
             )
-        )
-        .filter(F.col('econ').isNotNull())
-        .filter(F.col('amount').isNotNull())
-        .filter(F.col('year') < end_year)
+        ).filter(F.col('econ').isNotNull())
         
     return melt_and_pivot(bronze, id_vars=["country_name", "approved_or_executed", "econ"], groupby=["country_name", "year", "econ"])
 
@@ -248,8 +243,7 @@ def quality_economic_sub_gold():
 @dlt.table(name=f'quality_judiciary_silver')
 def quality_judiciary_silver():
     bronze = dlt.read('quality_cci_bronze').filter(F.trim(F.col('category')) == 'Spending in judiciary')
-        .filter(F.col('amount').isNotNull())
-        .filter(F.col('year') < end_year)
+    
     return (melt_and_pivot(bronze))
 
 # COMMAND ----------
@@ -267,8 +261,7 @@ def quality_judiciary_gold():
 @dlt.table(name=f'quality_total_subnat_silver')
 def quality_total_subnat_silver():
     bronze = dlt.read('quality_cci_bronze').filter(F.col('category_code') == 'EXP_ECON_SBN_TOT_SPE_EXE')
-        .filter(F.col('amount').isNotNull())
-        .filter(F.col('year') < end_year)
+    
     return (melt_and_pivot(bronze))
 
 
@@ -286,8 +279,6 @@ def quality_total_subnat_gold():
 @dlt.table(name=f'quality_total_foreign_silver')
 def quality_total_foreign_silver():
     bronze = dlt.read('quality_cci_bronze').filter(F.col('category_code') == 'EXP_ECON_TOT_EXP_FOR_EXE')
-        .filter(F.col('amount').isNotNull())
-        .filter(F.col('year') < end_year)
     
     return (melt_and_pivot(bronze))
 
