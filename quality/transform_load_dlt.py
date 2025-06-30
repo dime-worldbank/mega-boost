@@ -16,8 +16,7 @@ CSV_READ_OPTIONS = {
 }
 
 # used to avoid conflicts between boost data and population data where one has more data than the other
-
-end_year = 2024
+# end_year = 2024
 
 # COMMAND ----------
 
@@ -50,7 +49,7 @@ def melt_and_pivot(df, id_vars=["country_name", "approved_or_executed"], groupby
         values=year_cols,
         variableColumnName="year",
         valueColumnName="amount",
-    ).filter(F.col('amount').isNotNull()).filter(F.col('year') < end_year)
+    )#.filter(F.col('amount').isNotNull()).filter(F.col('year') < end_year)
             
     pivoted = melted.groupBy(groupby).agg(
         F.sum(

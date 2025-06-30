@@ -129,17 +129,19 @@ def boost_silver():
 
     # --- Sub-Functional Classifications ---
     df = df.withColumn(
-        'func_sub', when((col("func") == "Public order and safety") & (col('Func2').startswith('033')), "judiciary")
-            .when((col("func") == "Public order and safety") & (~col('Func2').startswith('033')), "public safety")
-            .when(not_dept & (col('Func2').startswith('042')), 'agriculture')
-            .when(col('Func2').startswith('045'), 'transport')
-            .when(not_dept & (col('Func3').startswith('0451')), 'roads')
-            .when(col('Admin1').startswith('429'), 'air transport')
-            .when(not_dept & (col('Func2').startswith('043')), 'energy')
-            .when(col('Admin1').startswith('418'), 'telecoms')
-            .when(col('Func2').startswith('07 ') | col('Func2').startswith('074'), 'primary and secondary health')
-            .when(col('Func2').startswith('073'), 'tertiary and quaternary health')
+        'func_sub', when((col("func") == "Public order and safety") & (col('Func2').startswith('033')), "Judiciary")
+            .when((col("func") == "Public order and safety") & (~col('Func2').startswith('033')), "Public Safety")
+            .when(not_dept & (col('Func2').startswith('042')), 'Agriculture')
+            .when(col('Func2').startswith('045'), 'Transport')
+            .when(not_dept & (col('Func3').startswith('0451')), 'Roads')
+            .when(col('Admin1').startswith('429'), 'Air Transport')
+            .when(not_dept & (col('Func2').startswith('043')), 'Energy')
+            .when(col('Admin1').startswith('418'), 'Telecoms')
+            .when(col('Func2').startswith('07 ') | col('Func2').startswith('074'), 'Primary and Secondary Health')
+            .when(col('Func2').startswith('073'), 'Tertiary and Quaternary Health')
+            # .otherwise('Unknown')
     )
+    # df = df.withColumn("func_sub", initcap("func_sub"))
     
     # --- Econ and sub econ reused filters ---
     pensions_filter = (col('Econ0').startswith('2')) & (col('Econ2').startswith('271'))
@@ -149,14 +151,16 @@ def boost_silver():
 
     # --- Sub-Economic Classifications ---     
     df = df.withColumn(
-        'econ_sub', when(social_assistance_filter, 'social assistance')
-            .when(pensions_filter, 'pensions')
-            .when(wage_filter & allowances_filter, 'allowances')
-            .when(wage_filter & ~allowances_filter, 'basic wages')
-            .when(not_dept & (col('Econ2').startswith('212')), 'social benefits (pension contributions)') 
-            .when((col('Econ3').startswith('2213')) | (col('Econ3').startswith('2218')), 'basic services')
-            .when(col('Econ3').startswith('2215'), 'recurrent maintenance')
+        'econ_sub', when(social_assistance_filter, 'Social Assistance')
+            .when(pensions_filter, 'Pensions')
+            .when(wage_filter & allowances_filter, 'Allowances')
+            .when(wage_filter & ~allowances_filter, 'Basic Wages')
+            .when(not_dept & (col('Econ2').startswith('212')), 'Social Benefits (Pension Contributions)') 
+            .when((col('Econ3').startswith('2213')) | (col('Econ3').startswith('2218')), 'Basic Services')
+            .when(col('Econ3').startswith('2215'), 'Recurrent Maintenance')
+            # .otherwise('Unknown')
     )
+    df = df.withColumn("econ_sub", initcap("econ_sub"))
 
     # --- Economic Classifications ---
     subsidy_filter = col('Econ1_orig').startswith('25')
@@ -246,12 +250,13 @@ def boost_silver():
 def boost_gold():
     return (dlt.read(f'lbr_boost_silver')
         .withColumn('country_name', lit(COUNTRY))
-        .filter(col('actual').isNotNull())
+        # .filter(col('actual').isNotNull())
+        # .filter(col('year') < 2025)
         .select(
-                'index', 
-                    'Admin2_orig',
-                    "Econ1_orig",
-                    'budget',
+                # 'index', 
+                #     'Admin2_orig',
+                #     "Econ1_orig",
+                #     'budget',
                 'country_name',
                 col('year').cast('integer'),
                 col('approved'),
