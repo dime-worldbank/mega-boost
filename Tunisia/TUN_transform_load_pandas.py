@@ -109,7 +109,7 @@ def set_wide_columns(row):
         row['func_economic_affairs'] = 1
     if row.get('admin1', '').startswith('18'):
         row['func_economic_affairs'] = 1
-    if row.get('roads', '') == '1' or row.get('railroads', '') == '1' or row.get('air', '') == '1':
+    if row.get('roads', '') == '1.0' or row.get('railroads', '') == '1.0' or row.get('air', '') == '1.0':
         row['func_economic_affairs'] = 1
     # Default: general public services if none above
     if not any([row.get(f'func_{clean_col(cat)}', 0) == 1 for cat in func_categories if cat != 'General public services']):
@@ -126,7 +126,7 @@ def set_wide_columns(row):
         row['funcsub_agriculture'] = 1
     if row.get('admin1', '').startswith('18'):
         row['funcsub_telecom'] = 1
-    if row.get('roads', '') == '1' or row.get('railroads', '') == '1' or row.get('air', '') == '1':
+    if row.get('roads', "") == "1.0" or row.get('railroads', "") == "1.0" or row.get('air', "") == "1.0":
         row['funcsub_transport'] = 1
     if not any([row.get(f'funcsub_{clean_col(cat)}', 0) == 1 for cat in funcsub_categories if cat != "Other expenses"]):
         row['funcsub_other_expenses'] = 1
@@ -148,7 +148,7 @@ def set_wide_columns(row):
         row['econsub_other_expenses'] = 1
 
     # ECON WIDE
-    if row.get('econ2', '').startswith('01') and row.get('prog', '') != '2 Securite Sociale':
+    if row.get('econ2', '').startswith('01') and row.get('prog', '') != '2 Securite Sociale' and not row.get('admin1', '').startswith('05'):
         row['econ_wage_bill'] = 1
     if row.get('econ1', '').startswith('Titre 2') and not row.get('econ2', '').startswith('10') and not row.get('prog','').startswith('2 Securite Sociale') and not row.get('admin1', '').startswith('05 '):
         row['econ_capital_expenditures'] = 1
@@ -165,6 +165,7 @@ def set_wide_columns(row):
         row['econ_other_expenses'] = 1
 
     return row
+
 
 # Initialize all wide columns to 0
 for cat in func_categories:
@@ -248,6 +249,90 @@ database_name = "prd_mega.boost_intermediate"
 sdf = df.to_spark()
 sdf.write.mode("overwrite").saveAsTable(f"{database_name}.tun_boost_gold_test")
 
+
+# COMMAND ----------
+
+import pyspark.pandas as ps
+
+import pyspark.pandas as ps
+import pandas as pd
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col
+import re
+import numpy as np
+database_name = "prd_mega.boost_intermediate"
+
+ps.set_option('compute.ops_on_diff_frames', False)
+# Set up Spark session (if running outside Databricks)
+spark = SparkSession.builder.getOrCreate()
+
+TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
+WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
+COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/microdata_csv/Tunisia'
+
+CSV_READ_OPTIONS = {
+    "header": "infer",
+    "multiline": True,
+    "quotechar": '"',
+    "escapechar": '"',
+}
+
+def clean_col(col_name):
+    return re.sub(r'\s+', '_', col_name.strip().lower())
+
+# Read CSV as pyspark.pandas DataFrame
+df = ps.read_csv(COUNTRY_MICRODATA_DIR, **CSV_READ_OPTIONS)
+df = df.fillna('')
+for col in ['TYPE', 'GBO', 'ADMIN1', 'ADMIN2', 'ECON1', 'ECON2', 'ECON3',
+       'ECON4', 'ECON5', 'PROG', 'SPROG', 'GEO1', 'FONDS', 'LOI DE FINANCE',
+       'DELEGUE', 'Roads', 'Air', 'WSS','railroads', 'Primary', 'Secondary', 'SOE', 'Maintenance', 'subsidies']:
+    df[col] = df[col].astype(str).fillna("")
+
+# Clean column names
+df.columns = [clean_col(c) for c in df.columns]
+df['year'] = df['year'].astype(int)
+df = df[~df['econ2'].astype(str).str.startswith('10')]
+
+# COMMAND ----------
+
+import pyspark.pandas as ps
+import pandas as pd
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col
+import re
+import numpy as np
+database_name = "prd_mega.boost_intermediate"
+
+ps.set_option('compute.ops_on_diff_frames', False)
+# Set up Spark session (if running outside Databricks)
+spark = SparkSession.builder.getOrCreate()
+
+TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
+WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
+COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/microdata_csv/Tunisia'
+
+CSV_READ_OPTIONS = {
+    "header": "infer",
+    "multiline": True,
+    "quotechar": '"',
+    "escapechar": '"',
+}
+
+def clean_col(col_name):
+    return re.sub(r'\s+', '_', col_name.strip().lower())
+
+# Read CSV as pyspark.pandas DataFrame
+df = ps.read_csv(COUNTRY_MICRODATA_DIR, **CSV_READ_OPTIONS)
+df = df.fillna('')
+for col in ['TYPE', 'GBO', 'ADMIN1', 'ADMIN2', 'ECON1', 'ECON2', 'ECON3',
+       'ECON4', 'ECON5', 'PROG', 'SPROG', 'GEO1', 'FONDS', 'LOI DE FINANCE',
+       'DELEGUE', 'Roads', 'Air', 'WSS','railroads', 'Primary', 'Secondary', 'SOE', 'Maintenance', 'subsidies']:
+    df[col] = df[col].astype(str).fillna("")
+
+# Clean column names
+df.columns = [clean_col(c) for c in df.columns]
+df['year'] = df['year'].astype(int)
+df = df[~df['econ2'].astype(str).str.startswith('10')]
 
 # COMMAND ----------
 

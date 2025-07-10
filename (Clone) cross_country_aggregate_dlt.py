@@ -40,9 +40,9 @@ def boost_dev():
             "geo1",
             "adm1_name",
             "func",
-            "func_sub",
+            "funcsub",
             "econ",
-            "econ_sub",
+            "econsub",
             "is_foreign",
             "approved",
             "revised",
@@ -67,7 +67,8 @@ def expenditure_by_country_year_dev():
     )
     boost_gold_dev = dlt.read("boost_dev")
     boost_gold_dev = (
-        boost_gold_dev.dropDuplicates(subset=["country_name", "index"])
+        boost_gold_dev
+        .dropDuplicates(subset=["country_name", "index"])
         .groupBy("country_name", "year")
         .agg(
             F.sum("executed").alias("expenditure"),
@@ -96,7 +97,8 @@ def expenditure_by_country_year_econ_dev():
     )
     boost_gold_dev = dlt.read("boost_dev")
     boost_gold_dev = (
-        boost_gold_dev.dropDuplicates(subset=["country_name", "econ", "index"])
+        boost_gold_dev
+        .dropDuplicates(subset=["country_name", "econ", "index"])
         .groupBy("country_name", "econ", "year")
         .agg(
             F.sum("executed").alias("expenditure"),
@@ -117,6 +119,37 @@ def expenditure_by_country_year_econ_dev():
 # COMMAND ----------
 
 @dlt.table(
+    name="expenditure_by_country_year_econ_sub_dev",
+)
+def expenditure_by_country_year_econ_sub_dev():
+    quality_econ_sub = spark.table(
+        f"{catalog}.{quality_source_schema}.quality_economic_sub_gold"
+    )
+    boost_gold_dev = dlt.read("boost_dev")
+    boost_gold_dev = boost_gold_dev.withColumnRenamed("econsub", "econ_sub")
+    boost_gold_dev = (
+        boost_gold_dev
+        .dropDuplicates(subset=["country_name", "econ_sub", "index"])
+        .groupBy("country_name", "econ_sub", "year")
+        .agg(
+            F.sum("executed").alias("expenditure"),
+            F.sum("approved").alias("budget"),
+        )
+    )
+    return (
+        boost_gold_dev.join(quality_econ_sub, on=["country_name", "econ_sub", "year"], how="inner")
+        .withColumn(
+            "diff_expenditure",
+            (F.col("executed") - F.col("expenditure")).cast("integer"),
+        )
+        .withColumn(
+            "diff_budget", (F.col("approved") - F.col("budget")).cast("integer")
+        )
+    )
+
+# COMMAND ----------
+
+@dlt.table(
     name="expenditure_by_country_year_func_dev",
 )
 def expenditure_by_country_year_func_dev():
@@ -125,7 +158,8 @@ def expenditure_by_country_year_func_dev():
     )
     boost_gold_dev = dlt.read("boost_dev")
     boost_gold_dev = (
-        boost_gold_dev.dropDuplicates(subset=["country_name", "func", "index"])
+        boost_gold_dev
+        .dropDuplicates(subset=["country_name", "func", "index"])
         .groupBy("country_name", "func", "year")
         .agg(
             F.sum("executed").alias("expenditure"),
@@ -145,43 +179,31 @@ def expenditure_by_country_year_func_dev():
 
 # COMMAND ----------
 
-df = spark.table('prd_mega.boost_intermediate.tun_boost_gold_test')
-pdf = df.toPandas()
-
-# COMMAND ----------
-
-gold = spark.table('prd_mega.boost_intermediate.tun_boost_gold')
-pgold = gold.toPandas()
-
-# COMMAND ----------
-
-goldfunc = pgold[pgold['func'] == "Defence"]
-
-# COMMAND ----------
-
-total = pdf.drop_duplicates(subset=['country_name', 'index'])
-total.groupby(['country_name', 'year']).sum()['executed']
-
-
-# COMMAND ----------
-
-func = pdf.drop_duplicates(subset=['country_name', 'func', 'index'])
-func = func[func['func'] == "Defence"]
-
-# COMMAND ----------
-
-duplicated_func = func.groupby(['func', 'year']).sum()['executed'].reset_index()
-
-# COMMAND ----------
-
-gold_func = goldfunc.groupby(['func', 'year']).sum()['executed'].reset_index()
-
-# COMMAND ----------
-
-gold_func.merge(duplicated_func, on=['func', 'year'], how='inner')
-
-
-# COMMAND ----------
-
-1820889769.66
-750161561.23
+@dlt.table(
+    name="expenditure_by_country_year_func_sub_dev",
+)
+def expenditure_by_country_year_func_sub_dev():
+    quality_func_sub = spark.table(
+        f"{catalog}.{quality_source_schema}.quality_functional_sub_gold"
+    )
+    boost_gold_dev = dlt.read("boost_dev")
+    boost_gold_dev = boost_gold_dev.withColumnRenamed("funcsub", "func_sub")
+    boost_gold_dev = (
+        boost_gold_dev
+        .dropDuplicates(subset=["country_name", "func_sub", "index"])
+        .groupBy("country_name", "func_sub", "year")
+        .agg(
+            F.sum("executed").alias("expenditure"),
+            F.sum("approved").alias("budget"),
+        )
+    )
+    return (
+        boost_gold_dev.join(quality_func_sub, on=["country_name", "func_sub", "year"], how="inner")
+        .withColumn(
+            "diff_expenditure",
+            (F.col("executed") - F.col("expenditure")).cast("integer"),
+        )
+        .withColumn(
+            "diff_budget", (F.col("approved") - F.col("budget")).cast("integer")
+        )
+    )
