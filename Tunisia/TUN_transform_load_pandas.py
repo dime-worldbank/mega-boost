@@ -136,7 +136,7 @@ def set_wide_columns(row):
         row['econsub_pensions'] = 1
     if row.get('admin1', '').startswith('05') and row.get('prog', '') != '2 Securite Sociale':
         row['econsub_social_assistance'] = 1
-    if row.get('econ2', '').startswith('01') and row.get('prog', '') != '2 Securite Sociale':
+    if row.get('econ2', '').startswith('01') and row.get('prog', '') != '2 Securite Sociale' and not row.get('admin1', '').startswith('05'):
         row['econsub_basic_wages'] = 1
     if row.get('maintenance', '') == '1' and row.get('econ1', '').startswith('Titre 2'):
         row['econsub_capital_maintenance'] = 1
@@ -196,7 +196,11 @@ def collect_tags_vectorized(df, prefix, tags):
     long_df = long_df.melt(var_name=f'{prefix}', value_name='is_tag', id_vars=['original_id'])
     # Add original index as a column
     long_df = long_df[long_df['is_tag'] == 1].drop(columns=['is_tag'])
-    long_df[f'{prefix}'] = long_df[f'{prefix}'].str.capitalize()
+    #TODO make all the tagging title case
+    if prefix in ['funcsub', 'econsub']:
+        long_df[f'{prefix}'] = long_df[f'{prefix}'].str.title()
+    else:
+        long_df[f'{prefix}'] = long_df[f'{prefix}'].str.capitalize()
     return long_df
     
 # Apply for all categories
@@ -248,92 +252,4 @@ df=df[gold_column_namses]
 database_name = "prd_mega.boost_intermediate"
 sdf = df.to_spark()
 sdf.write.mode("overwrite").saveAsTable(f"{database_name}.tun_boost_gold_test")
-
-
-# COMMAND ----------
-
-import pyspark.pandas as ps
-
-import pyspark.pandas as ps
-import pandas as pd
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import col
-import re
-import numpy as np
-database_name = "prd_mega.boost_intermediate"
-
-ps.set_option('compute.ops_on_diff_frames', False)
-# Set up Spark session (if running outside Databricks)
-spark = SparkSession.builder.getOrCreate()
-
-TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
-WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
-COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/microdata_csv/Tunisia'
-
-CSV_READ_OPTIONS = {
-    "header": "infer",
-    "multiline": True,
-    "quotechar": '"',
-    "escapechar": '"',
-}
-
-def clean_col(col_name):
-    return re.sub(r'\s+', '_', col_name.strip().lower())
-
-# Read CSV as pyspark.pandas DataFrame
-df = ps.read_csv(COUNTRY_MICRODATA_DIR, **CSV_READ_OPTIONS)
-df = df.fillna('')
-for col in ['TYPE', 'GBO', 'ADMIN1', 'ADMIN2', 'ECON1', 'ECON2', 'ECON3',
-       'ECON4', 'ECON5', 'PROG', 'SPROG', 'GEO1', 'FONDS', 'LOI DE FINANCE',
-       'DELEGUE', 'Roads', 'Air', 'WSS','railroads', 'Primary', 'Secondary', 'SOE', 'Maintenance', 'subsidies']:
-    df[col] = df[col].astype(str).fillna("")
-
-# Clean column names
-df.columns = [clean_col(c) for c in df.columns]
-df['year'] = df['year'].astype(int)
-df = df[~df['econ2'].astype(str).str.startswith('10')]
-
-# COMMAND ----------
-
-import pyspark.pandas as ps
-import pandas as pd
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import col
-import re
-import numpy as np
-database_name = "prd_mega.boost_intermediate"
-
-ps.set_option('compute.ops_on_diff_frames', False)
-# Set up Spark session (if running outside Databricks)
-spark = SparkSession.builder.getOrCreate()
-
-TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
-WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
-COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/microdata_csv/Tunisia'
-
-CSV_READ_OPTIONS = {
-    "header": "infer",
-    "multiline": True,
-    "quotechar": '"',
-    "escapechar": '"',
-}
-
-def clean_col(col_name):
-    return re.sub(r'\s+', '_', col_name.strip().lower())
-
-# Read CSV as pyspark.pandas DataFrame
-df = ps.read_csv(COUNTRY_MICRODATA_DIR, **CSV_READ_OPTIONS)
-df = df.fillna('')
-for col in ['TYPE', 'GBO', 'ADMIN1', 'ADMIN2', 'ECON1', 'ECON2', 'ECON3',
-       'ECON4', 'ECON5', 'PROG', 'SPROG', 'GEO1', 'FONDS', 'LOI DE FINANCE',
-       'DELEGUE', 'Roads', 'Air', 'WSS','railroads', 'Primary', 'Secondary', 'SOE', 'Maintenance', 'subsidies']:
-    df[col] = df[col].astype(str).fillna("")
-
-# Clean column names
-df.columns = [clean_col(c) for c in df.columns]
-df['year'] = df['year'].astype(int)
-df = df[~df['econ2'].astype(str).str.startswith('10')]
-
-# COMMAND ----------
-
 
