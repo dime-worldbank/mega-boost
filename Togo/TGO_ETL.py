@@ -63,7 +63,7 @@ df_silver["is_foreign"] = ~df_silver["ADMIN5"].fillna("").str.startswith("FINANC
 
 # Administrative levels
 df_silver["admin0"] = "Central"
-df_silver["admin1"] = "Central Scope"
+df_silver['admin1'] = df_silver['TYPE_BUDGET'].fillna("")
 
 # Geographic levels
 df_silver["geo0"] = np.where(
@@ -101,19 +101,41 @@ def map_func_sub(row):
         if row["CODE_FUNC2"] == "094":
             return "Tertiary Education"
     return ""
-# TODO: "07" "Health"
-# TODO: "04" "Economic affairs" 
+# TODO: "07" "Health" "Health" We don't have enough infromation to find primary to tertiary 
+# TODO: "04" "Economic affairs" "04" "Economic affairs" What do you want here? Because in the Togo BOOST CCI Executed sheet , there is no further row about that..
 # Reference Togo BOOST CCI Executed sheet for mapping & see standardized func_sub values: https://github.com/dime-worldbank/mega-boost/blob/main/quality/transform_load_dlt.py#L134-L149 
 
 df_silver["func_sub"] = df_silver.apply(map_func_sub, axis=1)
 
 # Economic classification
+#I deleted the first econ_map because i created new one in order to take in account the conditions
 econ_map = {
     "1": "Interest on debt",
     "2": "Wage bill",
     "3": "Goods and services",
     "5": "Capital expenditures"
 }
+
+def econ_map(row):
+    if row["CODE_ECON1"] == "1":
+        return "Interest on debt"
+    if row["CODE_ECON1"] == "2" and row["CODE_ADMIN4"] in ["1199000174001", "1199000175001", "1199000175002"]:
+        return "Wage bill"
+    if row["CODE_ECON1"] == "3":
+        return "Goods and services"
+    if row["CODE_ECON1"] == "5" and row["CODE_ECON2"] not in ["26"]:
+        return "Capital expenditures"
+    if row["CODE_ECON1"] == "4" and row["CODE_ECON2"] == "63" and row["CODE_ADMIN4"] not in [
+        "1199000174001", "1199000175001", "1199000175002", "1131081332000", "1199000327001"
+    ]:
+        return "Subsidies"
+    if row["CODE_ECON3"] == "645" and row["CODE_ADMIN4"] in ["1139001299000"]:
+        return "Social assistance"
+    if row["CODE_ECON2"] == "64" and row["CODE_ECON3"] in ["1131081332000", "1199000327001"] and row["CODE_ECON3"] != "645":
+        return "Other grants and transfers"
+    return "Other expenses"
+df_silver["econ"] = df_silver.apply(econ_map, axis=1)
+
 df_silver["econ"] = df_silver["CODE_ECON1"].map(econ_map).fillna("Other expenses")
 
 # TODO: "Subsidies", 
@@ -124,26 +146,33 @@ df_silver["econ"] = df_silver["CODE_ECON1"].map(econ_map).fillna("Other expenses
 # Economic sub-classification
 def map_econ_sub(row):
     if row["CODE_ECON1"] == "2":
-        if row["CODE_FUNC2"] in ["661", "665"]:
-            return "Basic Wages"
-        if row["CODE_FUNC2"] == "663":
+        if row["CODE_ECON3"] in ["661", "665"] and row["CODE_ADMIN4"] in ["1199000174001", "1199000175001", "1199000175002"]:
+            return "Basic wages"
+        if row["CODE_ECON3"] == "663":
             return "Allowances"
-        if row["CODE_FUNC2"] in ["664", "666"]:
+        if row["CODE_ECON3"] == "663":
+            return "Allowances"
+        if row["CODE_ECON3"] in ["664", "666"]:
             return "Social Benefits (pension contributions)"
     elif row["CODE_ECON1"] == "3":
         if row["CODE_ECON3"] == "614":
             return "Recurrent Maintenance"
         # TODO: "Basic Services", 
-        # TODO: "Employment Contracts"
+        else:
+            return "Basic Services"
+        # TODO: "Employment Contracts" We don't have enough information about that.
     elif row["CODE_ECON1"] == "5":
         if row.get("is_foreign"):
             return "Capital Expenditure (foreign spending)"
-        # TODO: "Capital Maintenance"
-    return ""
+        # TODO: "Capital Maintenance" We will discuss with the boost team  to clarify the classification of "entretien et maintenance".
 
 # TODO: within Subsideies: "Subsidies to Production"
+    elif row["econ"] == "Subsidies": 
+        return "Subsidies to Production"
 # TODO: within Social benefits: "Social Assistance", "Pensions", "Other Social Benefits"
-
+    elif row["econ"] == "Social assistance":
+        return "Social assistance
+    return ""
 df_silver["econ_sub"] = df_silver.apply(map_econ_sub, axis=1)
 
 # Save silver table to Unity Catalog if running in Databricks, else export to CSV
