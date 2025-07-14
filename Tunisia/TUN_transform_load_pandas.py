@@ -1,4 +1,9 @@
 # Databricks notebook source
+# MAGIC %run ../category_constants
+
+# COMMAND ----------
+
+# Databricks notebook source
 import pyspark.pandas as ps
 import pandas as pd
 from pyspark.sql import SparkSession
@@ -90,79 +95,79 @@ import numpy as np
 def set_wide_columns(row):
     # FUNC WIDE
     if row.get('wss', '') == '1':
-        row['func_housing_and_community_amenities'] = 1
+        row[f'func_{clean_col(FuncCategory.HOUSING_AND_COMMUNITY_AMENITIES.value)}'] = 1
     if row.get('admin1', '').startswith('09') or row.get('admin1', '').startswith('06'):
-        row['func_defence'] = 1
+        row[f'func_{clean_col(FuncCategory.DEFENCE.value)}'] = 1
     if (row.get('admin1', '').startswith('06') and row.get('admin2', '').startswith('07')) or row.get('admin1', '').startswith('07'):
-        row['func_public_order_and_safety'] = 1
+        row[f'func_{clean_col(FuncCategory.PUBLIC_ORDER_AND_SAFETY.value)}'] = 1
     if row.get('admin2', '').startswith('21'):
-        row['func_environmental_protection'] = 1
+        row[f'func_{clean_col(FuncCategory.ENVIRONMENTAL_PROTECTION.value)}'] = 1
     if row.get('admin2', '').startswith('27') or row.get('admin2', '').startswith('34'):
-        row['func_health'] = 1
+        row[f'func_{clean_col(FuncCategory.HEALTH.value)}'] = 1
     if row.get('admin1', '').startswith('05'):
-        row['func_social_protection'] = 1
+        row[f'func_{clean_col(FuncCategory.SOCIAL_PROTECTION.value)}'] = 1
     if row.get('admin2', '')[:2] in ['04', '29', '30', '33', '37', '39', '40']:
-        row['func_education'] = 1
+        row[f'func_{clean_col(FuncCategory.EDUCATION.value)}'] = 1
     if row.get('admin1', '')[:2] in ['19', '10', '20']:
-        row['func_recreation_culture_and_religion'] = 1
+        row[f'func_{clean_col(FuncCategory.RECREATION_CULTURE_AND_RELIGION.value)}'] = 1
     if row.get('admin2', '').startswith('16') or row.get('admin2', '').startswith('17'):
-        row['func_economic_affairs'] = 1
+        row[f'func_{clean_col(FuncCategory.ECONOMIC_AFFAIRS.value)}'] = 1
     if row.get('admin1', '').startswith('18'):
-        row['func_economic_affairs'] = 1
+        row[f'func_{clean_col(FuncCategory.ECONOMIC_AFFAIRS.value)}'] = 1
     if row.get('roads', '') == '1.0' or row.get('railroads', '') == '1.0' or row.get('air', '') == '1.0':
-        row['func_economic_affairs'] = 1
+        row[f'func_{clean_col(FuncCategory.ECONOMIC_AFFAIRS.value)}'] = 1
     # Default: general public services if none above
-    if not any([row.get(f'func_{clean_col(cat)}', 0) == 1 for cat in func_categories if cat != 'General public services']):
-        row['func_general_public_services'] = 1
+    if not any([row.get(f'func_{clean_col(cat)}', 0) == 1 for cat in func_categories if cat != FuncCategory.GENERAL_PUBLIC_SERVICES.value]):
+        row[f'func_{clean_col(FuncCategory.GENERAL_PUBLIC_SERVICES.value)}'] = 1
 
     # funcsub WIDE
     if row.get('admin1', '').startswith('06') and row.get('admin2', '').startswith('07'):
-        row['funcsub_public_safety'] = 1
+        row[f'funcsub_{clean_col(FuncSubCategory.PUBLIC_SAFETY.value)}'] = 1
     if row.get('admin1', '').startswith('07'):
-        row['funcsub_judiciary'] = 1
+        row[f'funcsub_{clean_col(FuncSubCategory.JUDICIARY.value)}'] = 1
     if row.get('admin2', '')[:2] in ['04', '30', '33']:
-        row['funcsub_tertiary_education'] = 1
+        row[f'funcsub_{clean_col(FuncSubCategory.TERTIARY_EDUCATION.value)}'] = 1
     if row.get('admin2', '').startswith('16') or row.get('admin2', '').startswith('17'):
-        row['funcsub_agriculture'] = 1
+        row[f'funcsub_{clean_col(FuncSubCategory.AGRICULTURE.value)}'] = 1
     if row.get('admin1', '').startswith('18'):
-        row['funcsub_telecom'] = 1
+        row[f'funcsub_{clean_col(FuncSubCategory.TELECOM.value)}'] = 1
     if row.get('roads', "") == "1.0" or row.get('railroads', "") == "1.0" or row.get('air', "") == "1.0":
-        row['funcsub_transport'] = 1
-    if not any([row.get(f'funcsub_{clean_col(cat)}', 0) == 1 for cat in funcsub_categories if cat != "Other expenses"]):
-        row['funcsub_other_expenses'] = 1
+        row[f'funcsub_{clean_col(FuncSubCategory.TRANSPORT.value)}'] = 1
+    if not any([row.get(f'funcsub_{clean_col(cat)}', 0) == 1 for cat in funcsub_categories if cat != FuncSubCategory.OTHER_EXPENSES.value]):
+        row[f'funcsub_{clean_col(FuncSubCategory.OTHER_EXPENSES.value)}'] = 1
 
     # econsub WIDE
     if int(row.get('year', 0)) > 2015 and row.get('prog', '') == '2 Securite Sociale':
-        row['econsub_pensions'] = 1
+        row[f'econsub_{clean_col(EconSubCategory.PENSIONS.value)}'] = 1
     if row.get('admin1', '').startswith('05') and row.get('prog', '') != '2 Securite Sociale':
-        row['econsub_social_assistance'] = 1
+        row[f'econsub_{clean_col(EconSubCategory.SOCIAL_ASSISTANCE.value)}'] = 1
     if row.get('econ2', '').startswith('01') and row.get('prog', '') != '2 Securite Sociale' and not row.get('admin1', '').startswith('05'):
-        row['econsub_basic_wages'] = 1
+        row[f'econsub_{clean_col(EconSubCategory.BASIC_WAGES.value)}'] = 1
     if row.get('maintenance', '') == '1' and row.get('econ1', '').startswith('Titre 2'):
-        row['econsub_capital_maintenance'] = 1
+        row[f'econsub_{clean_col(EconSubCategory.CAPITAL_MAINTENANCE.value)}'] = 1
     if row.get('maintenance', '') == '1' and row.get('econ1', '').startswith('Titre 1'):
-        row['econsub_recurrent_maintenance'] = 1
+        row[f'econsub_{clean_col(EconSubCategory.RECURRENT_MAINTENANCE.value)}'] = 1
     if row.get('subsidies', '') == '1' and not row.get('econ2', '').startswith('02') and not row.get('econ2', '').startswith('01'):
-        row['econsub_subsidies_to_production'] = 1
-    if not any([row.get(f'econsub_{clean_col(cat)}', 0) == 1 for cat in econsub_categories if cat != "Other expenses"]):
-        row['econsub_other_expenses'] = 1
+        row[f'econsub_{clean_col(EconSubCategory.SUBSIDIES_TO_PRODUCTION.value)}'] = 1
+    if not any([row.get(f'econsub_{clean_col(cat)}', 0) == 1 for cat in econsub_categories if cat != EconSubCategory.OTHER_EXPENSES.value]):
+        row[f'econsub_{clean_col(EconSubCategory.OTHER_EXPENSES.value)}'] = 1
 
     # ECON WIDE
     if row.get('econ2', '').startswith('01') and row.get('prog', '') != '2 Securite Sociale' and not row.get('admin1', '').startswith('05'):
-        row['econ_wage_bill'] = 1
+        row[f'econ_{clean_col(EconCategory.WAGE_BILL.value)}'] = 1
     if row.get('econ1', '').startswith('Titre 2') and not row.get('econ2', '').startswith('10') and not row.get('prog','').startswith('2 Securite Sociale') and not row.get('admin1', '').startswith('05 '):
-        row['econ_capital_expenditures'] = 1
+        row[f'econ_{clean_col(EconCategory.CAPITAL_EXPENDITURES.value)}'] = 1
     if row.get('econ2', '').startswith('02') and row.get('prog', '') != '2 Securite Sociale' and not row.get('admin1', '').startswith('05'):
-        row['econ_goods_and_services'] = 1
+        row[f'econ_{clean_col(EconCategory.GOODS_AND_SERVICES.value)}'] = 1
     if row.get('subsidies', '') == '1' and not row.get('econ2', '').startswith('02') and not row.get('econ2', '').startswith('01'):
-        row['econsubsidies'] = 1
+        row[f'econ_{clean_col(EconCategory.SUBSIDIES.value)}'] = 1
     if row.get('econsub_social_assistance', 0) == 1 or row.get('econsub_pensions', 0) == 1:
-        row['econ_social_benefits'] = 1
+        row[f'econ_{clean_col(EconCategory.SOCIAL_BENEFITS.value)}'] = 1
     if row.get('econ2', '').startswith('05'):
-        row['econ_interest_on_debt'] = 1
+        row[f'econ_{clean_col(EconCategory.INTEREST_ON_DEBT.value)}'] = 1
     # Default: other expenses if none above
-    if not any([row.get(f'econ_{clean_col(cat)}', 0) == 1 for cat in econ_categories if cat != 'Other expenses']):
-        row['econ_other_expenses'] = 1
+    if not any([row.get(f'econ_{clean_col(cat)}', 0) == 1 for cat in econ_categories if cat != EconCategory.OTHER_EXPENSES.value]):
+        row[f'econ_{clean_col(EconCategory.OTHER_EXPENSES.value)}'] = 1
 
     return row
 
@@ -252,4 +257,25 @@ df=df[gold_column_namses]
 database_name = "prd_mega.boost_intermediate"
 sdf = df.to_spark()
 sdf.write.mode("overwrite").saveAsTable(f"{database_name}.tun_boost_gold_test")
+
+
+
+# COMMAND ----------
+
+df.columns
+
+# COMMAND ----------
+
+original = spark.table((f"{database_name}.tun_boost_silver_test"))
+
+# COMMAND ----------
+
+original.columns == df.columns
+
+# COMMAND ----------
+
+[c for c in df.columns if c not in original.columns]
+
+# COMMAND ----------
+
 

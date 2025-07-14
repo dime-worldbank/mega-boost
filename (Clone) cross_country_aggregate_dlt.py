@@ -1,6 +1,7 @@
 # Databricks notebook source
 import dlt
 from pyspark.sql import functions as F
+from category_constants import econ_categories, econsub_categories, func_categories, funcsub_categories
 
 quality_source_schema = spark.conf.get("QUALITY_SOURCE_SCHEMA", 'boost_intermediate')
 country_source_schema = spark.conf.get("COUNTRY_SOURCE_SCHEMA", 'boost_intermediate')
@@ -88,6 +89,10 @@ def expenditure_by_country_year_dev():
 
 # COMMAND ----------
 
+@dlt.expect_or_drop(
+    "valid_econ_category",
+    f"econ IN ({', '.join([repr(cat) for cat in econ_categories])})"
+)
 @dlt.table(
     name="expenditure_by_country_year_econ_dev",
 )

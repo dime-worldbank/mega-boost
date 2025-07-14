@@ -366,3 +366,7 @@ with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=True) as tmp:
             project_lab_df.to_excel(writer, sheet_name='project_lab', index=False)
             
     shutil.copy(temp_path, OUTPUT_MISSING_DESC_FILE_PATH)
+
+# COMMAND ----------
+
+
