@@ -42,7 +42,7 @@ def replacement_udf(column_name):
 @dlt.expect_or_drop("year_not_null", "Year IS NOT NULL")
 @dlt.table(name=f'alb_2023_onward_boost_bronze')
 def boost_2023_onward_bronze():
-    file_paths = glob(f"{RAW_COUNTRY_MICRODATA_DIR}/*.csv")
+    file_paths = [file for file in glob(f"{RAW_COUNTRY_MICRODATA_DIR}/*.csv" ) if ('rev' not in file.lower())]
     dfs = []
     for f in file_paths:
         df = (spark.read
@@ -110,7 +110,7 @@ def boost_silver():
         ).withColumn("program1", col("func3")
         ).withColumn("func3", col("func3").cast("double") # substituting with values from func3_n for those where the code is alphanumeric
         ).withColumn("func3_n", 
-            when((col("year") == 2023) & col("func3").isNull() & (col("program1") != ""),
+            when((col("year") >= 2023) & col("func3").isNull() & (col("program1") != ""),
                 substring(col("project"), 2, 3))
             .otherwise(lit(None))
         ).withColumn("func3_n", when(col("func3_n").isNotNull(), concat(col("func3_n"), lit("0")))
@@ -119,7 +119,7 @@ def boost_silver():
                 concat(lit("1"), col("func3_n")))
             .otherwise(col("func3_n"))
         ).withColumn("func3_n", col("func3_n").cast("double")
-        ).withColumn("func3", when((col("year") == 2023) & col("func3").isNull() & (col("program1") != ""),
+        ).withColumn("func3", when((col("year") >= 2023) & col("func3").isNull() & (col("program1") != ""),
                     col("func3_n"))
             .otherwise(col("func3"))
         ).withColumn("func1", (col("func3") / 1000).cast("int")
@@ -268,8 +268,7 @@ def boost_silver():
 @dlt.table(name=f'alb_2022_and_before_boost_silver')
 def boost_silver():
     return (dlt.read(f'alb_2022_and_before_boost_bronze')          
-            .filter(col('transfer') == 'Excluding transfers'
-            ).withColumn('is_foreign', col('fin_source').startswith('2')
+            .withColumn('is_foreign', col('fin_source').startswith('2')
             ).withColumn('admin0', 
                 when(col('admin2').startswith('00') | col('admin2').startswith('999'), 'Central')
                 .otherwise('Regional')    
@@ -387,7 +386,6 @@ def alb_2022_and_before_boost_gold():
 @dlt.table(name=f'alb_2023_onward_boost_gold')
 def alb_2023_onward_boost_gold():
     return (dlt.read(f'alb_2023_onward_boost_silver')
-        .filter(col('transfer')=='Excluding transfers')
         .withColumn('country_name', lit(COUNTRY))
         .select('country_name',
                 'year',
