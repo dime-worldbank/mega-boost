@@ -194,7 +194,7 @@ for year in years:
     df = pd.concat([df_7, df_3], ignore_index=True)
     df['counties'] = df.admin2.map(lambda x: map_to_region(pad_left(str(x).split('.')[0], length=ADMIN2_PAD_LENGTH)))
     df.admin2 = df.admin2.astype(str)
-    df.merge(mapping, on='admin2', how='left')
+    df = df.merge(mapping, on='admin2', how='left')
     outfile = f'{raw_microdata_csv_dir}/{year}.csv'
     df.to_csv(outfile, index=False)
 
