@@ -133,12 +133,12 @@ df_silver["func_sub"] = df_silver.apply(map_func_sub, axis=1)
 
 # Economic classification
 #I deleted the first econ_map because i created new one in order to take in account the conditions
-econ_map = {
-    "1": "Interest on debt",
-    "2": "Wage bill",
-    "3": "Goods and services",
-    "5": "Capital expenditures"
-}
+#econ_map = {
+#    "1": "Interest on debt",
+#    "2": "Wage bill",
+#    "3": "Goods and services",
+#    "5": "Capital expenditures"
+#}
 
 def econ_map(row):
     if row["CODE_ECON1"] == "1":
@@ -186,7 +186,7 @@ df_silver["econ"] = df_silver.apply(econ_map, axis=1)
 #df_silver["econ"] = df_silver["CODE_ECON1"].map(econ_map).fillna("Other expenses")
 
 # TODO: ✅"Subsidies", 
-# TODO: ✅"Social benefits", 
+# TODO: ✅"Social benefits" : We're focused on Social Assistance
 # TODO: ✅"Other grants and transfers", 
 # See how it's done for past years in Togo BOOST CCI Executed sheet
 
