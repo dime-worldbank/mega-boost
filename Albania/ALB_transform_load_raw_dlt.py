@@ -260,7 +260,6 @@ def boost_silver():
             .when(col('econ2').startswith('65') | col('econ2').startswith('66'), 'Interest on debt')
             # other expenses
             .otherwise('Other expenses')
-        ).withColumn('admin2_new', col('admin2')
         )
     return silver_df
 
@@ -415,20 +414,15 @@ def alb_boost_gold():
 @dlt.table(name='boost.alb_publish',
            comment='The Ministry of Finance of Albania together with the World Bank developed and published a BOOST platform obtained from the National Treasury System in order to facilitate access to the detailed public finance data for comprehensive budget analysis. In this context, the Albania BOOST Public Finance Portal aims to strengthen the disclosure and demand for availability of public finance information at all level of government in the country from 2010 onward.Note that 2020 execution only covers 6 months.')
 def alb_publish():
-    alb_bronze_before_2023 = dlt.read('alb_2022_and_before_boost_bronze')
-    alb_bronze_from_2023 = dlt.read('alb_2023_onward_boost_silver')
-    col_list = [col for col in alb_bronze_before_2023.columns if col in alb_bronze_from_2023.columns]
-    alb_bronze_from_2023 = alb_bronze_from_2023.select(col_list)
-    alb_bronze_before_2023 = alb_bronze_before_2023.select(col_list)
-    alb_bronze_union = alb_bronze_before_2023.unionByName(alb_bronze_from_2023)
-    
-    alb_gold_from_2023 = dlt.read(f'alb_2023_onward_boost_gold')
-    alb_gold_before_2023 = dlt.read('alb_2022_and_before_boost_gold')
-    alb_gold_union = alb_gold_before_2023.unionByName(alb_gold_from_2023)
-
+    alb_silver_from_2023 = dlt.read(f'alb_2023_onward_boost_silver').drop('id','src','program1', 'func3_n', 'program_tmp')
+    alb_silver_before_2023 = dlt.read('alb_2022_and_before_boost_silver').drop('county')
+    alb_gold_union = alb_silver_before_2023.unionByName(alb_silver_from_2023, allowMissingColumns=True)
+    BOOST_COLS = ['func', 'func_sub', 'econ', 'econ_sub', 'admin0', 'admin1_tmp', 'admin2_tmp','geo1']
     prefix = "boost_"
-    for column in alb_gold_union.columns:
-        alb_gold_union = alb_gold_union.withColumnRenamed(column, prefix + column)
-
-    return alb_bronze_union.join(alb_gold_union, on=[alb_gold_union['boost_id'] == alb_bronze_union['id']], how='left').drop("id", "boost_id")
-
+    for column in BOOST_COLS:
+        if column == 'admin2_tmp' or column == 'admin1_tmp':
+            new_column = prefix +column.split("_")[0]
+        else:
+            new_column = prefix + column 
+        alb_gold_union = alb_gold_union.withColumnRenamed(column,new_column)
+    return alb_gold_union

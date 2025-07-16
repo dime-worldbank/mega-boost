@@ -12,7 +12,7 @@ ADMIN2_PAD_LENGTH = 3
 
 # admin2 to admin2_new mapping
 mapping = pd.read_csv('./mapping.csv')
-mapping = mapping[['admin2', 'admin2_new', 'county']].astype('str')
+mapping = mapping[['admin2', 'admin2_new', 'county']].rename(columns={'admin2': 'admin2_tmp'}).astype({'admin2_new': 'str'})
 
 col_format_map_7 = {
     "admin2": r"\d{3}",
@@ -193,8 +193,8 @@ for year in years:
 
     df = pd.concat([df_7, df_3], ignore_index=True)
     df['counties'] = df.admin2.map(lambda x: map_to_region(pad_left(str(x).split('.')[0], length=ADMIN2_PAD_LENGTH)))
-    df.admin2 = df.admin2.astype(str)
-    df = df.merge(mapping, on='admin2', how='left')
+    df['admin2_tmp'] = df.admin2.astype(int)
+    df = df.merge(mapping, on='admin2_tmp', how='left').drop(columns=['admin2_tmp'])
     outfile = f'{raw_microdata_csv_dir}/{year}.csv'
     df.to_csv(outfile, index=False)
 
@@ -223,5 +223,11 @@ for year in years:
 
     df = pd.concat([df_7_rev, df_46655], ignore_index=True)
     df['year'] = year
+    df['admin2_tmp'] = df.admin2.astype(int)
+    df = df.merge(mapping, on='admin2_tmp', how='left').drop(columns=['admin2_tmp'])
     outfile = f'{raw_microdata_csv_dir}/{year}_rev.csv'
     df.to_csv(outfile, index=False)
+
+# COMMAND ----------
+
+df
