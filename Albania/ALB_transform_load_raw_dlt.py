@@ -179,7 +179,7 @@ def boost_silver():
             .otherwise(col('counties'))
         ).withColumn('admin2_tmp',
             when(col('admin2').startswith('00'), 'Central')
-            .otherwise(col('admin2'))
+            .otherwise(col('admin2_new'))
         ).withColumn('geo1', col('admin1_tmp')
         ).withColumn('func_sub',
             # spending in Judiciary
@@ -411,7 +411,7 @@ def alb_boost_gold():
     return df_before_2023.unionByName(df_from_2023).drop("id")
 
 
-@dlt.table(name='boost.alb_publish',
+@dlt.table(name='alb_publish',
            comment='The Ministry of Finance of Albania together with the World Bank developed and published a BOOST platform obtained from the National Treasury System in order to facilitate access to the detailed public finance data for comprehensive budget analysis. In this context, the Albania BOOST Public Finance Portal aims to strengthen the disclosure and demand for availability of public finance information at all level of government in the country from 2010 onward.Note that 2020 execution only covers 6 months.')
 def alb_publish():
     alb_silver_from_2023 = dlt.read(f'alb_2023_onward_boost_silver').drop('id','src','program1', 'func3_n', 'program_tmp')

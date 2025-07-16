@@ -32,7 +32,7 @@ CCI_FILE_PATH = f"{TOP_DIR}/Workspace/cci_csv/ALB/Executed.csv"
 
 OUTPUT_FILE_PATH = f"{OUTPUT_DIR}/Albania BOOST.xlsx"
 SOURCE_FILE_PATH = f"{INPUT_DIR}/Albania BOOST.xlsx"
-TARGET_TABLE = 'prd_mega.boost.alb_publish'
+TARGET_TABLE = 'prd_mega.boost_intermediate.alb_publish'
 TARGET_TABLE_REVENUE = 'prd_mega.boost_intermediate.alb_boost_rev_gold'
 OUTPUT_MISSING_DESC_FILE_PATH = f"{OUTPUT_DIR}/Albania_missing_code_descriptions.xlsx"
 
@@ -55,7 +55,7 @@ def create_pivot(df, parent, child, agg_col ):
 
     # Step 1: Get detailed level e.g. (econ + econ_sub + year)
     detailed = (
-        df.groupBy(parent, child, "boost_year")
+        df.groupBy(parent, child, "year")
         .agg(F.sum(agg_col).alias(agg_col))
         .withColumnRenamed(parent, "parent")
         .withColumnRenamed(child, "child")
@@ -63,19 +63,19 @@ def create_pivot(df, parent, child, agg_col ):
 
     # Step 2: Get subtotals at parent level e.g (econ + year), econ_sub = 'Subtotal'
     subtotals = (
-        df.groupBy(parent, "boost_year")
+        df.groupBy(parent, "year")
         .agg(F.sum(agg_col).alias(agg_col))
         .withColumn("child", F.lit("Subtotal"))  # Ensure same schema
         .withColumnRenamed(parent, "parent")
     )
 
     # Step 3: Union both
-    combined = detailed.unionByName(subtotals).filter(F.col("boost_year").isNotNull())
+    combined = detailed.unionByName(subtotals).filter(F.col("year").isNotNull())
 
     # Step 4: Pivot to wide format
     pivoted = (
         combined.groupBy("parent", "child")
-        .pivot("boost_year")
+        .pivot("year")
         .agg(F.sum(agg_col))
         .fillna(0)  # Replace NaNs with 0
     )
@@ -98,26 +98,26 @@ def create_pivot(df, parent, child, agg_col ):
 def create_pivot_total(df, agg_col):
     # Step 1: Calculate total expenditure by year
     total = (
-        df.groupBy("boost_year")
+        df.groupBy("year")
         .agg(F.sum(agg_col).alias(agg_col))
         .withColumn("code", F.lit("EXP_ECON_TOT_EXP_EXE"))
     )
 
     # Step 2: Calculate foreign expenditure by year
     foreign_total = (
-        df.filter(F.col("boost_is_foreign") == True)
-        .groupBy("boost_year")
+        df.filter(F.col("is_foreign") == True)
+        .groupBy("year")
         .agg(F.sum(agg_col).alias(agg_col))
         .withColumn("code", F.lit("EXP_ECON_TOT_EXP_FOR_EXE"))
     )
 
     # Step 3: Combine total and foreign expenditure
-    combined = total.unionByName(foreign_total).filter(F.col("boost_year").isNotNull())
+    combined = total.unionByName(foreign_total).filter(F.col("year").isNotNull())
 
     # Step 4: Pivot to wide format
     pivoted = (
         combined.groupBy("code")
-        .pivot("boost_year")
+        .pivot("year")
         .agg(F.first(agg_col))
         .fillna(0)  
     )
@@ -125,7 +125,16 @@ def create_pivot_total(df, agg_col):
 
 # COMMAND ----------
 
-pairs = [('boost_econ', 'boost_econ_sub'), ('boost_func', 'boost_econ_sub'), ('boost_func', 'boost_econ'), ('boost_func', 'boost_func_sub'), ('boost_func_sub', 'boost_econ'), ('boost_func_sub', 'boost_econ_sub')]
+pairs = [
+    ("boost_econ", "boost_econ_sub"),
+    ("boost_func", "boost_econ_sub"),
+    ("boost_func", "boost_econ"),
+    ("boost_func", "boost_func_sub"),
+    ("boost_func_sub", "boost_econ"),
+    ("boost_func_sub", "boost_econ_sub"),
+]
+
+filtered_raw_data = raw_data.filter(col('transfer') == 'Excluding transfers')
 
 def generate_combined_pivots(pairs, agg_col):
     # Initialize an empty DataFrame for combining results
@@ -133,8 +142,8 @@ def generate_combined_pivots(pairs, agg_col):
 
     for parent, child in pairs:
         # Create pivot for central and regional levels
-        pivoted = create_pivot(raw_data, parent, child,agg_col)
-        
+        pivoted = create_pivot(filtered_raw_data, parent, child, agg_col)
+
         # Combine the results
         if combined is None:
             combined = pivoted
@@ -142,12 +151,13 @@ def generate_combined_pivots(pairs, agg_col):
             combined = combined.unionByName(pivoted)
 
     # Add totals to the combined DataFrame
-    totals = create_pivot_total(raw_data, agg_col)
+    totals = create_pivot_total(filtered_raw_data, agg_col)
     combined = combined.unionByName(totals)
     return combined
 
-executed = generate_combined_pivots(pairs, "boost_executed")
-approved = generate_combined_pivots(pairs, "boost_approved")
+
+executed = generate_combined_pivots(pairs, "executed")
+approved = generate_combined_pivots(pairs, "approved")
 
 # COMMAND ----------
 
