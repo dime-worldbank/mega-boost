@@ -91,104 +91,63 @@ df_silver["func"] = df_silver["CODE_FUNC1"].map(func_map)
 
 # Functional sub-classification
 def map_func_sub(row):
-    if row["CODE_FUNC1"] == "03":
-        return "Judiciary" if row["CODE_FUNC2"] == "033" else "Public Safety"
-    if row["CODE_FUNC1"] == "09":
-        if row["CODE_FUNC2"] == "091":
-            return "Primary Education"
-        if row["CODE_FUNC2"] == "092":
-            return "Secondary Education"
-        if row["CODE_FUNC2"] == "094":
-            return "Tertiary Education"
-    if row["CODE_FUNC1"]=="04":
-        if row["CODE_FUNC2"] == "042" or (row["CODE_FUNC2"] == "048" and row["CODE_FUNC3"] == "0482" ) :
-            return "Agriculture"
-        if row["CODE_FUNC2"] == "045":
-            if row["CODE_FUNC3"] == "0451":
-                return "Spending in roads"
-            if row["CODE_FUNC3"] == "0453":
-                return "Spending in railroads"
-            if row["CODE_FUNC2"] == "045" and row["CODE_FUNC3"] == "0452":
-                return "Spending in water transport"
-            if row["CODE_FUNC2"] == "045" and row["CODE_FUNC3"] == "0454":
-             return "Spending in air transport"
-        if row["CODE_FUNC3"] == "0432" and row["CODE_ECON3"] in ["639","633"]:
-                return "Spending in subsidies in energy"     
-        if  row["CODE_FUNC3"] == "0436" and row["CODE_ECON3"] == "235" and row["CODE_ECON4"] == "235112":        
-            return "Spending in energy (power)"
-        if (row["CODE_FUNC2"] == "043" and row["CODE_FUNC3"] == "0435"):
-            return "Spending in energy (power)"
-        if (row["CODE_FUNC2"] == "043" and row["CODE_FUNC3"] == "0432"):
-            return "Spending in energy (oil & gas)"
-        # add for Spending in hydropower
-        if row["CODE_FUNC2"] == "046":
-            return "Spending in telecoms"
-    return ""
-
-# TODO: ❌"07" "Health" "Health" We don't have enough information to group by (primary secondary tertiary) 
-# TODO: ✅"04" "Economic affairs" 
-# Reference Togo BOOST CCI Executed sheet for mapping & see standardized func_sub values: https://github.com/dime-worldbank/mega-boost/blob/main/quality/transform_load_dlt.py#L134-L149 
+    match row["CODE_FUNC1"]:
+        case "03":
+            match row["CODE_FUNC2"]:
+                case "033":
+                    return "Judiciary"
+                case _:
+                    return "Public Safety"
+        case "09":
+            match row["CODE_FUNC2"]:
+                case "091":
+                    return "Primary Education"
+                case "092":
+                    return "Secondary Education"
+                case "093":
+                    return "Post-Secondary Non-Tertiary Education"
+                case "094":
+                    return "Tertiary Education"
+        case "04":
+            match row["CODE_FUNC2"]:
+                case "042":
+                    return "Agriculture"
+                case "044":
+                    return "Mining, Manufacturing and Construction"
+                case "045":
+                    return "Transport"
+                case "046":
+                    return "Telecom"
+                case "048":
+                    return "R&D"
+                case "043":
+                    return "Energy"
+        # For "07"(Health) We don't have enough information to group by primary secondary tertiary
 
 df_silver["func_sub"] = df_silver.apply(map_func_sub, axis=1)
 
 # Economic classification
-#I deleted the first econ_map because i created new one in order to take in account the conditions
-#econ_map = {
-#    "1": "Interest on debt",
-#    "2": "Wage bill",
-#    "3": "Goods and services",
-#    "5": "Capital expenditures"
-#}
-
 def econ_map(row):
-    if row["CODE_ECON1"] == "1":
-        return "Interest on debt"
-    if row["CODE_ECON1"] == "2" and row["CODE_ECON4"] == "633112" and  row["CODE_ADMIN4"] in ["1199000174001", "1199000175001", "1199000175002"]:
-        return "Wage bill"
-    if row["CODE_ECON1"] == "3":
-        return "Goods and services"
-    if row["CODE_ECON1"] == "5" and row["CODE_ECON2"] not in ["26"]:
-        return "Capital expenditures"
-    if row["CODE_ECON1"] == "4" and row["CODE_ECON2"] == "63" and row["CODE_ECON3"] in ["633","639"] : 
-        if row["CODE_ECON4"] == "633112" and row["CODE_ADMIN4"] in [
-        "1199000174001", "1199000175001", "1199000175002"]:
-            return None
-        if row["CODE_ECON4"] == "633911" and row["CODE_ADMIN4"]  in ["1131081332000", "1199000327001"]:
-            return  None
-        if row["CODE_ECON4"] == "639111" and row["CODE_ADMIN4"]  in ["1391080355000"]:
-            return None
-        if row["CODE_ECON4"] == "639911" and row["CODE_ADMIN4"]  in ["1139001299000"]:
-            return None
-        return "Subsidies"      
-    if row["CODE_ECON3"] in ["664","666"] :
-        return "Social assistance"
-    if row["CODE_ECON3"]=="645" and row["CODE_ECON4"] in ["645111","645114"]:
-        return "Social assistance"
-    if row["CODE_ECON4"]=="645911" and row["CODE_ADMIN4"] in ["1139000960000","1199000119002"]:
-        return "Social assistance"
-    if row["CODE_ECON4"]=="649911" and row["CODE_ADMIN4"] in ["1139000661000","1191080116001","1191080116001","1191080242016","1199000119001","1199000242027"]:
-        return "Social assistance"
-    if row["CODE_ECON2"] == "64": 
-        if (row["CODE_ECON4"] == "633911" and row["CODE_ADMIN4"]  in ["1131081332000", "1199000327001"]):
-             return "Other grants and transfers"
-        if row["CODE_ECON4"]=="649911" and row["CODE_ADMIN4"] in ["1139000661000","1191080116001","1191080116001","1191080242016","1199000119001","1199000242027"]:
-            return None
-        if row["CODE_ECON4"]=="645911" and row["CODE_ADMIN4"] in ["1139000960000","1199000119002"]:
-            return None
-        if row["CODE_ECON3"]=="645" and row["CODE_ECON4"] in ["645111","645114"]:
-            return None
-        return "Other grants and transfers"
-    if (row["CODE_ECON4"] == "633911" and row["CODE_ADMIN4"] in ["1131081332000", "1199000327001","1391080355000"] ):
-            return "Other grants and transfers"
-    return "Other expenses"
-df_silver["econ"] = df_silver.apply(econ_map, axis=1)
+    match row["CODE_ECON1"]:
+        case "1":
+            return "Interest on debt"
+        case "2":
+            return "Wage bill"
+        case "3":
+            return "Goods and services"
+        case "4":
+            match row["CODE_ECON2"]:
+                case "63":
+                    return "Subsidies"
+                case "64":
+                    if row["CODE_FUNC1"] == "10":
+                        return "Social benefits"
+                    elif row["ECON3"] == "AUTRES TRANSFERTS":
+                        return "Other grants and transfers"
+        case "5":
+            return "Capital expenditures"
 
-#df_silver["econ"] = df_silver["CODE_ECON1"].map(econ_map).fillna("Other expenses")
-
-# TODO: ✅"Subsidies", 
-# TODO: ✅"Social benefits" : We're focused on Social Assistance
-# TODO: ✅"Other grants and transfers", 
-# See how it's done for past years in Togo BOOST CCI Executed sheet
+df_silver["econ"] = df_silver.apply(econ_map, axis=1).fillna("Other expenses")
 
 # Economic sub-classification
 def map_econ_sub(row):
@@ -200,22 +159,20 @@ def map_econ_sub(row):
     elif row["CODE_ECON1"] == "3":
         if row["CODE_ECON3"] == "614":
             return "Recurrent Maintenance"
-        # TODO: ✅"Basic Services", 
-        if row["CODE_ECON2"] in ["61","62"] and row["CODE_ECON3"]!= "614":
-            return "Basic Services"
-        # TODO:❌ "Employment Contracts" We don't know how to include in this category
+        # if row["CODE_ECON2"] in ["61","62"] and row["CODE_ECON3"]!= "614":
+        #     return "Basic Services"
     elif row["CODE_ECON1"] == "5":
         if row.get("is_foreign"):
             return "Capital Expenditure (foreign spending)"
-        # TODO: "Capital Maintenance" ❌  It's not clear in the CCI how to calculate it
-
-# TODO: within Subsideies: "Subsidies to Production"
+        if "REHABILITATION" in row["ADMIN4"]:
+            return "Capital Maintenance"
     elif row["econ"] == "Subsidies": 
-        return "Subsidies to Production"
-# TODO:✅ within Social benefits: "Social Assistance", "Pensions", "Other Social Benefits": We've only focused on social assistance
-    elif row["econ"] == "Social assistance":
-        return "Social assistance"
-    return ""
+        return "Subsidies to Production" # Why was it alias in the past years?
+    elif row["econ"] == "Social benefits":
+        if row["ADMIN4"] == "CAISSE DE RETRAITE DU TOGO (CRT)":
+            return "Pensions"
+        else:
+            return "Social assistance"
 df_silver["econ_sub"] = df_silver.apply(map_econ_sub, axis=1)
 
 # Save silver table to Unity Catalog if running in Databricks, else export to CSV
