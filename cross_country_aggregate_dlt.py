@@ -10,7 +10,7 @@ quality_source_schema = spark.conf.get("QUALITY_SOURCE_SCHEMA", 'boost_intermedi
 country_source_schema = spark.conf.get("COUNTRY_SOURCE_SCHEMA", 'boost_intermediate')
 
 # Adding a new country requires adding the country here
-country_codes = ['moz', 'pry', 'ken', 'pak', 'bfa', 'col', 'cod', 'nga', 'tun', 'btn', 'bgd', 'alb', 'ury', "zaf", 'chl', 'gha']
+country_codes = ['moz', 'pry', 'ken', 'pak', 'bfa', 'col', 'cod', 'nga', 'tun', 'btn', 'bgd', 'alb', 'ury', "zaf", 'chl', 'gha', 'tgo']
 
 schema = StructType([
     StructField("country_name", StringType(), True, {'comment': 'The name of the country for which the budget data is recorded (e.g., "Kenya", "Brazil").'}),
