@@ -24,7 +24,7 @@ CSV_READ_OPTIONS = {
     "escape": '"',
 }
 
-with open(f"{RAW_INPUT_DIR}/{COUNTRY}/labels_en_v01_overall.json", 'r') as json_file:
+with open(f"./labels_en_v01_overall.json", 'r') as json_file:
     labels = json.load(json_file)
 
 with open(f"{RAW_INPUT_DIR}/{COUNTRY}/project_labels.json", 'r') as json_file:
@@ -36,7 +36,8 @@ def replacement_udf(column_name):
         if value is None:
             return value
         value_str = str(value).split('.')[0]
-        return labels.get(column_name, {}).get(value_str, value_str)
+        column_labels = labels.get(column_name, {})
+        return column_labels.get(value_str, column_labels.get("__default__", value_str))
     return udf(replace_value, StringType())
 
 @dlt.expect_or_drop("year_not_null", "Year IS NOT NULL")
@@ -378,6 +379,7 @@ def alb_2022_and_before_boost_gold():
                 'func',
                 'econ_sub',
                 'econ',
+                'transfer',
                 'id')
     )
 
@@ -400,6 +402,7 @@ def alb_2023_onward_boost_gold():
                 'func',
                 'econ_sub',
                 'econ',
+                'transfer',
                 'id')
     )
 
@@ -407,16 +410,16 @@ def alb_2023_onward_boost_gold():
 def alb_boost_gold():
     df_before_2023 = dlt.read("alb_2022_and_before_boost_gold")
     df_from_2023 = dlt.read("alb_2023_onward_boost_gold")
+    
+    return df_before_2023.unionByName(df_from_2023).drop("id").filter(col('transfer') == 'Excluding transfers')
 
-    return df_before_2023.unionByName(df_from_2023).drop("id")
 
-
-@dlt.table(name='alb_publish',
+@dlt.table(name='boost.alb_publish',
            comment='The Ministry of Finance of Albania together with the World Bank developed and published a BOOST platform obtained from the National Treasury System in order to facilitate access to the detailed public finance data for comprehensive budget analysis. In this context, the Albania BOOST Public Finance Portal aims to strengthen the disclosure and demand for availability of public finance information at all level of government in the country from 2010 onward.Note that 2020 execution only covers 6 months.')
 def alb_publish():
     alb_silver_from_2023 = dlt.read(f'alb_2023_onward_boost_silver').drop('id','src','program1', 'func3_n', 'program_tmp')
     alb_silver_before_2023 = dlt.read('alb_2022_and_before_boost_silver').drop('county')
-    alb_gold_union = alb_silver_before_2023.unionByName(alb_silver_from_2023, allowMissingColumns=True)
+    alb_silver_union = alb_silver_before_2023.unionByName(alb_silver_from_2023, allowMissingColumns=True)
     BOOST_COLS = ['func', 'func_sub', 'econ', 'econ_sub', 'admin0', 'admin1_tmp', 'admin2_tmp','geo1']
     prefix = "boost_"
     for column in BOOST_COLS:
@@ -424,5 +427,5 @@ def alb_publish():
             new_column = prefix +column.split("_")[0]
         else:
             new_column = prefix + column 
-        alb_gold_union = alb_gold_union.withColumnRenamed(column,new_column)
-    return alb_gold_union
+        alb_silver_union = alb_silver_union.withColumnRenamed(column,new_column)
+    return alb_silver_union
