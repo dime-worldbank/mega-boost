@@ -109,19 +109,15 @@ def map_func_sub(row):
                 case "094":
                     return "Tertiary Education"
         case "04":
-            match row["CODE_FUNC2"]:
-                case "042":
-                    return "Agriculture"
-                case "044":
-                    return "Mining, Manufacturing and Construction"
-                case "045":
-                    return "Transport"
-                case "046":
-                    return "Telecom"
-                case "048":
-                    return "R&D"
-                case "043":
-                    return "Energy"
+            if row["CODE_FUNC2"] == "042" or \
+                (row["CODE_FUNC2"] == "048" and row["CODE_FUNC3"] == "0482"):
+                return "Agriculture"
+            elif row["CODE_FUNC2"] == "045":
+                return "Transport"
+            elif row["CODE_FUNC2"] == "046":
+                return "Telecom"
+            elif row["CODE_FUNC2"] == "043":
+                return "Energy"
         # For "07"(Health) We don't have enough information to group by primary secondary tertiary
 
 df_silver["func_sub"] = df_silver.apply(map_func_sub, axis=1)
@@ -132,17 +128,59 @@ def econ_map(row):
         case "1":
             return "Interest on debt"
         case "2":
-            return "Wage bill"
+            if row["CODE_ECON3"] in [
+                "664", # COTISATIONS SOCIALES
+                "666", # PRESTATIONS SOCIALES
+            ]:
+                return "Social benefits"
+            else:
+                return "Wage bill"
         case "3":
             return "Goods and services"
         case "4":
             match row["CODE_ECON2"]:
                 case "63":
-                    return "Subsidies"
+                    econ3_other = (row["CODE_ECON3"] == "632") # SUBVENTIONS AUX ENTREPRISES PUBLIQUES
+                    econ4_and_admin4_other = (row["CODE_ECON4"] == "633911" and
+                        row["CODE_ADMIN4"] in [
+                            "1131081332000", # DIRECTION DE LA PROMOTION ARTISTIQUE ET CULTURELLE (DPAC)
+                            "1199000327001", # APPUI AUX MEDIAS
+                            "1391080355000", # EDITOGO
+                            "1139001299000", # GRATUITE DE SOINS DE LA FEMME ENCEINTE ET DU NOUVEAU NE
+                        ]
+                    )
+
+                    if row["CODE_ADMIN4"] in [
+                        "1199000174001", # ENEIGNEMENT CONFESSIONNEL PRIMAIRE
+                        "1199000175001", # ENSEIGNEMENT CONFESSIONNEL DES 2E ET 3E DEGRES
+                        "1199000175002", # SUBVENTION ADDITIONNELLE A L ENSEIGNEMENT CONFESSIONNEL
+                    ]:
+                        return "Wage bill"
+                    elif econ3_other or econ4_and_admin4_other:
+                        return "Other grants and transfers"
+                    else:
+                        return "Subsidies"
                 case "64":
-                    if row["CODE_FUNC1"] == "10":
+                    econ4_social = row["CODE_ECON4"] in [
+                        "645111", # BOURSES ET ALLOCATIONS DE SECOURS AUX ELEVES ET ETUDIANTS A L’INTERIEUR
+                        "645114", # FRAIS DE TRANSPORT DES ELEVES ET ETUDIANTS
+                    ]
+                    econ4_and_admin4_social = (
+                        row["CODE_ECON4"] == '645911' # TRANSFERTS A D AUTRES ENTITES PUBLIQUES
+                        and row["CODE_ADMIN4"] in [
+                            "1139000960000", # TRANSFERES MONETAIRES AUX PARENTS D ELEVES
+                            "1199000119002", # TRANSFERTS MONETAIRES
+                            "1139000661000", # GRATUITE DE LA FEMME ENCEINTE ET DU NOUVEAU-NE
+                            "1139000932000", # GRATUITE DES FRAIS D INSCRIPTION ET DE SCOLARITE
+                            "1191080116001", # FONDS D APPUI AUX INITIATIVES ECONOMIQUES DES JEUNES (FAEIJ)
+                            "1191080242016", # SUBVENTION A LA CESARIENE
+                            "1199000119001", # SUBVENTION AUX CANTINES SCOLAIRES
+                            "1199000242027", # PRISE EN CHARGE DES PVVIH/ARV
+                            "1399000061000", # CAISSE DE RETRAITE DU TOGO (CRT)
+                    ])
+                    if econ4_social or econ4_and_admin4_social:
                         return "Social benefits"
-                    elif row["ECON3"] == "AUTRES TRANSFERTS":
+                    else:
                         return "Other grants and transfers"
         case "5":
             return "Capital expenditures"
@@ -159,8 +197,6 @@ def map_econ_sub(row):
     elif row["CODE_ECON1"] == "3":
         if row["CODE_ECON3"] == "614":
             return "Recurrent Maintenance"
-        # if row["CODE_ECON2"] in ["61","62"] and row["CODE_ECON3"]!= "614":
-        #     return "Basic Services"
     elif row["CODE_ECON1"] == "5":
         if row.get("is_foreign"):
             return "Capital Expenditure (foreign spending)"
@@ -169,7 +205,7 @@ def map_econ_sub(row):
     elif row["econ"] == "Subsidies": 
         return "Subsidies to Production" # Why was it alias in the past years?
     elif row["econ"] == "Social benefits":
-        if row["ADMIN4"] == "CAISSE DE RETRAITE DU TOGO (CRT)":
+        if row["CODE_ADMIN4"] == "1399000061000": # CAISSE DE RETRAITE DU TOGO (CRT)
             return "Pensions"
         else:
             return "Social assistance"
