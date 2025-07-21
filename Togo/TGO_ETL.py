@@ -118,9 +118,34 @@ def map_func_sub(row):
                 return "Telecom"
             elif row["CODE_FUNC2"] == "043":
                 return "Energy"
+        case "06":
+            if row["CODE_FUNC2"] == "063":
+                return "Water supply"
         # For "07"(Health) We don't have enough information to group by primary secondary tertiary
 
 df_silver["func_sub"] = df_silver.apply(map_func_sub, axis=1)
+
+# Functional sub-sub-classification
+def map_func_sub_sub(row):
+    match row["func_sub"]:
+        case "Transport":
+            match row["CODE_FUNC3"]:
+                case "0451":
+                    return "Road transport"
+                case "0452":
+                    return "Water transport"
+                case "0453":
+                    return "Railway transport"
+                case "0454":
+                    return "Air transport"
+        case "Energy":
+            if (row["CODE_FUNC3"] == '0435' or
+                (row["CODE_FUNC3"] == '0436' and row["CODE_ECON3"] == '235')):
+                return "Electricity"
+            elif row["CODE_FUNC3"] == '0432':
+                return "Petroleum and natural gas"
+
+df_silver["func_sub_sub"] = df_silver.apply(map_func_sub_sub, axis=1)
 
 # Economic classification
 def econ_map(row):
