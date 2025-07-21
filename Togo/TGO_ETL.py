@@ -203,7 +203,8 @@ def map_econ_sub(row):
         if "REHABILITATION" in row["ADMIN4"]:
             return "Capital Maintenance"
     elif row["econ"] == "Subsidies": 
-        return "Subsidies to Production" # Why was it alias in the past years?
+        if row["CODE_ECON3"] in ["633", "639"]:
+            return "Subsidies to Production"
     elif row["econ"] == "Social benefits":
         if row["CODE_ADMIN4"] == "1399000061000": # CAISSE DE RETRAITE DU TOGO (CRT)
             return "Pensions"
