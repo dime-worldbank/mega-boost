@@ -176,9 +176,9 @@ def econ_map(row):
                             "1191080242016", # SUBVENTION A LA CESARIENE
                             "1199000119001", # SUBVENTION AUX CANTINES SCOLAIRES
                             "1199000242027", # PRISE EN CHARGE DES PVVIH/ARV
-                            "1399000061000", # CAISSE DE RETRAITE DU TOGO (CRT)
                     ])
-                    if econ4_social or econ4_and_admin4_social:
+                    admin4_social = row["CODE_ADMIN4"] == "1399000061000" # CAISSE DE RETRAITE DU TOGO (CRT)
+                    if econ4_social or econ4_and_admin4_social or admin4_social:
                         return "Social benefits"
                     else:
                         return "Other grants and transfers"
@@ -189,27 +189,28 @@ df_silver["econ"] = df_silver.apply(econ_map, axis=1).fillna("Other expenses")
 
 # Economic sub-classification
 def map_econ_sub(row):
-    if row["CODE_ECON1"] == "2":
-        if row["CODE_ECON3"] in ["661", "665"] :
-            return "Basic wages"
-        if row["CODE_ECON3"] == "663":
-            return "Allowances"
-    elif row["CODE_ECON1"] == "3":
-        if row["CODE_ECON3"] == "614":
-            return "Recurrent Maintenance"
-    elif row["CODE_ECON1"] == "5":
-        if row.get("is_foreign"):
-            return "Capital Expenditure (foreign spending)"
-        if "REHABILITATION" in row["ADMIN4"]:
-            return "Capital Maintenance"
-    elif row["econ"] == "Subsidies": 
-        if row["CODE_ECON3"] in ["633", "639"]:
-            return "Subsidies to Production"
-    elif row["econ"] == "Social benefits":
-        if row["CODE_ADMIN4"] == "1399000061000": # CAISSE DE RETRAITE DU TOGO (CRT)
-            return "Pensions"
-        else:
-            return "Social assistance"
+    match row["econ"]:
+        case "Wage bill":
+            if row["CODE_ECON3"] in ["661", "665"] :
+                return "Basic wages"
+            if row["CODE_ECON3"] == "663":
+                return "Allowances"
+        case "Goods and services":
+            if row["CODE_ECON3"] == "614":
+                return "Recurrent Maintenance"
+        case "Capital expenditures":
+            if row.get("is_foreign"):
+                return "Capital Expenditure (foreign spending)"
+            if "REHABILITATION" in row["ADMIN4"]:
+                return "Capital Maintenance"
+        case "Subsidies": 
+            if row["CODE_ECON3"] in ["633", "639"]:
+                return "Subsidies to Production"
+        case "Social benefits":
+            if row["CODE_ADMIN4"] == "1399000061000": # CAISSE DE RETRAITE DU TOGO (CRT)
+                return "Pensions"
+            else:
+                return "Social assistance"
 df_silver["econ_sub"] = df_silver.apply(map_econ_sub, axis=1)
 
 # Save silver table to Unity Catalog if running in Databricks, else export to CSV
