@@ -140,7 +140,7 @@ def map_func_sub_sub(row):
                     return "Air transport"
         case "Energy":
             if (row["CODE_FUNC3"] == '0435' or
-                (row["CODE_FUNC3"] == '0436' and row["CODE_ECON3"] == '235')):
+                (row["CODE_FUNC3"] == '0436' and row["CODE_ECON3"] == '235' and row["CODE_ECON4"] =="235112" )):
                 return "Electricity"
             elif row["CODE_FUNC3"] == '0432':
                 return "Petroleum and natural gas"
@@ -153,12 +153,6 @@ def econ_map(row):
         case "1":
             return "Interest on debt"
         case "2":
-            if row["CODE_ECON3"] in [
-                "664", # COTISATIONS SOCIALES
-                "666", # PRESTATIONS SOCIALES
-            ]:
-                return "Social benefits"
-            else:
                 return "Wage bill"
         case "3":
             return "Goods and services"
