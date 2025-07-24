@@ -153,7 +153,7 @@ def econ_map(row):
         case "1":
             return "Interest on debt"
         case "2":
-                return "Wage bill"
+            return "Wage bill"
         case "3":
             return "Goods and services"
         case "4":
