@@ -63,7 +63,7 @@ df_silver["is_foreign"] = ~df_silver["ADMIN5"].fillna("").str.startswith("FINANC
 
 # Administrative levels
 df_silver["admin0"] = "Central"
-df_silver['admin1'] = df_silver['TYPE_BUDGET'].fillna("")
+df_silver['admin1'] = "Central Scope"
 
 # Geographic levels
 df_silver["geo0"] = np.where(
@@ -71,7 +71,29 @@ df_silver["geo0"] = np.where(
     "Regional",
     "Central"
 )
-df_silver["geo1"] = np.where(df_silver["geo0"] == "Central", "Central Scope", df_silver["REGION"])
+
+region_mapping = {
+    "REGION CENTRALE": "Centrale",
+    "REGION DE LA KARA": "Kara",
+    "REGION MARITIME": "Maritime",
+    "REGION DES PLATEAUX": "Plateaux",
+    "REGION DES SAVANES": "Savanes",
+    "AUTRES REGIONS DU MONDE": "Central Scope",
+}
+df_silver["geo1"] = np.where(
+    df_silver["geo0"] == "Central", 
+    "Central Scope",
+    df_silver["REGION"].map(region_mapping).fillna("Central Scope")
+)
+assert df_silver["geo1"].nunique() == 6, (
+    f"Expected 6 distinct values in geo1, found {df_silver['geo1'].nunique()}"
+)
+expected_geo1_values = sorted(list(region_mapping.values()))
+actual_geo1_values = sorted(df_silver["geo1"].unique().tolist())
+assert actual_geo1_values == expected_geo1_values, (
+    f"Expected {expected_geo1_values}, found {actual_geo1_values}"
+)
+
 df_silver["geo2"] = df_silver["PREFECTURE"]
 
 # Functional classification
@@ -88,6 +110,12 @@ func_map = {
     "10": "Social protection",
 }
 df_silver["func"] = df_silver["CODE_FUNC1"].map(func_map)
+
+expected_func_values = sorted(list(func_map.values()))
+actual_func_values = sorted(df_silver["func"].unique().tolist())
+assert actual_func_values == expected_func_values, (
+    f"Expected {expected_func_values}, found {actual_func_values}"
+)
 
 # Functional sub-classification
 def map_func_sub(row):
@@ -236,7 +264,7 @@ df_silver["econ_sub"] = df_silver.apply(map_econ_sub, axis=1)
 if IS_DATABRICKS:
     sdf = spark.createDataFrame(df_silver)
     sdf.write.mode("overwrite").option("overwriteSchema", "true")\
-        .saveAsTable("prd_mega.sboost4.tgo_2021_onward_boost_silver")
+        .saveAsTable("prd_mega.boost_intermediate.tgo_2021_onward_boost_silver")
 else:
     # TODO: directly write to relational database when credentials are available
     df_silver.to_csv(f"{output_dir}tgo_2021_onward_boost_silver.csv", index=False)
@@ -269,7 +297,7 @@ df_gold = df_silver[[
 if IS_DATABRICKS:
     sdf_gold = spark.createDataFrame(df_gold)
     sdf_gold.write.mode("overwrite").option("overwriteSchema", "true")\
-        .saveAsTable("prd_mega.sboost4.tgo_boost_gold")
+        .saveAsTable("prd_mega.boost_intermediate.tgo_boost_gold")
 else:
     # TODO: directly write to relational database when credentials are available
     df_gold.to_csv(f"{output_dir}tgo_boost_gold.csv", index=False, encoding='utf-8')
