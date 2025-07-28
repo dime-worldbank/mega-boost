@@ -375,14 +375,37 @@ excluded_country_year_conditions = (
     (F.col('country_name') == 'Bangladesh') & (F.col('year') == 2008) |
     (F.col('country_name') == 'Kenya') & (F.col('year').isin(list(range(2006, 2016)))) |
     (F.col('country_name') == 'Chile') & (F.col('year') < 2009)|
-    (F.col('country_name') == 'Uruguay') & (F.col('year') == 2023)
+    (F.col('country_name') == 'Uruguay') & (F.col('year') == 2023) |
+    (F.col('country_name') == 'Togo') & (F.col('year').isin(list(range(2009, 2021)))) # TODO
 )
 
 @dlt.table(name='quality_boost_country')
-@dlt.expect_or_fail('country has total agg expenditure for year', 'expenditure IS NOT NULL')
 @dlt.expect_or_fail(
-    'total budget must be present unless both MEGA budget and CCI approved are null',
-    'budget IS NOT NULL OR (budget IS NULL AND approved IS NULL)')
+    'total expenditure must be present unless CCI executed is null (or 0s)',
+    '''
+    expenditure IS NOT NULL
+    OR (
+        expenditure IS NULL
+        AND (
+            executed IS NULL 
+            OR executed = 0
+        )
+    )
+    '''
+)
+@dlt.expect_or_fail(
+    'total budget must be present unless CCI approved is null (or 0s)',
+    '''
+    budget IS NOT NULL
+    OR (
+        budget IS NULL
+        AND (
+            approved IS NULL
+            OR approved = 0
+        )
+    )
+    '''
+)
 def quality_boost_country():
     country_codes_upper = [c.upper() for c in country_codes]
     boost_countries = (spark.table(f'{catalog}.{indicator_schema}.country')
