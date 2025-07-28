@@ -7,7 +7,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       min(year) as boost_earliest_year,
       max(year) as boost_latest_year
     FROM
-      boost_intermediate.quality_total_gold
+      prd_mega.boost_intermediate.quality_total_gold
     WHERE
       executed is not NULL
     GROUP by
@@ -17,16 +17,16 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
     SELECT
       DISTINCT country_name
     FROM
-      boost_intermediate.expenditure_by_country_year
+      prd_mega.boost.expenditure_by_country_year
   ),
   func_coverage AS (
     SELECT
       country_name,
       count(distinct func) as boost_num_func_cofog
     FROM
-      boost_intermediate.quality_functional_gold
+      prd_mega.boost_intermediate.quality_functional_gold
     WHERE
-      executed in not NULL
+      executed is not NULL
     GROUP BY
       1
   ),
@@ -35,7 +35,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       country_name,
       concat_ws(', ', sort_array(collect_list(Year))) as pefa2016_years
     FROM
-      indicator_intermediate.pefa_2016_silver
+      prd_mega.indicator_intermediate.pefa_2016_silver
     GROUP BY
       1
   ),
@@ -44,7 +44,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       country_name,
       concat_ws(', ', sort_array(collect_list(Year))) as pefa2011_years
     FROM
-      indicator_intermediate.pefa_2011_silver
+      prd_mega.indicator_intermediate.pefa_2011_silver
     GROUP BY
       1
   ),
@@ -55,7 +55,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       CAST(max(year) AS INT) as subnat_edu_health_index_latest_year,
       count(distinct adm1_name) as subnat_edu_health_index_num_subnat_regions
     FROM
-      indicator.global_data_lab_hd_index
+      prd_mega.indicator.global_data_lab_hd_index
     WHERE
       health_index is not null
       and education_index is not null
@@ -69,7 +69,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       CAST(max(year) AS INT) as subnat_edu_attendance_latest_year,
       count(distinct adm1_name) as subnat_attendance_num_subnat_regions
     FROM
-      indicator.global_data_lab_hd_index
+      prd_mega.indicator.global_data_lab_hd_index
     WHERE
       attendance is not null
     GROUP BY
@@ -81,7 +81,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       min(year) as youth_lit_rate_earliest_year,
       max(year) as youth_lit_rate_latest_year
     FROM
-      indicator.youth_literacy_rate_unesco
+      prd_mega.indicator.youth_literacy_rate_unesco
     GROUP BY
       1
   ),
@@ -91,7 +91,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       min(year) as learn_pov_earliest_year,
       max(year) as learn_pov_latest_year
     FROM
-      indicator.learning_poverty_rate
+      prd_mega.indicator.learning_poverty_rate
     GROUP BY
       1
   ),
@@ -101,7 +101,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       min(year) as uni_health_coverage_earliest_year,
       max(year) as uni_health_coverage_latest_year
     FROM
-      indicator.universal_health_coverage_index_gho
+      prd_mega.indicator.universal_health_coverage_index_gho
     WHERE
       universal_health_coverage_index is not null
     GROUP BY
@@ -114,7 +114,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       max(year) as subnat_poverty_latest_year,
       count(distinct region_name) as subnat_poverty_num_subnat_regions
     FROM
-      indicator.subnational_poverty_index
+      prd_mega.indicator.subnational_poverty_index
     WHERE
       poor215 is not null
     GROUP BY
@@ -126,7 +126,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       min(year) as edu_priv_spending_earliest_year,
       max(year) as edu_priv_spending_latest_year
     FROM
-      indicator.edu_private_spending
+      prd_mega.indicator.edu_private_spending
     WHERE
       edu_private_spending_share_gdp is not null
     GROUP BY
@@ -138,7 +138,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       min(year) as edu_spending_earliest_year,
       max(year) as edu_spending_latest_year
     FROM
-      indicator.edu_spending
+      prd_mega.indicator.edu_spending
     WHERE
       edu_spending_current_lcu_icp is not null
     GROUP BY
@@ -150,7 +150,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       min(year) as health_ooo_spending_earliest_year,
       max(year) as health_ooo_spending_latest_year
     FROM
-      indicator.health_expenditure
+      prd_mega.indicator.health_expenditure
     WHERE
       oop_per_capita_usd is not null
     GROUP BY
@@ -162,7 +162,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       min(year) as boost_subnat_earliest_year,
       max(year) as boost_subnat_latest_year
     FROM
-      boost_intermediate.quality_total_subnat_gold
+      prd_mega.boost_intermediate.quality_total_subnat_gold
     WHERE
       executed is not null
     GROUP BY
@@ -174,7 +174,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       min(year) as energy_generation_earliest_year,
       max(year) as energy_generation_latest_year
     FROM
-      indicator.energy_generation
+      prd_mega.indicator.energy_generation
     GROUP BY
       1
   ),
@@ -184,7 +184,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       min(year) as energy_generation_solar_wind_earliest_year,
       max(year) as energy_generation_solar_wind_latest_year
     FROM
-      indicator.energy_generation
+      prd_mega.indicator.energy_generation
     where
       primary_fuel_type in ("Wind", "Solar")
     GROUP BY
