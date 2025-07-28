@@ -378,6 +378,7 @@ excluded_country_year_conditions = (
     (F.col('country_name') == 'Kenya') & (F.col('year').isin(list(range(2006, 2016)))) |
     (F.col('country_name') == 'Chile') & (F.col('year') < 2009)|
     (F.col('country_name') == 'Uruguay') & (F.col('year') == 2023)
+    (F.col('country_name') == 'Liberia') & (F.col('year') == 2025) # 2025 executed is not in CCI data, only approved
 )
 
 @dlt.table(name='quality_boost_country')
