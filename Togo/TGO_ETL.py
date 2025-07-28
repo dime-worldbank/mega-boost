@@ -65,7 +65,7 @@ df.to_csv(
 df_silver = df.copy()
 
 # Year
-df_silver["year"] = df_silver["YEAR"].astype("Int64")
+df_silver["year"] = df_silver["YEAR"].astype("Int32")
 df_silver.drop(columns=["YEAR"], inplace=True)
 
 # Foreign funding flag
@@ -308,6 +308,7 @@ df_gold = df_silver[[
     'DOTATION_INITIALE': 'approved',
     'DOTATION_FINALE': 'revised'
 })
+df_gold['country_name'] = 'Togo'
 
 if IS_DATABRICKS:
     sdf_gold = spark.createDataFrame(df_gold)
