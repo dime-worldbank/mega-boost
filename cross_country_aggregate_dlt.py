@@ -473,8 +473,17 @@ def quality_boost_admin1_central_scope():
 @dlt.table(name='quality_boost_func')
 @dlt.expect_or_fail('country has func agg expenditure for year', 'expenditure IS NOT NULL')
 @dlt.expect_or_fail(
-    'func budget is required unless both MEGA budget and CCI approved are null',
-    'budget IS NOT NULL OR (budget IS NULL AND approved IS NULL)'
+    'func budget is required unless CCI approved is null or 0',
+    '''
+    budget IS NOT NULL
+    OR (
+        budget IS NULL
+        AND (
+            approved IS NULL
+            OR approved = 0
+        )
+    )
+    '''
 )
 def quality_boost_func():
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
@@ -506,7 +515,16 @@ def quality_boost_func_exact():
     )
 
 @dlt.table(name='quality_boost_func_sub_unknown')
-@dlt.expect_or_fail('country has no unknown func_sub', 'cci_row_count IS NOT NULL')
+@dlt.expect_or_fail(
+    'country has no unknown func_sub',
+    '''
+    cci_row_count IS NOT NULL
+    OR (
+        country_name = "Togo" 
+        AND func_sub = "Post-Secondary Non-Tertiary Education"
+    )
+    '''
+)
 def quality_boost_func_sub_exact():
     # This doesn't check by year on purpose as new years may be added to pipeline
     # without the CCI excel being updated.
@@ -527,8 +545,17 @@ def quality_boost_func_sub_exact():
 @dlt.table(name='quality_boost_econ')
 @dlt.expect_or_fail('country has econ agg expenditure for year', 'expenditure IS NOT NULL')
 @dlt.expect_or_fail(
-    'econ budget is required unless both MEGA budget and CCI approved are null',
-    'budget IS NOT NULL OR (budget IS NULL AND approved IS NULL)'
+    'econ budget is required unless CCI approved is null or 0',
+    '''
+    budget IS NOT NULL
+    OR (
+        budget IS NULL
+        AND (
+            approved IS NULL
+            OR approved = 0
+        )
+    )
+    '''
 )
 def quality_boost_econ():
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()

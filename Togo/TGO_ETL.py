@@ -10,7 +10,6 @@ IS_DATABRICKS = "DATABRICKS_RUNTIME_VERSION" in os.environ
 
 # COMMAND ----------
 
-
 if IS_DATABRICKS:
     TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
     INPUT_DIR = f"{TOP_DIR}/Documents/input/Countries"
@@ -158,7 +157,7 @@ def map_func_sub(row):
                 return "Energy"
         case "06":
             if row["CODE_FUNC2"] == "063":
-                return "Water supply"
+                return "Water Supply"
         # For "07"(Health) We don't have enough information to group by primary secondary tertiary
 
 df_silver["func_sub"] = df_silver.apply(map_func_sub, axis=1)
@@ -249,7 +248,7 @@ def map_econ_sub(row):
     match row["econ"]:
         case "Wage bill":
             if row["CODE_ECON3"] in ["661", "665"] :
-                return "Basic wages"
+                return "Basic Wages"
             if row["CODE_ECON3"] == "663":
                 return "Allowances"
         case "Goods and services":
@@ -267,7 +266,7 @@ def map_econ_sub(row):
             if row["CODE_ADMIN4"] == "1399000061000": # CAISSE DE RETRAITE DU TOGO (CRT)
                 return "Pensions"
             else:
-                return "Social assistance"
+                return "Social Assistance"
 df_silver["econ_sub"] = df_silver.apply(map_econ_sub, axis=1)
 
 # Save silver table to Unity Catalog if running in Databricks, else export to CSV
