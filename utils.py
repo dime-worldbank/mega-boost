@@ -1,8 +1,4 @@
 # Databricks notebook source
-# MAGIC %pip install openpyxl tqdm xlsxwriter
-
-# COMMAND ----------
-
 from glob import glob
 from pathlib import Path
 import pandas as pd

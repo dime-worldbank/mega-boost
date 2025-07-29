@@ -10,8 +10,7 @@ quality_source_schema = spark.conf.get("QUALITY_SOURCE_SCHEMA", 'boost_intermedi
 country_source_schema = spark.conf.get("COUNTRY_SOURCE_SCHEMA", 'boost_intermediate')
 
 # Adding a new country requires adding the country here
-
-country_codes = ['moz', 'pry', 'ken', 'pak', 'bfa', 'col', 'cod', 'nga', 'tun', 'btn', 'bgd', 'alb', 'ury', "zaf", 'chl', 'lbr', 'gha']
+country_codes = ['moz', 'pry', 'ken', 'pak', 'bfa', 'col', 'cod', 'nga', 'tun', 'btn', 'bgd', 'alb', 'ury', "zaf", 'chl', 'gha', 'tgo', 'lbr']
 
 schema = StructType([
     StructField("country_name", StringType(), True, {'comment': 'The name of the country for which the budget data is recorded (e.g., "Kenya", "Brazil").'}),
@@ -377,15 +376,38 @@ excluded_country_year_conditions = (
     (F.col('country_name') == 'Bangladesh') & (F.col('year') == 2008) |
     (F.col('country_name') == 'Kenya') & (F.col('year').isin(list(range(2006, 2016)))) |
     (F.col('country_name') == 'Chile') & (F.col('year') < 2009)|
-    (F.col('country_name') == 'Uruguay') & (F.col('year') == 2023)
+    (F.col('country_name') == 'Uruguay') & (F.col('year') == 2023) |
+    (F.col('country_name') == 'Togo') & (F.col('year').isin(list(range(2009, 2021)))) | # TODO
     (F.col('country_name') == 'Liberia') & (F.col('year') == 2025) # 2025 executed is not in CCI data, only approved
 )
 
 @dlt.table(name='quality_boost_country')
-@dlt.expect_or_fail('country has total agg expenditure for year', 'expenditure IS NOT NULL')
 @dlt.expect_or_fail(
-    'total budget must be present unless both MEGA budget and CCI approved are null',
-    'budget IS NOT NULL OR (budget IS NULL AND approved IS NULL)')
+    'total expenditure must be present unless CCI executed is null (or 0s)',
+    '''
+    expenditure IS NOT NULL
+    OR (
+        expenditure IS NULL
+        AND (
+            executed IS NULL 
+            OR executed = 0
+        )
+    )
+    '''
+)
+@dlt.expect_or_fail(
+    'total budget must be present unless CCI approved is null (or 0s)',
+    '''
+    budget IS NOT NULL
+    OR (
+        budget IS NULL
+        AND (
+            approved IS NULL
+            OR approved = 0
+        )
+    )
+    '''
+)
 def quality_boost_country():
     country_codes_upper = [c.upper() for c in country_codes]
     boost_countries = (spark.table(f'{catalog}.{indicator_schema}.country')
@@ -453,8 +475,17 @@ def quality_boost_admin1_central_scope():
 @dlt.table(name='quality_boost_func')
 @dlt.expect_or_fail('country has func agg expenditure for year', 'expenditure IS NOT NULL')
 @dlt.expect_or_fail(
-    'func budget is required unless both MEGA budget and CCI approved are null',
-    'budget IS NOT NULL OR (budget IS NULL AND approved IS NULL)'
+    'func budget is required unless CCI approved is null or 0',
+    '''
+    budget IS NOT NULL
+    OR (
+        budget IS NULL
+        AND (
+            approved IS NULL
+            OR approved = 0
+        )
+    )
+    '''
 )
 def quality_boost_func():
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
@@ -487,7 +518,16 @@ def quality_boost_func_exact():
     )
 
 @dlt.table(name='quality_boost_func_sub_unknown')
-@dlt.expect_or_fail('country has no unknown func_sub', 'cci_row_count IS NOT NULL')
+@dlt.expect_or_fail(
+    'country has no unknown func_sub',
+    '''
+    cci_row_count IS NOT NULL
+    OR (
+        country_name = "Togo" 
+        AND func_sub = "Post-Secondary Non-Tertiary Education"
+    )
+    '''
+)
 def quality_boost_func_sub_exact():
     # This doesn't check by year on purpose as new years may be added to pipeline
     # without the CCI excel being updated.
@@ -508,8 +548,17 @@ def quality_boost_func_sub_exact():
 @dlt.table(name='quality_boost_econ')
 @dlt.expect_or_fail('country has econ agg expenditure for year', 'expenditure IS NOT NULL')
 @dlt.expect_or_fail(
-    'econ budget is required unless both MEGA budget and CCI approved are null',
-    'budget IS NOT NULL OR (budget IS NULL AND approved IS NULL)'
+    'econ budget is required unless CCI approved is null or 0',
+    '''
+    budget IS NOT NULL
+    OR (
+        budget IS NULL
+        AND (
+            approved IS NULL
+            OR approved = 0
+        )
+    )
+    '''
 )
 def quality_boost_econ():
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()

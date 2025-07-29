@@ -134,23 +134,25 @@ def quality_functional_gold():
 
 @dlt.table(name=f'quality_functional_sub_silver')
 def quality_sub_functional_silver():
+    # TODO: standardize all func_sub and func_sub_sub names referencing: 
+    # https://github.com/datasets/cofog/blob/main/data/cofog.csv
     bronze = (dlt.read('quality_cci_bronze').filter(F.col('category_code').startswith('EXP_FUNC_')).withColumn('func_sub',F.when(F.col("category_code") == 'EXP_FUNC_AGR_EXE', "Agriculture")
-            .when(F.col("category_code") == 'EXP_FUNC_AIR_TRA_EXE', "Air Transport")
+            .when(F.col("category_code") == 'EXP_FUNC_AIR_TRA_EXE', "Air Transport") # TODO: move to func_sub_sub
             .when(F.col("category_code") == 'EXP_FUNC_ENE_EXE', "Energy")
             .when(F.col("category_code") == 'EXP_FUNC_JUD_EXE', "Judiciary")
             .when(F.col("category_code") == 'EXP_FUNC_PRI_EDU_EXE', "Primary Education")
             .when(F.col("category_code") == 'EXP_FUNC_PRI_SEC_EDU_EXE', "Primary and Secondary education")
             .when(F.col("category_code") == 'EXP_FUNC_PRI_HEA_EXE', "Primary and Secondary Health")
             .when(F.col("category_code") == 'EXP_FUNC_PUB_SAF_EXE', "Public Safety")
-            .when(F.col("category_code") == 'EXP_FUNC_ROA_EXE', "Roads")
-            .when(F.col("category_code") == 'EXP_FUNC_RAI_EXE', "Railroads")
+            .when(F.col("category_code") == 'EXP_FUNC_ROA_EXE', "Roads") # TODO: move to func_sub_sub, rename to Road Transport
+            .when(F.col("category_code") == 'EXP_FUNC_RAI_EXE', "Railroads") # TODO: move to func_sub_sub, rename to Railway Transport
             .when(F.col("category_code") == 'EXP_FUNC_TEL_EXE', "Telecom")
             .when(F.col("category_code") == 'EXP_FUNC_SEC_EDU_EXE', "Secondary Education")
             .when(F.col("category_code") == 'EXP_FUNC_TER_EDU_EXE', "Tertiary Education")
             .when(F.col("category_code") == 'EXP_FUNC_TER_HEA_EXE', "Tertiary and Quaternary Health")
             .when(F.col("category_code") == 'EXP_FUNC_TRA_EXE', "Transport")
-            .when(F.col("category_code") == 'EXP_FUNC_WAT_TRA_EXE', "Water Transport")
-            .when(F.col("category_code") == 'EXP_FUNC_WAT_SAN_EXE', "Water and Sanitation")
+            .when(F.col("category_code") == 'EXP_FUNC_WAT_TRA_EXE', "Water Transport") # TODO: move to func_sub_sub
+            .when(F.col("category_code") == 'EXP_FUNC_WAT_SAN_EXE', "Water Supply")
         )
         .filter(F.col('func_sub').isNotNull()))
     
