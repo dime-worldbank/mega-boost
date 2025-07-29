@@ -1,4 +1,5 @@
 # Databricks notebook source
+import csv
 import os
 from pathlib import Path
 import numpy as np
@@ -25,6 +26,10 @@ preview_df = pd.read_excel(filename, sheet_name=sheet_name, nrows=0)
 code_cols = [col for col in preview_df.columns if col.startswith("CODE_")]
 dtype_dict = {col: str for col in code_cols}
 
+# Add numeric columns to enforce as float64
+for col in ["ORDONNANCER", "DOTATION_INITIALE", "DOTATION_FINALE"]:
+    dtype_dict[col] = "float64"
+
 # Read full sheet with specified dtypes
 df = pd.read_excel(filename, sheet_name=sheet_name, dtype=dtype_dict)
 df
@@ -48,14 +53,19 @@ else:
     csv_file_path = f'{output_dir}{sheet_name}.csv'
 
 # Save bronze data to CSV
-df.to_csv(csv_file_path, index=False, encoding='utf-8')
+df.to_csv(
+    csv_file_path,
+    index=False,
+    encoding='utf-8',
+    quoting=csv.QUOTE_NONNUMERIC
+)
 
 # COMMAND ----------
 
 df_silver = df.copy()
 
 # Year
-df_silver["year"] = df_silver["YEAR"].astype("Int64")
+df_silver["year"] = df_silver["YEAR"].astype("Int32")
 df_silver.drop(columns=["YEAR"], inplace=True)
 
 # Foreign funding flag
@@ -267,7 +277,12 @@ if IS_DATABRICKS:
         .saveAsTable("prd_mega.boost_intermediate.tgo_2021_onward_boost_silver")
 else:
     # TODO: directly write to relational database when credentials are available
-    df_silver.to_csv(f"{output_dir}tgo_2021_onward_boost_silver.csv", index=False)
+    df_silver.to_csv(
+        f"{output_dir}tgo_2021_onward_boost_silver.csv",
+        index=False,
+        encoding='utf-8',
+        quoting=csv.QUOTE_NONNUMERIC
+    )
 
 # COMMAND ----------
 
@@ -293,6 +308,7 @@ df_gold = df_silver[[
     'DOTATION_INITIALE': 'approved',
     'DOTATION_FINALE': 'revised'
 })
+df_gold['country_name'] = 'Togo'
 
 if IS_DATABRICKS:
     sdf_gold = spark.createDataFrame(df_gold)
@@ -300,4 +316,9 @@ if IS_DATABRICKS:
         .saveAsTable("prd_mega.boost_intermediate.tgo_boost_gold")
 else:
     # TODO: directly write to relational database when credentials are available
-    df_gold.to_csv(f"{output_dir}tgo_boost_gold.csv", index=False, encoding='utf-8')
+    df_gold.to_csv(
+        f"{output_dir}tgo_boost_gold.csv",
+        index=False,
+        encoding='utf-8',
+        quoting=csv.QUOTE_NONNUMERIC
+    )
