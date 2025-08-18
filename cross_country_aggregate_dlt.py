@@ -10,7 +10,7 @@ quality_source_schema = spark.conf.get("QUALITY_SOURCE_SCHEMA", 'boost_intermedi
 country_source_schema = spark.conf.get("COUNTRY_SOURCE_SCHEMA", 'boost_intermediate')
 
 # Adding a new country requires adding the country here
-country_codes = ['moz', 'pry', 'ken', 'pak', 'bfa', 'col', 'cod', 'nga', 'tun', 'btn', 'bgd', 'alb', 'ury', "zaf", 'chl', 'gha', 'tgo']
+country_codes = ['moz', 'pry', 'ken', 'pak', 'bfa', 'col', 'cod', 'nga', 'tun', 'btn', 'bgd', 'alb', 'ury', "zaf", 'chl', 'gha', 'tgo', 'lbr']
 
 schema = StructType([
     StructField("country_name", StringType(), True, {'comment': 'The name of the country for which the budget data is recorded (e.g., "Kenya", "Brazil").'}),
@@ -133,8 +133,9 @@ def expenditure_by_country_year():
         )
         .join(cpi_factors, on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("expenditure") / F.col("cpi_factor"))
+
         .withColumn("real_budget", F.col("budget") / F.col("cpi_factor"))
-        .join(pop, on=["country_name", "year"], how="inner")
+        .join(pop, on=["country_name", "year"], how="left")
         .withColumn("latest_year", F.max("year").over(window_spec))
         .withColumn("earliest_year", F.min("year").over(window_spec))
         .withColumn("per_capita_expenditure", F.col("expenditure") / F.col("population"))
@@ -376,7 +377,8 @@ excluded_country_year_conditions = (
     (F.col('country_name') == 'Kenya') & (F.col('year').isin(list(range(2006, 2016)))) |
     (F.col('country_name') == 'Chile') & (F.col('year') < 2009)|
     (F.col('country_name') == 'Uruguay') & (F.col('year') == 2023) |
-    (F.col('country_name') == 'Togo') & (F.col('year').isin(list(range(2009, 2021)))) # TODO
+    (F.col('country_name') == 'Togo') & (F.col('year').isin(list(range(2009, 2021)))) | # TODO
+    (F.col('country_name') == 'Liberia') & (F.col('year') == 2025) # 2025 executed is not in CCI data, only approved
 )
 
 @dlt.table(name='quality_boost_country')
@@ -493,7 +495,8 @@ def quality_boost_func():
     )
     return (
         dlt.read('expenditure_by_country_func_year')
-        .join(quality_cci_func, on=['country_name', 'func', 'year'], how="right")
+        # inner join to exclude years in CCI data that are not in expenditure_by_country_func_year (aka pop) data
+        .join(quality_cci_func, on=['country_name', 'func', 'year'], how="inner")
     )
 
 @dlt.table(name='quality_boost_func_unknown')
@@ -565,7 +568,8 @@ def quality_boost_econ():
     )
     return (
         dlt.read('expenditure_by_country_econ_year')
-        .join(quality_cci_econ, on=['country_name', 'econ', 'year'], how="right")
+        # inner join to exclude years in CCI data that are not in expenditure_by_country_econ_year (aka pop) data
+        .join(quality_cci_econ, on=['country_name', 'econ', 'year'], how="inner")
     )
 
 @dlt.table(name='quality_boost_econ_unknown')
