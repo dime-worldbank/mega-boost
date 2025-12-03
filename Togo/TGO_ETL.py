@@ -1,4 +1,8 @@
 # Databricks notebook source
+# MAGIC %pip install openpyxl
+
+# COMMAND ----------
+
 import csv
 import os
 from pathlib import Path
