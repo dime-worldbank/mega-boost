@@ -9,7 +9,7 @@ COUNTRY = 'South Africa'
 microdata_csv_dir = prepare_microdata_csv_dir(COUNTRY)
 filename = input_excel_filename(COUNTRY)
 
-sheet = 'raw'
+sheet = 'Expenditure'
 
 csv_file_path = f'{microdata_csv_dir}/{sheet}.csv'
 df = pd.read_excel(filename, sheet_name=sheet, header=0)
