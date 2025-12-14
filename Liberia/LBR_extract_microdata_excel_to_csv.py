@@ -11,7 +11,7 @@ COUNTRY = 'Liberia'
 microdata_csv_dir = prepare_microdata_csv_dir(COUNTRY)
 print(microdata_csv_dir)
 filename = input_excel_filename(COUNTRY)
-disaggregated_data_sheets = ['Data']
+disaggregated_data_sheets = ['Expenditure']
 
 for sheet in tqdm(disaggregated_data_sheets):
     csv_file_path = f'{microdata_csv_dir}/{sheet}.csv'
