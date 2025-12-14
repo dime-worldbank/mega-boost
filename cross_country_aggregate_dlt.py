@@ -372,11 +372,12 @@ def expenditure_by_country_econ_year():
 # COMMAND ----------
 
 excluded_country_year_conditions = (
-    (F.col('country_name') == 'Burkina Faso') & (F.col('year') == 2016) |
+    (F.col('country_name') == 'Burkina Faso') & ((F.col('year') == 2016) |(F.col('year') > 2020))|
     (F.col('country_name') == 'Bangladesh') & (F.col('year') == 2008) |
     (F.col('country_name') == 'Kenya') & (F.col('year').isin(list(range(2006, 2016)))) |
     (F.col('country_name') == 'Chile') & (F.col('year') < 2009)|
     (F.col('country_name') == 'Uruguay') & (F.col('year') == 2023) |
+    (F.col('country_name') == 'South Africa') & (F.col('year') == 2025) |
     (F.col('country_name') == 'Togo') & (F.col('year').isin(list(range(2009, 2021)))) | # TODO
     (F.col('country_name') == 'Liberia') & (F.col('year') == 2025) # 2025 executed is not in CCI data, only approved
 )
