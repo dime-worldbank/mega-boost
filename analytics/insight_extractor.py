@@ -3,36 +3,14 @@
 
 # COMMAND ----------
 
-class InsightExtractor:
-    def __init__(self, X,Y):
-        self.X = X
-        self.Y = Y
-        self.TrendDetector = TrendDetector()
-
-    def get_volatility(self):
-        # Returns the CV (%)
-        return (self.Y.std() / self.Y.mean()) * 100
-
-    def get_structural_segments(self):
-        return self.TrendDetector.extract_trend(self.X, self.Y)
-
-    def extract_full_suite(self):
-        # Returns a dictionary ready for your Delta Table
-        return {
-            "cv_value": self.get_volatility(),
-            "segments": self.get_structural_segments(),
-        }
-
-# COMMAND ----------
-
 import pwlf
 import pandas as pd
 import numpy as np
 
 class TrendDetector:
-    def __init__(self, max_segments=3, threshhold=0.05):
+    def __init__(self, max_segments=3, threshold=0.05):
         self.max_segments = max_segments
-        self.threshhold = threshhold
+        self.threshold = threshold
 
     def fit_best_model(self, x, y):
         """Iterates through segment counts and returns the best-fitting pwlf object."""
@@ -47,7 +25,7 @@ class TrendDetector:
                 model = pwlf.PiecewiseLinFit(x, y)
                 model.fit(n_seg)
                 for p_val in model.p_values()[1:]:
-                    if p_val > self.threshhold:
+                    if p_val > self.threshold:
                         model= None
                 if model:
                     best_model = model
@@ -85,6 +63,27 @@ class TrendDetector:
                 "p_value": p_values[i],
             }
             segments.append(segment)
-            
 
         return segments
+
+# COMMAND ----------
+
+class InsightExtractor:
+    def __init__(self, X, Y):
+        self.X = X
+        self.Y = Y
+        self.TrendDetector = TrendDetector()
+
+    def get_volatility(self):
+        # Returns the CV (%)
+        return (self.Y.std() / self.Y.mean()) * 100
+
+    def get_structural_segments(self):
+        return self.TrendDetector.extract_trend(self.X, self.Y)
+
+    def extract_full_suite(self):
+        # Returns a dictionary ready for your Delta Table
+        return {
+            "cv_value": self.get_volatility(),
+            "segments": self.get_structural_segments(),
+        }

@@ -3,6 +3,8 @@
 
 # COMMAND ----------
 
+import pandas as pd
+
 CATALOG = "prd_mega"
 SCHEMA = "boost"
 TABLE_NAME = "expenditure_by_country_func_econ_year"
@@ -31,7 +33,6 @@ INSIGHT_CONFIGS = [
     },
 ]
 
-# countries = source_table.country_name.unique()
 insights = []
 
 for country in countries:
