@@ -33,7 +33,7 @@ class TrendDetector:
         p_values = model.p_values()
         breakpoints = [int(x) for x in model.fit_breaks]
 
-        # Check if the breakpoints are not too close to each to other
+        # Check if the breakpoints are not too close to each other
         if len(breakpoints) != len(set(breakpoints)):
             return False
 
@@ -114,11 +114,13 @@ class TrendDetector:
         
         return final_model
     
-    def extract_trend(self, x, y, metadata={}):
+    def extract_trend(self, x, y, metadata=None):
         """
         Main entry point: Fits the model and returns a list of 
         significant breakpoints as dictionaries.
         """
+        if metadata is None:
+            metadata = {}
         model = self.fit_best_model(x, y)
         if model is None:
             return []
