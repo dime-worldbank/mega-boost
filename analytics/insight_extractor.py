@@ -26,7 +26,7 @@ class TrendDetector:
                 model.fit(n_seg)
                 for p_val in model.p_values()[1:]:
                     if p_val > self.threshold:
-                        model= None
+                        model = None
                 if model:
                     best_model = model
                                 
@@ -53,7 +53,9 @@ class TrendDetector:
             start_year = round(breaks[i])
             end_year = round(breaks[i+1])
             start_index = np.searchsorted(x, start_year)
-            end_index = np.searchsorted(x, end_year)   
+            end_index = np.searchsorted(x, end_year)
+            start_index = min(start_index, len(y) - 1)
+            end_index = min(end_index, len(y) - 1)
             segment = {
                 'start_value': y[start_index],
                 'end_value': y[end_index],
@@ -72,14 +74,14 @@ class InsightExtractor:
     def __init__(self, X, Y):
         self.X = X
         self.Y = Y
-        self.TrendDetector = TrendDetector()
+        self.trend_detector = TrendDetector()
 
     def get_volatility(self):
         # Returns the CV (%)
         return (self.Y.std() / self.Y.mean()) * 100
 
     def get_structural_segments(self):
-        return self.TrendDetector.extract_trend(self.X, self.Y)
+        return self.trend_detector.extract_trend(self.X, self.Y)
 
     def extract_full_suite(self):
         # Returns a dictionary ready for your Delta Table
