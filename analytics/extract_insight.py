@@ -9,9 +9,7 @@ CATALOG = "prd_mega"
 SCHEMA = "boost"
 TABLE_NAME = "expenditure_by_country_func_econ_year"
 START_YEAR = 2010
-source_table = spark.table(f"{CATALOG}.{SCHEMA}.{TABLE_NAME}")
-source_table = source_table.toPandas()
-countries = source_table.country_name.unique()
+
 INSIGHT_CONFIGS = [
     {
         "dimension": "func",
@@ -32,6 +30,10 @@ INSIGHT_CONFIGS = [
         "metric_name": "total real expenditure",
     },
 ]
+MIN_DATA_POINTS = 4
+
+source_table = spark.table(f"{CATALOG}.{SCHEMA}.{TABLE_NAME}").toPandas()
+countries = source_table.country_name.unique()
 
 insights = []
 
@@ -57,7 +59,7 @@ for country in countries:
         df_plot = df_temp.groupby("year")[metric].sum().reset_index()
         df_plot = df_plot.sort_values(by="year")
 
-        if len(df_plot) >= 4:
+        if len(df_plot) >= MIN_DATA_POINTS:
             X = df_plot["year"].values
             Y = df_plot[metric].values
 
