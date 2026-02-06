@@ -631,13 +631,13 @@ def quality_boost_foreign():
 @dlt.table(name="pov_expenditure_by_country_year")
 def pov_expenditure():
     return (
-        spark.table(f"{catalog}.{indicator_schema}.poverty").join(
+        spark.table(f"{catalog}.{indicator_schema}.poverty_rate").join(
             dlt.read("expenditure_by_country_year"),
             on=["year", "country_name"],
             how="right",
         )
-        # Only poor215 is required for the dashboard
-        .drop("country_code", "region", "poor365", "poor685", "data_source")
+        # Only poverty_rate (income level specific) is required for the dashboard
+        .drop("country_code", "region", "poor300", "poor420", "poor830", "data_source")
     )
 
 @dlt.table(name=f'expenditure_and_outcome_by_country_geo1_func_year')
