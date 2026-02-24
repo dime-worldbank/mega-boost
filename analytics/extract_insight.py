@@ -1,4 +1,6 @@
 # Databricks notebook source
+# MAGIC %pip install trend-narrative
+
 # COMMAND ----------
 
 from trend_narrative import InsightExtractor
