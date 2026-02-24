@@ -1,8 +1,7 @@
 # Databricks notebook source
-# MAGIC %run ./insight_extractor
-
 # COMMAND ----------
 
+from trend_narrative import InsightExtractor
 import pandas as pd
 
 CATALOG = "prd_mega"
