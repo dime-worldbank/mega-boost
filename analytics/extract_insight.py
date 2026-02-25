@@ -33,16 +33,14 @@ INSIGHT_CONFIGS = [
 ]
 MIN_DATA_POINTS = 4
 
-source_table = spark.table(f"{CATALOG}.{SCHEMA}.{TABLE_NAME}").toPandas()
-countries = source_table.country_name.unique()
+# COMMAND ----------
 
-insights = []
-
-for country in countries:
+def process_country(pdf: pd.DataFrame) -> pd.DataFrame:
+    """Process all insight configs for a single country."""
+    country = pdf["country_name"].iloc[0]
     # Get a fresh "base" slice for the country
-    country_base_df = source_table[
-        (source_table.country_name == country) & (source_table.year >= START_YEAR)
-    ]
+    country_base_df = pdf[pdf.year >= START_YEAR]
+    insights = []
 
     for config in INSIGHT_CONFIGS:
         metric = config["metric"]
@@ -81,9 +79,28 @@ for country in countries:
             )
             insights.append(result)
 
+    return pd.DataFrame(insights)
+
+
 # COMMAND ----------
 
-INSIGHT_TABLE_NAME = 'expenditure_insights'
-insights_df = pd.DataFrame(insights)
-sdf = spark.createDataFrame(insights_df)
-sdf.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(f"{CATALOG}.{SCHEMA}.{INSIGHT_TABLE_NAME}")
+source_df = spark.table(f"{CATALOG}.{SCHEMA}.{TABLE_NAME}")
+
+# Infer schema from a sample country that produces output
+sample_countries = source_df.select("country_name").distinct().limit(10).collect()
+output_schema = None
+for row in sample_countries:
+    sample_pdf = source_df.filter(source_df.country_name == row[0]).toPandas()
+    sample_output = process_country(sample_pdf)
+    if not sample_output.empty:
+        output_schema = spark.createDataFrame(sample_output).schema
+        break
+if output_schema is None:
+    raise ValueError("No sample country produced insights - cannot infer schema")
+
+insights_df = source_df.groupBy("country_name").applyInPandas(process_country, schema=output_schema)
+
+# COMMAND ----------
+
+INSIGHT_TABLE_NAME = "expenditure_insights"
+insights_df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(f"{CATALOG}.{SCHEMA}.{INSIGHT_TABLE_NAME}")
