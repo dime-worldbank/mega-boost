@@ -189,6 +189,13 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       primary_fuel_type in ("Wind", "Solar")
     GROUP BY
       1
+  ),
+  source_urls AS (
+    SELECT
+      country_name,
+      source_url AS boost_source_url
+    FROM
+      LIVE.source_urls_bronze
   )
   SELECT
     t.country_name,
@@ -261,7 +268,8 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
     eg.energy_generation_earliest_year,
     eg.energy_generation_latest_year,
     egsw.energy_generation_solar_wind_earliest_year,
-    egsw.energy_generation_solar_wind_latest_year
+    egsw.energy_generation_solar_wind_latest_year,
+    su.boost_source_url
   FROM
     time_coverage t
     LEFT JOIN mega_coverage m on t.country_name = m.country_name
@@ -280,6 +288,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
     LEFT JOIN boost_subnat bsub on t.country_name = bsub.country_name
     LEFT JOIN energy_generation eg on t.country_name = eg.country_name
     LEFT JOIN energy_generation_solar_wind egsw on t.country_name = egsw.country_name
+    LEFT JOIN source_urls su on t.country_name = su.country_name
   ORDER BY
     t.country_name
 )
