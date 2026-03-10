@@ -114,9 +114,9 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       max(year) as subnat_poverty_latest_year,
       count(distinct region_name) as subnat_poverty_num_subnat_regions
     FROM
-      prd_mega.indicator.subnational_poverty_index
+      prd_mega.indicator.subnational_poverty_rate
     WHERE
-      poor215 is not null
+      poor830 is not null
     GROUP BY
       1
   ),
@@ -195,7 +195,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       country_name,
       source_url AS boost_source_url
     FROM
-      LIVE.source_urls_bronze
+      LIVE.source_urls
   )
   SELECT
     t.country_name,
