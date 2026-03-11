@@ -195,7 +195,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       country_name,
       source_url AS boost_source_url
     FROM
-      LIVE.source_urls
+      prd_mega.boost.source_urls
   )
   SELECT
     t.country_name,
