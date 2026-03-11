@@ -1,5 +1,4 @@
 # Databricks notebook source
-import dlt
 from pyspark.sql.types import StructType, StructField, StringType
 
 # BOOST source URL per country.
@@ -51,7 +50,7 @@ SOURCE_URLS = [
     },
     {
         "country_name": "Brazil",
-        "source_url": "https://datacatalog.worldbank.org/int/search/dataset/0040769/Brazil-BOOST-Public-Expenditure-Database-",
+        "source_url": "https://datacatalog.worldbank.org/int/search/dataset/0040769/Brazil-BOOST-Public-Expenditure-Database",
     },
     {
         "country_name": "Uruguay",
