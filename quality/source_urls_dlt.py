@@ -47,7 +47,7 @@ SOURCE_URLS = [
     },
     {
         "country_name": "Mexico",
-        "source_url": "http://datacatalog.worldbank.org/int/search/dataset/0038091/Mexico-BOOST-Public-Expenditure-Database",
+        "source_url": "https://datacatalog.worldbank.org/int/search/dataset/0038091/Mexico-BOOST-Public-Expenditure-Database",
     },
     {
         "country_name": "Brazil",
