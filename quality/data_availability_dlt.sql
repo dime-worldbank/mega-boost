@@ -191,11 +191,32 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       1
   ),
   source_urls AS (
-    SELECT
-      country_name,
-      source_url AS boost_source_url
-    FROM
-      prd_mega.boost.source_urls
+    SELECT * FROM (
+      VALUES
+        ('Albania', 'https://datacatalog.worldbank.org/int/search/dataset/0038087/Albania-BOOST-platform'),
+        ('Armenia', 'https://datacatalog.worldbank.org/int/search/dataset/0040229/Armenia-BOOST-Public-Expenditure-Database'),
+        ('Kiribati', 'https://datacatalog.worldbank.org/int/search/dataset/0042010/Kiribati-BOOST-Public-Expenditure-Database'),
+        ('Burundi', 'https://datacatalog.worldbank.org/int/search/dataset/0040668/Burundi-BOOST-Public-Expenditure-Database'),
+        ('Seychelles', 'https://datacatalog.worldbank.org/int/search/dataset/0038067/Seychelles-BOOST-Public-Expenditure-Database'),
+        ('Haiti', 'https://datacatalog.worldbank.org/int/search/dataset/0038072/Haiti-BOOST-Public-Expenditure-Database'),
+        ('Peru', 'https://datacatalog.worldbank.org/int/search/dataset/0043632/Peru-BOOST-Public-Expenditure-Database'),
+        ('Mauritania', 'https://datacatalog.worldbank.org/int/search/dataset/0038077/Mauritania-BOOST-Public-Expenditure-Database'),
+        ('Kenya', 'https://datacatalog.worldbank.org/int/search/dataset/0038086/Kenya-BOOST-Public-Expenditure-Database'),
+        ('Uganda', 'https://datacatalog.worldbank.org/int/search/dataset/0038076/Uganda-BOOST-Public-Expenditure-Database'),
+        ('Mexico', 'https://datacatalog.worldbank.org/int/search/dataset/0038091/Mexico-BOOST-Public-Expenditure-Database'),
+        ('Brazil', 'https://datacatalog.worldbank.org/int/search/dataset/0040769/Brazil-BOOST-Public-Expenditure-Database'),
+        ('Uruguay', 'https://datacatalog.worldbank.org/int/search/dataset/0038074/Uruguay-BOOST-public-expenditure-database'),
+        ('Niger', 'https://datacatalog.worldbank.org/int/search/dataset/0038073/Niger-BOOST-Public-Expenditure-Database'),
+        ('Moldova', 'https://datacatalog.worldbank.org/int/search/dataset/0038070/Moldova-BOOST-Public-Expenditure-Database'),
+        ('Guatemala', 'https://datacatalog.worldbank.org/int/search/dataset/0038078/Guatemala-BOOST-Public-Expenditure-Database'),
+        ('Poland', 'https://datacatalog.worldbank.org/int/search/dataset/0038071/Poland-BOOST-Public-Expenditure-Database'),
+        ('Tunisia', 'https://datacatalog.worldbank.org/int/search/dataset/0038082/Tunisia-BOOST-Public-Expenditure-Database'),
+        ('Paraguay', 'https://datacatalog.worldbank.org/int/search/dataset/0038079/Paraguay-BOOST-Public-Expenditure-Database'),
+        ('Burkina Faso', 'https://datacatalog.worldbank.org/int/search/dataset/0041709/Burkina-Faso-BOOST-Public-Expenditure-Database'),
+        ('Togo', 'https://datacatalog.worldbank.org/int/search/dataset/0040663/Togo-BOOST-Public-Expenditure-Database'),
+        ('Mali', 'https://datacatalog.worldbank.org/int/search/dataset/0042337/Mali-BOOST-Public-Expenditure-Database'),
+        ('Solomon Islands', 'https://datacatalog.worldbank.org/int/search/dataset/0038075/Solomon-Islands-BOOST-Public-Expenditure-Database')
+    ) AS t(country_name, boost_source_url)
   )
   SELECT
     t.country_name,
