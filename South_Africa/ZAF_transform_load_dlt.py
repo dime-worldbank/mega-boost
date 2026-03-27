@@ -143,7 +143,7 @@ def boost_silver():
                         & (col("program").startswith("03 water"))
                     )
                 ),
-                "Water and Sanitation",
+                "Water Supply",
             )
             .when(
                 (col("program") == "03 university education"),
@@ -222,7 +222,7 @@ def boost_silver():
                 "Environmental protection",
             )
             .when(
-                col("func_sub") == "Water and Sanitation",
+                col("func_sub") == "Water Supply",
                 "Housing and community amenities",
             )
             .when(

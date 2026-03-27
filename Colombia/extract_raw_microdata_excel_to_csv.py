@@ -95,6 +95,7 @@ def read_subnat_excel_with_header_detection(file_path):
 
 for filename in earlier_filenames + recent_filenames:
     filename_stem = Path(filename).stem
+    file_year = int(filename_stem.split('_')[0])
     outfile = f'{microdata_csv_dir}/subnational_gastos_{filename_stem}.csv'
     
     if dbfs_file_exists(outfile.replace('/dbfs', '')):
@@ -114,10 +115,16 @@ for filename in earlier_filenames + recent_filenames:
         assert len(df.columns) == 15
         assert df.shape[0] >= min_num_rows_subnat_earlier, f'Expect to find at least {min_num_rows_subnat_earlier}, but found {df.shape[0]} row'
     elif 'EJECUCION' in filename:
+        # Special handling for year 2024: needs to be before other renames
+        if file_year == 2024:
+            df = df.rename(columns={'seccionpresupuestal': 'nombreseccion'})
         df = df.rename(columns={
             'nombreseccionpresupuestal': 'nombreseccion',
+            'codigoseccionpresupuestal': 'seccionpresupuestal',
             'codigoconcepto': 'concepto_cod',
             'concepto': 'nombreconcepto',
+            'entidad': 'nombreentidad',
+            'codigovigenciadelgasto': 'vigenciagasto',
         })
         for col_name in EJECUCION_REQUIRED_COLS:
             assert col_name in df.columns, f'Expect column named {col_name} to exist in {df.columns} in {filename_stem}'
@@ -127,7 +134,7 @@ for filename in earlier_filenames + recent_filenames:
         df = df.apply(lambda x: x.str.strip() if x.dtype == 'object' else x)
 
     df.index.name = 'raw_row_id'
-    df['year'] = int(filename_stem.split('_')[0])
+    df['year'] = file_year
     df.to_csv(outfile)
 
 # COMMAND ----------

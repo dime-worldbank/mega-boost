@@ -7,7 +7,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       min(year) as boost_earliest_year,
       max(year) as boost_latest_year
     FROM
-      boost_intermediate.quality_total_gold
+      prd_mega.boost_intermediate.quality_total_gold
     WHERE
       executed is not NULL
     GROUP by
@@ -17,16 +17,16 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
     SELECT
       DISTINCT country_name
     FROM
-      boost_intermediate.expenditure_by_country_year
+      prd_mega.boost.expenditure_by_country_year
   ),
   func_coverage AS (
     SELECT
       country_name,
       count(distinct func) as boost_num_func_cofog
     FROM
-      boost_intermediate.quality_functional_gold
+      prd_mega.boost_intermediate.quality_functional_gold
     WHERE
-      executed in not NULL
+      executed is not NULL
     GROUP BY
       1
   ),
@@ -35,7 +35,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       country_name,
       concat_ws(', ', sort_array(collect_list(Year))) as pefa2016_years
     FROM
-      indicator_intermediate.pefa_2016_silver
+      prd_mega.indicator_intermediate.pefa_2016_silver
     GROUP BY
       1
   ),
@@ -44,7 +44,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       country_name,
       concat_ws(', ', sort_array(collect_list(Year))) as pefa2011_years
     FROM
-      indicator_intermediate.pefa_2011_silver
+      prd_mega.indicator_intermediate.pefa_2011_silver
     GROUP BY
       1
   ),
@@ -55,7 +55,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       CAST(max(year) AS INT) as subnat_edu_health_index_latest_year,
       count(distinct adm1_name) as subnat_edu_health_index_num_subnat_regions
     FROM
-      indicator.global_data_lab_hd_index
+      prd_mega.indicator.global_data_lab_hd_index
     WHERE
       health_index is not null
       and education_index is not null
@@ -69,7 +69,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       CAST(max(year) AS INT) as subnat_edu_attendance_latest_year,
       count(distinct adm1_name) as subnat_attendance_num_subnat_regions
     FROM
-      indicator.global_data_lab_hd_index
+      prd_mega.indicator.global_data_lab_hd_index
     WHERE
       attendance is not null
     GROUP BY
@@ -81,7 +81,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       min(year) as youth_lit_rate_earliest_year,
       max(year) as youth_lit_rate_latest_year
     FROM
-      indicator.youth_literacy_rate_unesco
+      prd_mega.indicator.youth_literacy_rate_unesco
     GROUP BY
       1
   ),
@@ -91,7 +91,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       min(year) as learn_pov_earliest_year,
       max(year) as learn_pov_latest_year
     FROM
-      indicator.learning_poverty_rate
+      prd_mega.indicator.learning_poverty_rate
     GROUP BY
       1
   ),
@@ -101,7 +101,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       min(year) as uni_health_coverage_earliest_year,
       max(year) as uni_health_coverage_latest_year
     FROM
-      indicator.universal_health_coverage_index_gho
+      prd_mega.indicator.universal_health_coverage_index_gho
     WHERE
       universal_health_coverage_index is not null
     GROUP BY
@@ -114,9 +114,9 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       max(year) as subnat_poverty_latest_year,
       count(distinct region_name) as subnat_poverty_num_subnat_regions
     FROM
-      indicator.subnational_poverty_index
+      prd_mega.indicator.subnational_poverty_rate
     WHERE
-      poor215 is not null
+      poor830 is not null
     GROUP BY
       1
   ),
@@ -126,7 +126,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       min(year) as edu_priv_spending_earliest_year,
       max(year) as edu_priv_spending_latest_year
     FROM
-      indicator.edu_private_spending
+      prd_mega.indicator.edu_private_spending
     WHERE
       edu_private_spending_share_gdp is not null
     GROUP BY
@@ -138,7 +138,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       min(year) as edu_spending_earliest_year,
       max(year) as edu_spending_latest_year
     FROM
-      indicator.edu_spending
+      prd_mega.indicator.edu_spending
     WHERE
       edu_spending_current_lcu_icp is not null
     GROUP BY
@@ -150,7 +150,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       min(year) as health_ooo_spending_earliest_year,
       max(year) as health_ooo_spending_latest_year
     FROM
-      indicator.health_expenditure
+      prd_mega.indicator.health_expenditure
     WHERE
       oop_per_capita_usd is not null
     GROUP BY
@@ -162,7 +162,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       min(year) as boost_subnat_earliest_year,
       max(year) as boost_subnat_latest_year
     FROM
-      boost_intermediate.quality_total_subnat_gold
+      prd_mega.boost_intermediate.quality_total_subnat_gold
     WHERE
       executed is not null
     GROUP BY
@@ -174,7 +174,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       min(year) as energy_generation_earliest_year,
       max(year) as energy_generation_latest_year
     FROM
-      indicator.energy_generation
+      prd_mega.indicator.energy_generation
     GROUP BY
       1
   ),
@@ -184,11 +184,39 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
       min(year) as energy_generation_solar_wind_earliest_year,
       max(year) as energy_generation_solar_wind_latest_year
     FROM
-      indicator.energy_generation
+      prd_mega.indicator.energy_generation
     where
       primary_fuel_type in ("Wind", "Solar")
     GROUP BY
       1
+  ),
+  source_urls AS (
+    SELECT * FROM (
+      VALUES
+        ('Albania', 'https://datacatalog.worldbank.org/int/search/dataset/0038087/Albania-BOOST-platform'),
+        ('Armenia', 'https://datacatalog.worldbank.org/int/search/dataset/0040229/Armenia-BOOST-Public-Expenditure-Database'),
+        ('Kiribati', 'https://datacatalog.worldbank.org/int/search/dataset/0042010/Kiribati-BOOST-Public-Expenditure-Database'),
+        ('Burundi', 'https://datacatalog.worldbank.org/int/search/dataset/0040668/Burundi-BOOST-Public-Expenditure-Database'),
+        ('Seychelles', 'https://datacatalog.worldbank.org/int/search/dataset/0038067/Seychelles-BOOST-Public-Expenditure-Database'),
+        ('Haiti', 'https://datacatalog.worldbank.org/int/search/dataset/0038072/Haiti-BOOST-Public-Expenditure-Database'),
+        ('Peru', 'https://datacatalog.worldbank.org/int/search/dataset/0043632/Peru-BOOST-Public-Expenditure-Database'),
+        ('Mauritania', 'https://datacatalog.worldbank.org/int/search/dataset/0038077/Mauritania-BOOST-Public-Expenditure-Database'),
+        ('Kenya', 'https://datacatalog.worldbank.org/int/search/dataset/0038086/Kenya-BOOST-Public-Expenditure-Database'),
+        ('Uganda', 'https://datacatalog.worldbank.org/int/search/dataset/0038076/Uganda-BOOST-Public-Expenditure-Database'),
+        ('Mexico', 'https://datacatalog.worldbank.org/int/search/dataset/0038091/Mexico-BOOST-Public-Expenditure-Database'),
+        ('Brazil', 'https://datacatalog.worldbank.org/int/search/dataset/0040769/Brazil-BOOST-Public-Expenditure-Database'),
+        ('Uruguay', 'https://datacatalog.worldbank.org/int/search/dataset/0038074/Uruguay-BOOST-public-expenditure-database'),
+        ('Niger', 'https://datacatalog.worldbank.org/int/search/dataset/0038073/Niger-BOOST-Public-Expenditure-Database'),
+        ('Moldova', 'https://datacatalog.worldbank.org/int/search/dataset/0038070/Moldova-BOOST-Public-Expenditure-Database'),
+        ('Guatemala', 'https://datacatalog.worldbank.org/int/search/dataset/0038078/Guatemala-BOOST-Public-Expenditure-Database'),
+        ('Poland', 'https://datacatalog.worldbank.org/int/search/dataset/0038071/Poland-BOOST-Public-Expenditure-Database'),
+        ('Tunisia', 'https://datacatalog.worldbank.org/int/search/dataset/0038082/Tunisia-BOOST-Public-Expenditure-Database'),
+        ('Paraguay', 'https://datacatalog.worldbank.org/int/search/dataset/0038079/Paraguay-BOOST-Public-Expenditure-Database'),
+        ('Burkina Faso', 'https://datacatalog.worldbank.org/int/search/dataset/0041709/Burkina-Faso-BOOST-Public-Expenditure-Database'),
+        ('Togo', 'https://datacatalog.worldbank.org/int/search/dataset/0040663/Togo-BOOST-Public-Expenditure-Database'),
+        ('Mali', 'https://datacatalog.worldbank.org/int/search/dataset/0042337/Mali-BOOST-Public-Expenditure-Database'),
+        ('Solomon Islands', 'https://datacatalog.worldbank.org/int/search/dataset/0038075/Solomon-Islands-BOOST-Public-Expenditure-Database')
+    ) AS t(country_name, boost_source_url)
   )
   SELECT
     t.country_name,
@@ -261,7 +289,8 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
     eg.energy_generation_earliest_year,
     eg.energy_generation_latest_year,
     egsw.energy_generation_solar_wind_earliest_year,
-    egsw.energy_generation_solar_wind_latest_year
+    egsw.energy_generation_solar_wind_latest_year,
+    su.boost_source_url
   FROM
     time_coverage t
     LEFT JOIN mega_coverage m on t.country_name = m.country_name
@@ -280,6 +309,7 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
     LEFT JOIN boost_subnat bsub on t.country_name = bsub.country_name
     LEFT JOIN energy_generation eg on t.country_name = eg.country_name
     LEFT JOIN energy_generation_solar_wind egsw on t.country_name = egsw.country_name
+    LEFT JOIN source_urls su on t.country_name = su.country_name
   ORDER BY
     t.country_name
 )
