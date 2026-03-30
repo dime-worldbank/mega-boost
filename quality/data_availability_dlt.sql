@@ -252,7 +252,6 @@ OR REFRESH LIVE TABLE data_availability USING DELTA AS (
             'Seychelles',
             'Solomon Islands',
             'South Africa',
-            'Togo',
             'Tunisia',
             'Uganda',
             'Ukraine',
