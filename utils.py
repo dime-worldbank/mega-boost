@@ -42,6 +42,12 @@ def normalize_cell(cell_value):
 def is_named_column(column_name):
     return column_name is not None and "Unnamed" not in str(column_name) and column_name != ''
 
+# Shared discrepancy review utility — see quality/discrepancy_review.py
+try:
+    from quality.discrepancy_review import build_review, load_formula_map, classify_discrepancy  # noqa: F401
+except Exception:
+    pass
+
 # Check if the given file path already exists on DBFS
 def dbfs_file_exists(path):
   try:

@@ -1,0 +1,25 @@
+name,target
+Exclude,Expenditure!$Q:$Q
+LOCAL_MYSQL_DATE_FORMAT,"REPT(LOCAL_YEAR_FORMAT,4)&LOCAL_DATE_SEPARATOR&REPT(LOCAL_MONTH_FORMAT,2)&LOCAL_DATE_SEPARATOR&REPT(LOCAL_DAY_FORMAT,2)&"" ""&REPT(LOCAL_HOUR_FORMAT,2)&LOCAL_TIME_SEPARATOR&REPT(LOCAL_MINUTE_FORMAT,2)&LOCAL_TIME_SEPARATOR&REPT(LOCAL_SECOND_FORMAT,2)"
+Variables,Executed!$B$1:$B$320
+admin1,Expenditure!$B:$B
+approved,Expenditure!$O:$O
+approved_orig,Expenditure!$P:$P
+econ,#REF!
+econ1,Expenditure!$C:$C
+econ1_r,Revenue!$B:$B
+econ2,Expenditure!$D:$D
+econ2_r,Revenue!$C:$C
+econ3,Expenditure!$E:$E
+econ3_R,Revenue!$D:$D
+econ4,Expenditure!$F:$F
+econ4_r,Revenue!$E:$E
+executed,Expenditure!$M:$M
+executed_r,Revenue!$F:$F
+ministry,#REF!
+prog1,Expenditure!$G:$G
+prog2,Expenditure!$H:$H
+prog3,Expenditure!$I:$I
+type,Expenditure!$R:$R
+year,Expenditure!$A:$A
+year_r,Revenue!$A:$A

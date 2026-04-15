@@ -1,0 +1,40 @@
+code,category,tag_kind,econ,econ_sub,func,func_sub,decompose_notes,criteria_summary
+EXP_ECON_TOT_EXP_EXE,Spending: Total Expenditures,EXP_ECON,,,,,,
+EXP_ECON_WAG_BIL_EXE,Spending: Wage bill,EXP_ECON,Wage bill,,,,,type=Personnel*
+EXP_ECON_BAS_WAG_EXE,Spending in basic wages,EXP_ECON,Wage bill,Basic wages,,,,"type=Personnel*, econ3<>21110 allowances"
+EXP_ECON_ALL_EXE,Spending in allowances,EXP_ECON,Wage bill,Allowances,,,,"type=Personnel*, econ3=21110 allowances"
+EXP_ECON_PEN_CON_EXE,Social benefits - (pension contributions),EXP_ECON,Social benefits,Pension contributions,,,,econ3=21210 Actual social contributions [GFS]
+EXP_ECON_CAP_EXP_EXE,Spending: Capital Expenditures,EXP_ECON,Capital expenditures,,,,,type=capital*
+EXP_ECON_USE_GOO_SER_EXE,Spending: Use of Goods and services,EXP_ECON,Goods and services,,,,,type=Goods and Services*
+EXP_ECON_GOO_SER_BAS_SER_EXE,Spending in Goods and services (basic services),EXP_ECON,Goods and services,Basic services,,,,"type=Goods and Services*, econ3=22011 Utilities and Other Service Charges"
+EXP_ECON_SOC_ASS_EXE,Social Assistance,EXP_ECON,Social benefits,Social assistance,,,,"econ1=27 Social benefits [GFS], econ3=27210 Social assistance benefits in cash"
+EXP_ECON_SOC_BEN_PEN_EXE,Pensions,EXP_ECON,Social benefits,Pensions,,,,"econ1=27 Social benefits [GFS], econ3=27110 Social security benefits in cash"
+EXP_ECON_OTH_GRA_EXE,Other grants/transfers,EXP_ECON,Other grants/transfers,,,,,"type=other grants, type<>capital*, type<>personnel*, type<>use*, type<>social*"
+EXP_ECON_INT_DEB_EXE,Spending: Interest on debt,EXP_ECON,Interest on debt,,,,,econ1=24 interest*
+EXP_FUNC_DEF_EXE,Defense (COFOG 702),EXP_FUNC,,,Defence,,,admin1=04 Minister of Defence and War Veterans Affairs
+EXP_FUNC_AGR_EXE,Spending in agriculture,EXP_FUNC,,,Economic affairs,Agriculture,,admin1=10 Minister of Agriculture
+EXP_FUNC_IRR_EXE,Spending in Irrigation,EXP_FUNC,,,Economic affairs,Irrigation,,"admin1=10 Minister of Agriculture, prog2=P5SP1 Irrigation Development"
+EXP_FUNC_TRA_EXE,Spending in transport,EXP_FUNC,,,Economic affairs,Transport,,admin1=12 Minister of Transport and Infrastructural
+EXP_FUNC_ROA_EXE,Spending in roads,EXP_FUNC,,,Economic affairs,Roads,,"admin1=12 Minister of Transport and Infrastructural, prog1=p2*"
+EXP_FUNC_RAI_EXE,Spending in railroads,EXP_FUNC,,,Economic affairs,Railroads,,"admin1=12 Minister of Transport and Infrastructural, prog3=P3SP101*"
+EXP_FUNC_WAT_TRA_EXE,Spending in water transport,EXP_FUNC,,,Economic affairs,Water transport,,"admin1=12 Minister of Transport and Infrastructural, prog1=p4*"
+EXP_FUNC_AIR_TRA_EXE,Spending in air transport,EXP_FUNC,,,Economic affairs,Air transport,,"admin1=12 Minister of Transport and Infrastructural, prog3=P3SP2*"
+EXP_FUNC_ENE_EXE,Spending in energy,EXP_FUNC,,,Economic affairs,Energy,,admin1=23 Minister of Energy and Power Development
+EXP_FUNC_ENV_PRO_EXE,Environment Protection (COFOG 705),EXP_FUNC,,,Environmental protection,,,admin1=35 Ministry of Environment
+EXP_FUNC_R&D_ENV_PRO_EXE,R&D Environmental Protection,EXP_FUNC,,,Environmental protection,R&D,,admin1=35 Ministry of Environment
+EXP_FUNC_HOU_EXE,Housing (COFOG 706),EXP_FUNC,,,Housing,,,admin1=28 Minister of National Housing*
+EXP_FUNC_HEA_EXE,Health (COFOG 707),EXP_FUNC,,,Health,,,admin1=15 Minister of Health and Child Care
+EXP_FUNC_SEC_EDU_EXE,Spending in secondary education,EXP_FUNC,,,Education,Secondary education,,"admin1=16 Minister of Primary and Secondary, prog2=p5*"
+EXP_FUNC_SOC_PRO_EXE,Social Protection (COFOG 710),EXP_FUNC,,,Social protection,,,econ1=27 Social benefits [GFS]
+EXP_ECON_COR_LOW_RIG_EXE,Correction - low rigidity,EXP_ECON,Correction,Low rigidity,,,,"econ3=22005 Military Procurement, Supplies and Services"
+EXP_ECON_COR_HIG_RIG_EXE,Correction - high rigidity,EXP_ECON,Correction,High rigidity,,,,"econ3=22005 Military Procurement, Supplies and Services"
+REV_ECON_TOT_EXE,Revenues: Total,REV_ECON,Total revenue,,,,,
+REV_ECON_INC_TAX_EXE,Revenues: Income tax,REV_ECON,Income tax,,,,,"econ2_r=111 Taxes on income, profits, and capital gains"
+REV_ECON_CUS_EXC_EXE,Revenues: Customs/excise,REV_ECON,Customs and excise,,,,,econ2_r=115 Taxes on international trade and transactions
+REV_ECON_ROY_EXE,Revenues: Royalties,REV_ECON,Other revenue,Royalties,,,,econ4_r=1141200003 Royalties-Mining
+REV_ECON_PER_FEE_EXE,Revenues: Permits/Fees,REV_ECON,Other revenue,Permits/Fees,,,,"econ2_r=143 Fines, penalties, and forfeits"
+REV_ECON_EXC_EXE,Revenues: Excises,REV_ECON,Customs and excise,Excises,,,,econ3_R=1142 Excise
+REV_ECON_CUS_EXE,Revenues: Customs,REV_ECON,Customs and excise,Customs,,,,econ2_r=115 Taxes on international trade and transactions
+REV_ECON_COR_INC_TAX_EXE,Revenues: Corporate Income tax,REV_ECON,Income tax,Corporate income tax,,,,"econ2_r=111 Taxes on income, profits, and capital gains, econ3_R=1112 Payable by corporations and other enterprises"
+REV_ECON_PER_INC_TAX_EXE,Revenues: Personal Income tax,REV_ECON,Income tax,Personal income tax,,,,"econ2_r=111 Taxes on income, profits, and capital gains, econ3_R=1111 Payable by individuals"
+REV_ECON_SOC_CON_EXE,Revenue: Social contributions,REV_ECON,Social contributions,,,,,econ1_r=12 Social contributions

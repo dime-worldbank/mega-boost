@@ -1,0 +1,9 @@
+sheet,max_row,max_col,formula_cells_sampled,role_guess
+Approved,320,49,1599,formula_output
+Executed,320,49,1619,formula_output
+Sheet1,108,15,6,summary/formula
+backend,36,15,6,summary/formula
+Expenditure,178396,20,6,raw
+Revenue,302,6,6,summary/formula
+Modules,118,13,6,summary/formula
+notes,84,3,0,unknown

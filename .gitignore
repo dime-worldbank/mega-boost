@@ -1,0 +1,6 @@
+temp/
+Zimbabwe/_analysis/*.xlsx
+__pycache__/
+*.pyc
+.DS_Store
+.ipynb_checkpoints/
