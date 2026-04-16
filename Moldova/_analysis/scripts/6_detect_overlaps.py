@@ -157,87 +157,95 @@ def is_subnational(code: str) -> bool:
 def _pairs_sharing_level_value(
     code_dict: pd.DataFrame,
     include: "callable",
-) -> dict[frozenset, list[tuple[str, str]]]:
-    """Bucket codes at each classification level by their (non-null) value and
-    emit pairs within each bucket — but only between codes that sit at the
-    *same depth*. Concretely:
+) -> dict[frozenset, list[dict]]:
+    """For each level (econ, econ_sub, func, func_sub), pair every code that
+    has a non-null value at that level with every other — regardless of whether
+    they share the value, regardless of parent. The annotation `same_value`
+    lets the renderer/SME tell apart:
 
-      - econ-level pairs: both codes have `econ` set AND `econ_sub` null
-      - econ_sub-level pairs: both codes have `econ_sub` set; bucketed by their
-        shared parent `econ` value (so only actual siblings pair)
-      - same for func / func_sub
+      - *same-value overlap* (e.g. two codes both `econ=Wage bill`) → they're
+        claimed to describe the same thing; overlap in raw rows is expected
+      - *cross-category overlap* (e.g. `econ=Wage bill` vs `econ=Goods and
+        services`) → mutual exclusivity is expected; overlap is a real
+        double-count bug
 
-    This avoids cross-depth pairs like `EXP_FUNC_EDU_EXE` (func-only) vs
-    `EXP_FUNC_SEC_EDU_EXE` (func_sub-level child of Education)."""
-    shared: dict[frozenset, list[tuple[str, str]]] = defaultdict(list)
+    Same-depth filtering keeps the pairing meaningful at each level:
+      - econ-level pairs: both codes must be at the rollup level (`econ_sub`
+        null) — otherwise a rollup would be compared with its own child
+      - econ_sub-level pairs: both codes must have `econ_sub` set — siblings
+        (potentially under different parents), not parent↔child
+      - same for func / func_sub."""
+    shared: dict[frozenset, list[dict]] = defaultdict(list)
 
-    def _add_bucket(level_name, parent_level, sub_level, label_fmt):
-        """`level_name` appears in the output ("econ", "func_sub", …).
-        Codes qualify when `parent_level` is non-null; if `sub_level` is given
-        the code must have a value there too (for the "_sub" level) or must
-        NOT have one (for the rollup level). Bucketing is by `parent_level`."""
-        bucket: dict[str, list[str]] = defaultdict(list)
+    def _add_level(level_name: str, parent_level: str, require_sub: bool):
+        """Gather codes qualifying at this level and pair them pairwise."""
+        sub_field = "econ_sub" if parent_level == "econ" else "func_sub"
+        qualifying: list[tuple[str, str]] = []  # (code, value_at_parent_level)
         for code, row in code_dict.iterrows():
             if not include(code, row):
                 continue
             p_val = row.get(parent_level)
-            s_val = row.get(sub_level) if sub_level else None
+            s_val = row.get(sub_field)
             if _is_null(p_val):
                 continue
-            if sub_level is None:
-                # Rollup-level bucket — code must have NO sub value set.
-                sub_field = "econ_sub" if parent_level == "econ" else "func_sub"
-                if not _is_null(row.get(sub_field)):
-                    continue
-            else:
-                if _is_null(s_val):
-                    continue
-            bucket[str(p_val)].append(code)
-        for value, codes in bucket.items():
-            for a, b in combinations(sorted(codes), 2):
-                shared[frozenset((a, b))].append((level_name, label_fmt.format(value=value)))
+            if require_sub and _is_null(s_val):
+                continue
+            if not require_sub and not _is_null(s_val):
+                continue
+            # For rollup-level (require_sub=False) the "value" is the parent;
+            # for sub-level (require_sub=True) the "value" is the sub itself.
+            v = str(s_val) if require_sub else str(p_val)
+            qualifying.append((code, v))
+        for (a, va), (b, vb) in combinations(sorted(qualifying), 2):
+            shared[frozenset((a, b))].append({
+                "level": level_name,
+                "value_a": va,
+                "value_b": vb,
+                "same_value": va == vb,
+            })
 
-    _add_bucket("econ",     "econ", None,       "{value}")
-    _add_bucket("econ_sub", "econ", "econ_sub", "siblings under econ=`{value}`")
-    _add_bucket("func",     "func", None,       "{value}")
-    _add_bucket("func_sub", "func", "func_sub", "siblings under func=`{value}`")
+    _add_level("econ",     "econ", require_sub=False)
+    _add_level("econ_sub", "econ", require_sub=True)
+    _add_level("func",     "func", require_sub=False)
+    _add_level("func_sub", "func", require_sub=True)
     return shared
 
 
 def all_pairs_by_kind(code_dict: pd.DataFrame) -> list[tuple[str, str, str, list]]:
-    """Pairs of non-subnational codes that share at least one classification
-    value (same econ, same econ_sub, same func, or same func_sub). Categories
-    are never crossed — e.g. a code with econ=Wage bill is never paired with a
-    code whose econ is Capital expenditures. Returns `(a, b, tag_kind,
-    shared_levels)` so render() can label each overlap with its shared level(s)."""
+    """Pairs of non-subnational codes that qualify at the same classification
+    level — see `_pairs_sharing_level_value` for the full semantics. Returns
+    `(a, b, tag_kind, annotations)` where annotations let render() tell
+    same-value pairs apart from cross-category (overcounting) pairs."""
     include = lambda code, row: not is_subnational(code)  # noqa: E731
     shared = _pairs_sharing_level_value(code_dict, include)
     pairs: list[tuple[str, str, str, list]] = []
-    for key, levels in shared.items():
+    for key, annotations in shared.items():
         a, b = sorted(key)
-        # tag_kind comes from code_dict; both codes share a classification
-        # value, so by construction they have the same tag_kind.
-        kind = code_dict.loc[a].get("tag_kind") or code_dict.loc[b].get("tag_kind") or ""
-        pairs.append((a, b, kind, levels))
+        kind_a = code_dict.loc[a].get("tag_kind") or ""
+        kind_b = code_dict.loc[b].get("tag_kind") or ""
+        # Pair only within the same tag_kind; a REV_ECON code vs an EXP_ECON
+        # code accidentally sharing a level should never happen (different
+        # vocabularies) but guard anyway.
+        if kind_a != kind_b:
+            continue
+        pairs.append((a, b, kind_a, annotations))
     return pairs
 
 
 def sbn_pairs(code_dict: pd.DataFrame) -> list[tuple[str, str, str, list]]:
-    """Subnational pairs: SBN codes compared against each other, and against
-    their non-SBN counterparts when they share a classification value. Emitted
-    separately so the main report isn't cluttered by expected admin-×-category
-    subsets."""
-    def include(code, row):
-        return True  # include everyone, but...
+    """Subnational pairs: SBN codes compared only against other SBN codes.
+    Kept fully separate from the non-SBN primary report — no mixing of
+    subnational and non-subnational categories."""
+    include = lambda code, row: is_subnational(code)  # noqa: E731
     shared = _pairs_sharing_level_value(code_dict, include)
     pairs: list[tuple[str, str, str, list]] = []
-    for key, levels in shared.items():
+    for key, annotations in shared.items():
         a, b = sorted(key)
-        # Keep only pairs where at least one side is subnational.
-        if not (is_subnational(a) or is_subnational(b)):
+        kind_a = code_dict.loc[a].get("tag_kind") or ""
+        kind_b = code_dict.loc[b].get("tag_kind") or ""
+        if kind_a != kind_b:
             continue
-        kind = code_dict.loc[a].get("tag_kind") or code_dict.loc[b].get("tag_kind") or ""
-        pairs.append((a, b, kind, levels))
+        pairs.append((a, b, kind_a, annotations))
     return pairs
 
 
@@ -289,40 +297,47 @@ def load_tag_rules_by_range() -> dict[str, dict[str, dict]]:
 
 def pair_breakdown(df: pd.DataFrame, mask_a: pd.Series, mask_b: pd.Series,
                    measure_cols: list[str]) -> dict:
-    """Per-year breakdown comparing the two codes' totals.
+    """Per-year overcount breakdown.
 
     For each measure (e.g. `approved`, `executed`) we report, per year:
-      - Σ measure over rows matching code A (its full total in the raw sheet)
-      - Σ measure over rows matching code B
-      - gap = Σ(A) − Σ(B)
+      - `Σ overcounted`: sum of the measure over rows satisfying BOTH filters
+        — this is the exact amount double-counted if code A and code B totals
+        are added together
+      - `rows overlap`: number of raw rows matched by both filters
 
-    The gap carries its sign — positive means A is larger, negative means B
-    is larger. Combined with the per-code totals the SME can see whether one
-    code is a strict subset of the other."""
+    Also returned as summary stats (grand totals over all years):
+      - `total_a`, `total_b`: each code's full raw-sheet total per measure
+      - `total_overcounted`: intersection total per measure
+
+    The grand totals let the SME scale the overcounted amount — e.g. `$500k
+    overcounted out of $10B total` is different from `$500k out of $600k`."""
     work = df.copy()
     for m in measure_cols:
         if m in work.columns:
             work[m] = pd.to_numeric(work[m], errors="coerce")
+
+    inter_mask = mask_a & mask_b
+    inter = work[inter_mask]
     a = work[mask_a]
     b = work[mask_b]
-    if a.empty and b.empty:
+
+    if inter.empty:
         return {"inter_rows": 0, "per_year": None}
-    # Per-year totals for each code; outer-join so years present in either side appear.
-    a_agg = (a.groupby("year", dropna=True)
-               .agg(rows_a=("year", "size"),
-                    **{f"{m}_a": (m, "sum") for m in measure_cols})
-               .reset_index())
-    b_agg = (b.groupby("year", dropna=True)
-               .agg(rows_b=("year", "size"),
-                    **{f"{m}_b": (m, "sum") for m in measure_cols})
-               .reset_index())
-    per_year = a_agg.merge(b_agg, on="year", how="outer").fillna(0)
-    for m in measure_cols:
-        per_year[f"{m}_gap"] = per_year[f"{m}_a"] - per_year[f"{m}_b"]
-    per_year = per_year.sort_values("year").reset_index(drop=True)
-    inter_rows = int((mask_a & mask_b).sum())
-    return {"inter_rows": inter_rows, "per_year": per_year,
-            "measure_cols": measure_cols}
+
+    per_year = (inter.groupby("year", dropna=True)
+                     .agg(rows_overlap=("year", "size"),
+                          **{f"{m}_overcounted": (m, "sum") for m in measure_cols})
+                     .reset_index()
+                     .sort_values("year").reset_index(drop=True))
+
+    totals = {
+        "total_a": {m: float(a[m].sum()) if m in a.columns else None for m in measure_cols},
+        "total_b": {m: float(b[m].sum()) if m in b.columns else None for m in measure_cols},
+        "total_overcounted": {m: float(inter[m].sum()) if m in inter.columns else None
+                              for m in measure_cols},
+    }
+    return {"inter_rows": int(inter_mask.sum()), "per_year": per_year,
+            "measure_cols": measure_cols, "totals": totals}
 
 
 def detect_overlaps(src_df: pd.DataFrame, mapping: dict[str, str],
@@ -360,6 +375,7 @@ def detect_overlaps(src_df: pd.DataFrame, mapping: dict[str, str],
             "inter_rows": bd["inter_rows"],
             "per_year": bd["per_year"],
             "measure_cols": bd.get("measure_cols", measure_cols),
+            "totals": bd.get("totals"),
         })
     return records
 
@@ -373,18 +389,19 @@ def _fmt_num(v) -> str:
 
 
 def _render_overlap(o: dict, L: list[str]) -> None:
-    """Render a single overlap record into list L (appending lines)."""
+    """Render a single overlap record. Each annotation records how the two
+    codes compare at a given classification level (same value = expected /
+    duplicate; different values = cross-category overcounting signal)."""
     shared = o.get("shared") or []
-    if shared:
-        parts = []
-        for lvl, val in shared:
-            if val.startswith("siblings under "):
-                parts.append(val)  # already self-describing
-            else:
-                parts.append(f"same `{lvl}`=`{val}`")
-        L.append(f"### `{o['code_a']}` vs `{o['code_b']}` — {'; '.join(parts)}\n")
-    else:
-        L.append(f"### `{o['code_a']}` vs `{o['code_b']}`\n")
+    parts = []
+    for ann in shared:
+        lvl, va, vb, same = ann["level"], ann["value_a"], ann["value_b"], ann["same_value"]
+        if same:
+            parts.append(f"same `{lvl}`=`{va}`")
+        else:
+            parts.append(f"**cross `{lvl}`** (`{va}` vs `{vb}`)")
+    header = "; ".join(parts) if parts else "(no annotation)"
+    L.append(f"### `{o['code_a']}` vs `{o['code_b']}` — {header}\n")
     L.append(f"- **{o['code_a']}** — _{o['name_a']}_")
     L.append(f"- **{o['code_b']}** — _{o['name_b']}_")
     L.append(f"- **{o['inter_rows']:,} raw rows in the intersection.**\n")
@@ -400,34 +417,71 @@ def _render_overlap(o: dict, L: list[str]) -> None:
     py = o["per_year"]
     if py is not None and not py.empty:
         measures = o.get("measure_cols") or []
-        L.append("**Per-year totals and gap** — each code's full raw-sheet "
-                 f"total for the year; `gap = Σ {o['code_a']} − Σ {o['code_b']}`. "
-                 "A positive gap means the first code is larger by that amount.\n")
-        header = ["year"]
-        for m in measures:
-            header += [f"Σ {m} · A", f"Σ {m} · B", f"gap {m} (A−B)"]
+        totals = o.get("totals") or {}
+
+        # Scale-context summary: each code's grand total + overcounted grand total.
+        if totals:
+            L.append("**Totals across all years** — scale context for the "
+                     "overcounted amount:\n")
+            L.append("| measure | Σ code A (full) | Σ code B (full) | "
+                     "**Σ overcounted** | overcounted ÷ min(A,B) |")
+            L.append("|---|---:|---:|---:|---:|")
+            for m in measures:
+                ta = totals.get("total_a", {}).get(m) or 0
+                tb = totals.get("total_b", {}).get(m) or 0
+                oc = totals.get("total_overcounted", {}).get(m) or 0
+                denom = min(abs(ta), abs(tb)) if (ta or tb) else 0
+                pct = f"{100 * oc / denom:.1f}%" if denom else "—"
+                L.append(f"| {m} | {_fmt_num(ta)} | {_fmt_num(tb)} | "
+                         f"**{_fmt_num(oc)}** | {pct} |")
+            L.append("")
+
+        # Per-year overcount table.
+        L.append("**Per-year overcounted amount** — sum of each measure over "
+                 "raw rows matching BOTH codes (the exact amount that would be "
+                 "double-counted if code A + code B were added):\n")
+        header = ["year", "rows in overlap"] + [f"Σ {m} overcounted" for m in measures]
         L.append("| " + " | ".join(header) + " |")
-        L.append("|---:|" + "|".join("---:" for _ in range(len(header) - 1)) + "|")
+        L.append("|---:|---:|" + "|".join("---:" for _ in measures) + "|")
         for _, r in py.iterrows():
             year_str = str(int(r["year"])) if pd.notna(r["year"]) else "—"
-            cells = [year_str]
+            cells = [year_str, f"{int(r['rows_overlap']):,}"]
             for m in measures:
-                cells.append(_fmt_num(r[f"{m}_a"]))
-                cells.append(_fmt_num(r[f"{m}_b"]))
-                cells.append(_fmt_num(r[f"{m}_gap"]))
+                cells.append(_fmt_num(r[f"{m}_overcounted"]))
             L.append("| " + " | ".join(cells) + " |")
         L.append("")
 
 
 def render(overlaps: list[dict], sbn_overlaps: list[dict]) -> str:
-    L = ["# Moldova raw-data overlaps\n"]
-    L.append("Each pair below is two codes that share a value at some "
-             "classification level — same `econ`, same `econ_sub`, same "
-             "`func`, or same `func_sub`. Their SUMIFS criteria are applied "
-             "to the matching year-range raw sheet (`2006-15`, `2016-19`, "
-             "`2020-24`) and intersected; pairs with shared raw rows are "
-             "listed. Codes in unrelated classifications (e.g. `econ=Wage "
-             "bill` vs `econ=Capital expenditures`) are never compared.\n")
+    L = ["# Moldova formula overcounting report\n"]
+    L.append("Detects raw-data rows double-counted by the Approved/Executed "
+             "SUMIFS formulas. For each classification level (`econ`, "
+             "`econ_sub`, `func`, `func_sub`) every pair of codes qualifying "
+             "at that level has its SUMIFS filter applied to the matching "
+             "year-range raw sheet (`2006-15`, `2016-19`, `2020-24`); the "
+             "intersection is the set of raw rows that satisfy BOTH formulas "
+             "at once — i.e. rows the workbook's formulas count twice. "
+             "Two kinds of overlap are reported:\n"
+             "\n"
+             "- **Same-value pairs** — two codes share the same value at a "
+             "level (e.g. both `econ=Wage bill`). If the overcounted amount "
+             "equals each code's own total, the two filters are effectively "
+             "identical — rename or drop one.\n"
+             "- **Cross-category pairs** — two codes carry different values "
+             "at the same level (e.g. `econ=Wage bill` vs `econ=Goods and "
+             "services`, or `econ_sub=Basic wages` vs `econ_sub=Recurrent "
+             "maintenance`). Those categories are meant to be mutually "
+             "exclusive, so *any* intersection is an overcounting bug.\n"
+             "\n"
+             "Pair annotations like `cross econ (Wage bill vs Goods and "
+             "services)` mark the cross-category case in bold; `same econ=X` "
+             "marks the same-value case.\n")
+    L.append("> _Reading the tables below:_ `Σ overcounted` is the sum of a "
+             "raw measure (approved / executed) over rows matched by BOTH "
+             "codes — i.e. the exact amount that would be double-counted if "
+             "the two codes' totals were added. The scale-context table shows "
+             "each code's full raw-sheet total alongside the overcounted "
+             "amount and its ratio to the smaller total.\n")
     L.append("Subnational `SBN_*` codes are evaluated in a separate section "
              "because they are cross-cutting (admin × category) rather than "
              "a standard econ/func breakdown.\n")
@@ -531,21 +585,26 @@ def main():
         for o in src:
             if o["per_year"] is None or o["per_year"].empty:
                 continue
-            shared_str = "; ".join(f"{lvl}={val}" for lvl, val in (o.get("shared") or []))
+            annotations = o.get("shared") or []
+            shared_str = "; ".join(
+                f"{a['level']}:{a['value_a']}={a['value_b']}" if a["same_value"]
+                else f"{a['level']}:cross[{a['value_a']}|{a['value_b']}]"
+                for a in annotations
+            )
+            any_cross = any(not a["same_value"] for a in annotations)
             for _, yr in o["per_year"].iterrows():
                 row = {
                     "scope": scope,
                     "range": o.get("range_label", ""),
                     "tag_kind": o["tag_kind"],
                     "shared": shared_str,
+                    "cross_category": any_cross,
                     "code_a": o["code_a"], "code_b": o["code_b"],
                     "year": yr.get("year"),
-                    "rows_a": yr.get("rows_a"), "rows_b": yr.get("rows_b"),
+                    "rows_overlap": yr.get("rows_overlap"),
                 }
                 for m in (o.get("measure_cols") or []):
-                    row[f"{m}_a"] = yr.get(f"{m}_a")
-                    row[f"{m}_b"] = yr.get(f"{m}_b")
-                    row[f"{m}_gap"] = yr.get(f"{m}_gap")
+                    row[f"{m}_overcounted"] = yr.get(f"{m}_overcounted")
                 flat.append(row)
     pd.DataFrame(flat).to_csv(DATA / "overlap_detail.csv", index=False)
     print(f"Wrote reports/overlap_report.md "

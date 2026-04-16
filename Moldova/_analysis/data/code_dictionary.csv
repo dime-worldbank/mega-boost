@@ -62,5 +62,4 @@ REV_ECON_PRO_TAX_EXE,Revenue: Property taxes,REV_ECON,Property taxes,,,,,"year_1
 REV_ECON_PRO_TAX_IMM_EXE,Revenue: Property taxes (immovable),REV_ECON,Property taxes,Immovable,,,,"year_16=yearN$1, transfer_16=Cu exceptia transferurilor, econ0_16=Revenues, econ3_16=113000 Impozite pe proprietate"
 REV_ECON_SBN_OWN_EXE,Revenues: Subnational own revenues,REV_ECON,,,,,,"year_16=yearM$1, econ0_16=Revenues, econ2_16<>190000 Transferuri primite in cadrul bugetului public national, admin1_16=locale"
 REV_ECON_SOC_CON_EXE,Revenue: Social contributions,REV_ECON,Social contributions,,,,,"year_16=yearM$1, transfer_16=Cu exceptia transferurilor, econ0_16=Revenues, econ2_16=120000 Contributii si prime de asigurari obligatorii"
-REV_ECON_TOT_EXE,Revenues: Total,REV_ECON,Total revenue,,,,,"year_16=yearM$1, transfer_16=Cu exceptia transferurilor, econ0_16=Revenues"
 REV_ECON_VAT_EXE,Revenues: VAT,REV_ECON,Taxes on goods and services,VAT,,,,"year_16=yearM$1, transfer_16=Cu exceptia transferurilor, econ0_16=Revenues, econ3_16=114000 Impozite si taxe pe marfuri si servicii, econ4_16<>114200 Accize"

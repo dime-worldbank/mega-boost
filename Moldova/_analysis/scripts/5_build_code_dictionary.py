@@ -243,7 +243,8 @@ def normalize_criteria_for_dedup(criteria: list[dict]) -> str:
 # cross-country aggregate and clutter overlap detection with parent
 # rollups that are expected to intersect their children.
 META_ROLLUP_CODES = {
-    "EXP_FUNC_ECO_REL_EXE",
+    "EXP_FUNC_ECO_REL_EXE",   # full COFOG 704 — contains ENE/TRA/AGR/ROA/…
+    "REV_ECON_TOT_EXE",       # total revenue — contains every revenue sub-code
 }
 
 

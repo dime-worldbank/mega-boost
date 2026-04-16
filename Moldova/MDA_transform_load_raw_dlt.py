@@ -46,8 +46,6 @@ from pyspark.sql.functions import (
     col, lit, sum as _sum, concat, monotonically_increasing_id,
 )
 
-from quality.discrepancy_review import build_review
-
 TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
 WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
 COUNTRY = "Moldova"
@@ -291,23 +289,3 @@ def boost_gold():
                     "admin0", "admin1", "admin2", "geo0", "geo1",
                     "func", "func_sub", "econ", "econ_sub",
                     "approved", "revised", "executed"))
-
-
-# COMMAND ----------
-# Phase 8 — regenerate the SME discrepancy review doc.
-# Compares pipeline silver against the Excel Executed sheet at (year, code)
-# granularity; preserves prior expert resolutions across runs.
-
-from utils import input_excel_filename  # noqa: E402
-
-review_path = build_review(
-    country_code="mda",
-    excel_path=input_excel_filename(COUNTRY),
-    pipeline_df=spark.table("mda_expenditure_silver"),
-    dimension_cols=["year", "code"],
-    value_cols=["approved", "executed"],
-    excel_sheet="Executed",
-    threshold=0.05,
-    pipeline_source_ref="Moldova/MDA_transform_load_raw_dlt.py:mda_expenditure_silver",
-)
-print(f"Discrepancy review written → {review_path}")
