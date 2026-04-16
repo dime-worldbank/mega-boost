@@ -1,0 +1,77 @@
+sheet,col_letter,col_idx,header,n_formula,n_formula_empty_value,n_literal_numeric,n_label_string,n_blank,literal_pct_of_filled,classification,literal_samples
+Approved,A,1,Code,0,0,0,295,664,0,empty,
+Approved,B,2,Categories,15,0,0,280,664,0.0,all_formula,
+Approved,C,3,2006,123,34,0,0,836,0.0,all_formula,
+Approved,D,4,2007,123,30,0,0,836,0.0,all_formula,
+Approved,E,5,2008,123,28,0,0,836,0.0,all_formula,
+Approved,F,6,2009,122,28,2,0,835,1.6,MIXED_LITERAL_FORMULA,F18=1590600000; F19=7100700000
+Approved,G,7,2010,122,29,2,0,835,1.6,MIXED_LITERAL_FORMULA,G18=2005400000; G19=7696400000
+Approved,H,8,2011,123,38,2,0,834,1.6,MIXED_LITERAL_FORMULA,H18=2248400000; H19=8237800000
+Approved,I,9,2012,123,38,2,0,834,1.6,MIXED_LITERAL_FORMULA,I18=455900000; I19=10515100000
+Approved,J,10,2013,123,40,2,0,834,1.6,MIXED_LITERAL_FORMULA,J18=485800000; J19=11514500000
+Approved,K,11,2014,123,34,2,0,834,1.6,MIXED_LITERAL_FORMULA,K18=3018300000; K19=10370900000
+Approved,L,12,2015,123,34,2,0,834,1.6,MIXED_LITERAL_FORMULA,L18=3789400000; L19=11159100000
+Approved,M,13,2016,153,18,0,0,806,0.0,all_formula,
+Approved,N,14,2017,161,27,0,0,798,0.0,all_formula,
+Approved,O,15,2018,161,24,0,0,798,0.0,all_formula,
+Approved,P,16,2019,160,23,0,0,799,0.0,all_formula,
+Approved,Q,17,2020,158,26,0,0,801,0.0,all_formula,
+Approved,R,18,2021,158,30,0,0,801,0.0,all_formula,
+Approved,S,19,2022,158,31,0,0,801,0.0,all_formula,
+Approved,T,20,2023,158,32,0,0,801,0.0,all_formula,
+Approved,U,21,2024,158,30,0,0,801,0.0,all_formula,
+Approved,V,22,2025,3,3,0,0,956,0.0,NO_DATA,
+Approved,W,23,2026,3,3,0,0,956,0.0,NO_DATA,
+Approved,X,24,2027,3,3,0,0,956,0.0,NO_DATA,
+Approved,Y,25,2028,3,3,0,0,956,0.0,NO_DATA,
+Approved,Z,26,2029,3,3,0,0,956,0.0,NO_DATA,
+Approved,AA,27,2030,3,3,0,0,956,0.0,NO_DATA,
+Approved,AB,28,AVG,295,141,0,0,664,0.0,all_formula,
+Approved,AC,29,Country,319,24,0,0,640,0.0,all_formula,
+Approved,AD,30,Country,12,0,0,283,664,0.0,all_formula,
+Approved,AE,31,Fomrulas,0,0,0,157,802,0,empty,
+Approved,AF,32,Coverage,0,0,0,295,664,0,empty,
+Approved,AG,33,Fiscal year,12,0,0,283,664,0.0,all_formula,
+Approved,AH,34,Region,12,0,0,283,664,0.0,all_formula,
+Approved,AI,35,Income,12,0,0,283,664,0.0,all_formula,
+Approved,AJ,36,Basis,12,0,0,283,664,0.0,all_formula,
+Approved,AK,37,Source,12,0,0,283,664,0.0,all_formula,
+Approved,AL,38,Rigidity,12,0,0,283,664,0.0,all_formula,
+Executed,A,1,Code,0,0,0,295,664,0,empty,
+Executed,B,2,Categories,15,0,0,280,664,0.0,all_formula,
+Executed,C,3,2006,123,27,0,0,836,0.0,all_formula,
+Executed,D,4,2007,123,26,0,0,836,0.0,all_formula,
+Executed,E,5,2008,123,20,0,0,836,0.0,all_formula,
+Executed,F,6,2009,122,29,2,0,835,1.6,MIXED_LITERAL_FORMULA,F18=1590600000; F19=7100700000
+Executed,G,7,2010,122,27,2,0,835,1.6,MIXED_LITERAL_FORMULA,G18=2005400000; G19=7696400000
+Executed,H,8,2011,123,27,2,0,834,1.6,MIXED_LITERAL_FORMULA,H18=2248400000; H19=8237800000
+Executed,I,9,2012,123,28,2,0,834,1.6,MIXED_LITERAL_FORMULA,I18=455900000; I19=10515100000
+Executed,J,10,2013,123,28,2,0,834,1.6,MIXED_LITERAL_FORMULA,J18=485800000; J19=11514500000
+Executed,K,11,2014,123,29,2,0,834,1.6,MIXED_LITERAL_FORMULA,K18=3018300000; K19=10370900000
+Executed,L,12,2015,123,28,2,0,834,1.6,MIXED_LITERAL_FORMULA,L18=3789400000; L19=11159100000
+Executed,M,13,2016,153,19,0,0,806,0.0,all_formula,
+Executed,N,14,2017,161,21,0,0,798,0.0,all_formula,
+Executed,O,15,2018,161,20,0,0,798,0.0,all_formula,
+Executed,P,16,2019,160,21,0,0,799,0.0,all_formula,
+Executed,Q,17,2020,158,23,0,0,801,0.0,all_formula,
+Executed,R,18,2021,158,24,0,0,801,0.0,all_formula,
+Executed,S,19,2022,158,23,0,0,801,0.0,all_formula,
+Executed,T,20,2023,158,23,0,0,801,0.0,all_formula,
+Executed,U,21,2024,158,23,0,0,801,0.0,all_formula,
+Executed,V,22,2025,3,3,0,0,956,0.0,NO_DATA,
+Executed,W,23,2026,3,3,0,0,956,0.0,NO_DATA,
+Executed,X,24,2027,3,3,0,0,956,0.0,NO_DATA,
+Executed,Y,25,2028,3,3,0,0,956,0.0,NO_DATA,
+Executed,Z,26,2029,3,3,0,0,956,0.0,NO_DATA,
+Executed,AA,27,2030,3,3,0,0,956,0.0,NO_DATA,
+Executed,AB,28,AVG,295,135,0,0,664,0.0,all_formula,
+Executed,AC,29,Country,319,24,0,0,640,0.0,all_formula,
+Executed,AD,30,Country,12,0,0,283,664,0.0,all_formula,
+Executed,AE,31,Fomrulas,0,0,0,157,802,0,empty,
+Executed,AF,32,Coverage,0,0,0,295,664,0,empty,
+Executed,AG,33,Fiscal year,12,0,0,283,664,0.0,all_formula,
+Executed,AH,34,Region,12,0,0,283,664,0.0,all_formula,
+Executed,AI,35,Income,12,0,0,283,664,0.0,all_formula,
+Executed,AJ,36,Basis,12,0,0,283,664,0.0,all_formula,
+Executed,AK,37,Source,12,0,0,283,664,0.0,all_formula,
+Executed,AL,38,Rigidity,12,0,0,283,664,0.0,all_formula,
