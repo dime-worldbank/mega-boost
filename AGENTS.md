@@ -2,7 +2,9 @@
 
 This file tells an AI agent (Claude Code, or any coding assistant) how to
 onboard a new country into the mega-boost pipeline. Zimbabwe is the
-reference implementation — every step below points at a concrete file there.
+reference implementation and Moldova is a second-generation example with
+harder edge cases (multi-sheet raw data, bilingual filters, meta-rollups);
+every step below points at concrete files in both.
 
 ## Prerequisites
 
@@ -83,8 +85,15 @@ Other countries' conventions vary:
 - Zimbabwe: `Expenditure`, `Revenue`, `Approved`, `Executed`.
 - Albania: `Data_Expenditures`, `Data_Revenues`.
 - Kenya, Colombia: each different.
+- **Moldova: raw data split across three year-range sheets** (`2006-15`,
+  `2016-19`, `2020-24`) with different column schemas and bilingual filter
+  values (English pre-2016, Romanian 2016+). A fourth hidden sheet `Raw2`
+  uses yet another schema (`admin6` instead of `admin1`). Phase 1 surfaces
+  all of this; confirm the split with the user.
 
 Update `FORMULA_SHEETS` and the extract notebook's `RAW_SHEETS` accordingly.
+Watch for **hidden sheets** — openpyxl reports `sheet_state == 'hidden'`;
+these may still be referenced by formulas and must be handled or flagged.
 
 ### Phase 2 — Hardcoded/override audit
 
@@ -110,11 +119,25 @@ Parses every SUMIFS in the formula sheets into structured criteria:
 {"field": "econ3", "op": "=", "value": "606"}
 ```
 
-Output: `data/tag_rules.csv` — one row per formula sheet × row, with:
+Output: `data/tag_rules.csv` — one row per formula sheet × tag row × distinct
+formula-shape group, with:
 - `code`, `category` — BOOST classification tag identifier + human label
 - `criteria_json` — the SUMIFS criteria
-- `measure` — which named range is being summed (e.g. `approved`)
+- `measure` — which named range is being summed (e.g. `approved`, or
+  `approved_16` for a Moldova-style year-range-suffixed variant)
+- `years_covered`, `year_min`, `year_max` — the year columns that share
+  this formula shape
+- `n_sumifs` — how many SUMIFS blocks the formula contains; only the FIRST
+  is captured in `criteria_json`, so `n_sumifs > 1` is a flag for SME
+  review (Moldova rows 205, 280… combine a primary SUMIFS with a
+  `Raw2` supplement or additive education formula)
 - `row_type` — `TAG` (SUMIFS), `ROLLUP` (plain SUM), `HEADER` (no formula)
+
+**The same code can emit multiple rows** when its formula shape changes
+between year columns (e.g. Moldova: base / `_16` / `_20` variants with
+different field names and filter-value languages). The extractor groups
+year columns by a shape hash and emits one row per distinct shape, so the
+silver layer can dispatch each to the matching raw sheet.
 
 **Inspect the fields used in criteria** (printed to console). ASK the user
 about the **named-range → raw-column mapping**:
@@ -139,21 +162,42 @@ Other countries may not use named ranges at all — Albania formulas
 reference `Data_Expenditures!M:M` directly. The extractor handles both
 patterns, but the mapping step still needs SME confirmation.
 
+**When raw data is split into multiple sheets (Moldova pattern):** define
+one mapping per year-range sheet, keyed by the measure suffix. See
+[Moldova/_analysis/scripts/6_detect_overlaps.py](Moldova/_analysis/scripts/6_detect_overlaps.py#L45)
+for `SHEET_MAPS = {"base": …, "16": …, "20": …}` and the
+`classify_measure()` dispatch. The silver layer in
+[Moldova/MDA_transform_load_raw_dlt.py](Moldova/MDA_transform_load_raw_dlt.py)
+does the same thing for Spark.
+
+**Parser watch-outs:**
+- Array constants inside SUMIFS — `econ2, {"A","B","C"}` — need brace-aware
+  splitting. The current parser respects `()` and `{}` depth when splitting
+  on top-level commas; don't revert that.
+- Filter values may be localized (e.g. Moldova's Romanian strings from 2016
+  onward). The pipeline matches these literally — do not translate.
+
 ### Phase 4 — Issues report
 
 Run `scripts/4_generate_issues.py`.
 
 Produces `reports/ISSUES.md` with:
-- Hardcoded overrides (numeric)
-- Broken named ranges (`#REF!`)
-- External-workbook refs
-- Inconsistent formulas within a column
-- Approved vs Executed structural differences
-- Volatile functions (`INDIRECT`, `OFFSET`, etc.)
-- Open SME questions
+1. Hardcoded overrides (numeric) — per-cell with `code` + `category`
+2. Broken named ranges (`#REF!`)
+3. External-workbook refs
+4. Approved vs Executed structural differences (full formulas, not truncated)
+5. Volatile functions (`INDIRECT`, `OFFSET`, etc.)
+6. Suspicious tag rules (appended by Phase 5)
 
 Review with the user. Anything flagged here is **report-only** and will
 remain a discrepancy in the pipeline output.
+
+**Measure-agnostic normalizer** needs to cover country-specific measure
+variants — Zimbabwe has `approved`/`executed`/`approved_orig`, Moldova
+adds `approved_16`/`approved_20`/`executed_16`/`executed_20`. The regex in
+`4_generate_issues.py` matches `(approved|executed|revised)(_\w+)?` so
+suffixes like `_16` don't register as real shape differences. If a new
+country uses a different measure naming convention, extend the regex.
 
 ### Phase 5 — Code dictionary
 
@@ -183,24 +227,77 @@ CROSS codes (econ × func intersections) should be excluded from the
 dictionary to prevent double-counting — they're covered by the
 standalone ECON_* and FUNC_* codes.
 
-Also appends §8 "Suspicious tag rules" to `reports/ISSUES.md`: duplicate
-criteria, admin1/function mismatches.
+**Meta-rollup codes** (codes that aggregate a whole COFOG or econ
+category — e.g. Moldova's `EXP_FUNC_ECO_REL_EXE` = all COFOG 704 and
+`REV_ECON_TOT_EXE` = total revenue) must also be excluded. Add them to
+the `META_ROLLUP_CODES` set in `5_build_code_dictionary.py`. Without
+this the overlap audit shows the rollup intersecting every one of its
+component sub-codes, which is noise.
 
-### Phase 6 — Overlap audit
+**Alongside `code_dictionary.csv`, Phase 5 emits
+`reports/code_hierarchy.md`** — a tree view grouping every code under
+its assigned `econ`/`econ_sub` or `func`/`func_sub` with any
+`decompose_notes` flags inline. This is the SME review artifact; show it
+to the user before relying on the dictionary.
+
+Also appends §6 "Suspicious tag rules" to `reports/ISSUES.md`: duplicate
+criteria, admin1/function mismatches. (The marker also matches the older
+`## 8.` heading for backward compatibility with reports generated before
+the section renumbering.)
+
+**Token-dictionary portability:** align labels with the canonical
+vocabulary that other countries already feed into
+[cross_country_aggregate_dlt.py:40 boost_gold](cross_country_aggregate_dlt.py#L40).
+Moldova's Phase 5 docstring calls this out: the full list of reused
+labels came from an Explore-agent survey of all 18 existing DLT
+notebooks. Don't invent new labels unless the concept truly doesn't
+exist elsewhere.
+
+**Subnational pattern:** Moldova has `EXP_ECON_SBN_*` and `EXP_FUNC_SBN_*`
+codes that filter by `admin1 ∈ {"local","locale"}` — they are
+cross-cutting admin×category tags, not pure econ or func codes. The
+dictionary flags them with a `decompose_notes` entry ("Moldova
+subnational tag — confirm admin0/geo0 handling"); Phase 6 reports their
+overlaps in a separate SBN section.
+
+### Phase 6 — Formula overcounting audit
 
 Run `scripts/6_detect_overlaps.py`.
 
 Applies each tag rule to the raw sheet using pandas (local, no Spark).
-For every peer pair at the same classification level:
-- Computes the intersection of raw rows.
-- If non-empty → reports the overlap with years and admin1 breakdown.
+For every pair of codes qualifying at the same classification depth
+(`econ` rollup, `econ_sub`, `func` rollup, `func_sub`) it computes the
+intersection of raw rows and reports any non-empty overlap with:
+- `Σ overcounted` — sum of each raw measure over intersection rows. This
+  is the exact amount that gets double-counted if both codes are summed
+  together — not A−B. Accompanied by each code's full total and the
+  ratio `overcounted ÷ min(A,B)` so severity is scannable.
+- `rows in overlap` — cardinality of the double-count set.
 
-Output: `reports/overlap_report.md`, `data/overlap_detail.csv`.
+**Pair semantics** (important, iterated on across Zimbabwe → Moldova):
+- Same-depth only. A func-level rollup is never paired with one of its
+  func_sub children (that's a parent/child, not an overcount).
+- Parent-agnostic at sub-levels. `econ_sub=Basic wages` is compared with
+  `econ_sub=Recurrent maintenance` even though they have different econ
+  parents, because both are claims about mutually-exclusive sub-econs.
+- **Same-value pairs** (two codes share the level value) expose
+  duplicates: if `Σ overcounted == Σ code A == Σ code B`, the filters are
+  effectively identical.
+- **Cross-category pairs** (same level, different values) expose real
+  overcounting bugs: the categories are meant to be mutually exclusive,
+  so any intersection is a workbook-level classification mistake.
+- Subnational `SBN_*` codes are compared only against other SBN codes,
+  in a dedicated section — never mixed with the primary pairs.
+
+Output: `reports/overlap_report.md` ("Moldova formula overcounting
+report"-style title, not "raw-data overlaps" — the name must reflect
+what it measures), `data/overlap_detail.csv`.
 
 Overlaps indicate double-count risk in the cross-country aggregator. The
-fix is **always** in the dictionary (promote a peer to be a parent, or
-drop a redundant code) or the workbook (consolidate duplicate-criteria
-codes) — **never** in the DLT notebook.
+fix is **always** in the dictionary (move a rollup code to
+`META_ROLLUP_CODES`, fix a token mapping, or drop a redundant code) or
+the workbook (consolidate duplicate-criteria codes) — **never** in the
+DLT notebook.
 
 ### Phase 7 — DLT notebooks
 
@@ -218,14 +315,27 @@ The silver layer iterates `tag_rules.csv` and applies each rule's
 `code_dictionary.csv` to populate `econ/econ_sub/func/func_sub`. This
 pattern is portable; only the maps change.
 
-### Phase 8 — Discrepancy review
+**Multi-sheet dispatch (Moldova pattern):** when raw data is split across
+sheets, emit one bronze per sheet and dispatch each rule to its bronze
+based on the rule's `measure` suffix. See
+[Moldova/MDA_transform_load_raw_dlt.py](Moldova/MDA_transform_load_raw_dlt.py):
+three `MAP_BASE` / `MAP_16` / `MAP_20` dictionaries, a `classify_measure()`
+helper, and a shared `_silver_for_kind()` that unions across ranges.
+EXP vs REV are both pulled from the same bronzes (Moldova distinguishes
+them via `econ0_* ∈ {"Expenditures","Revenues"}`); the kind filter just
+splits by code prefix (`EXP_*` vs `REV_*`).
 
-At the end of the DLT notebook, call
-`build_review()` from [quality/discrepancy_review.py](quality/discrepancy_review.py)
-to auto-generate `quality/_reviews/<iso3>_discrepancy_review.md` on every
-pipeline run. Preserves SME resolutions across iterations.
+**Do not include a `build_review()` call in the DLT notebook.** The
+discrepancy review runs in local testing, not as part of the Spark
+pipeline — keep the DLT file strictly bronze/silver/gold.
 
-This utility is already country-agnostic — just parameterize the call
+### Phase 8 — Discrepancy review (local)
+
+Run the discrepancy review as a local test (not inside the DLT
+notebook). `build_review()` from [quality/discrepancy_review.py](quality/discrepancy_review.py)
+compares pipeline silver output against the Excel Executed sheet at
+`(year, code)` granularity, preserves SME resolutions across runs, and
+writes `quality/_reviews/<iso3>_discrepancy_review.md`. Parameterize
 with the country code, dimension columns, and Excel sheet name.
 
 ### Phase 9 — Register in cross-country pipeline
@@ -250,11 +360,22 @@ report is clean and discrepancy review is below 5%.
 
 ## Things that vary wildly across countries (don't assume)
 
-- **Sheet names** — no two countries share them.
+- **Sheet names** — no two countries share them. Hidden sheets exist.
 - **Raw data schema** — some have one big sheet, others have many.
-- **Formula style** — named ranges vs direct sheet refs.
-- **Taxonomy encoding** — some encode in codes (Zimbabwe), some in labels
-  (Colombia), some in text categories (South Africa).
+  Moldova splits raw data by year range with different columns in each.
+- **Formula style** — named ranges vs direct sheet refs; array constants
+  `{"A","B",…}` inside SUMIFS; measure names with year-range suffixes.
+- **Filter-value language** — may switch mid-workbook (Moldova: English
+  pre-2016, Romanian 2016+). Translate nothing; match literally.
+- **Taxonomy encoding** — some encode in codes (Zimbabwe, Moldova), some
+  in labels (Colombia), some in text categories (South Africa).
+- **Meta-rollup codes** — some workbooks include "total-of-a-category"
+  codes (`ECO_REL` = all COFOG 704 in Moldova, `TOT` = total revenue)
+  that must be excluded from the dictionary like CROSS codes.
+- **Code-name drift from category** — Moldova has
+  `EXP_FUNC_REV_CUS_EXC_EXE` whose category label is actually
+  "Recreation, culture and religion (COFOG 708)". When code name and
+  category disagree, the category wins; flag in ISSUES.md.
 - **admin0 derivation** — some have a Central/Regional flag, some imply
   it from admin1 values, some only have Central.
 - **Year span & column layout** — wide vs. long format.
@@ -263,7 +384,8 @@ report is clean and discrepancy review is below 5%.
 See the "Country-Specific Pitfalls" section of each country's folder and
 [Albania/ALB_transform_load_raw_dlt.py](Albania/ALB_transform_load_raw_dlt.py) /
 [Colombia/transform_load_raw_dlt.py](Colombia/transform_load_raw_dlt.py) /
-[Burkina_Faso/BFA_transform_load_dlt.py](Burkina_Faso/BFA_transform_load_dlt.py)
+[Burkina_Faso/BFA_transform_load_dlt.py](Burkina_Faso/BFA_transform_load_dlt.py) /
+[Moldova/MDA_transform_load_raw_dlt.py](Moldova/MDA_transform_load_raw_dlt.py)
 for examples of how different their logic is.
 
 ## Outputs this workflow should produce
@@ -283,7 +405,9 @@ Only when all boxes are ticked should the PR be opened.
 ## Anti-patterns (things an AI agent might be tempted to do — DON'T)
 
 1. **Generalizing the code dictionary prematurely.** Token abbreviations
-   differ per country. Build each country's dictionary from scratch.
+   differ per country. Build each country's dictionary from scratch but
+   reuse the canonical `econ`/`func` labels from the existing DLT
+   notebooks (survey them with Explore before picking labels).
 2. **Fixing Excel formulas in Python.** If you see a bug, flag it in
    ISSUES.md. The SME fixes the workbook upstream.
 3. **Inferring classification from raw data.** The workbook's SUMIFS
@@ -293,5 +417,20 @@ Only when all boxes are ticked should the PR be opened.
    double-count patterns. Always run it.
 5. **Running `scripts/5_build_code_dictionary.py` before
    `scripts/4_generate_issues.py`.** The numeric order matters — Phase 4
-   writes the base ISSUES.md, Phase 5 appends §8. Running out of order
-   wipes §8.
+   writes the base ISSUES.md, Phase 5 appends the "Suspicious tag rules"
+   section. Running out of order wipes it.
+6. **Pairing parent with child in the overlap audit.** A func-rollup code
+   (`func_sub = None`) and a func_sub code under the same func share raw
+   rows by definition — that's hierarchy, not overcounting. Same-depth
+   pairing only (econ↔econ rollups, econ_sub↔econ_sub siblings, …).
+7. **Reporting A−B as the "gap" in overlap audit.** The relevant number
+   is the double-count: `Σ measure over rows matched by BOTH codes`.
+   A−B is noise.
+8. **Translating localized filter values.** Moldova's Romanian filter
+   strings (`"Cu exceptia transferurilor"`) must be preserved verbatim
+   — the pipeline matches them literally against the raw column.
+9. **Mixing subnational codes with the primary overlap report.** SBN
+   codes (admin × category) go in their own section and are compared
+   only with other SBN codes.
+10. **Putting `build_review()` in the DLT notebook.** The discrepancy
+    review is a local-test step, not a pipeline stage.
