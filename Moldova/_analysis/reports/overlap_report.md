@@ -3,21 +3,129 @@
 > Flat drill-down at `data/overlap_detail.csv`.
 > Rerun with `python3 scripts/6_detect_overlaps.py`.
 
-# Moldova raw-data overlaps
+# Moldova formula overcounting report
 
-Each pair below is two codes that share a value at some classification level — same `econ`, same `econ_sub`, same `func`, or same `func_sub`. Their SUMIFS criteria are applied to the matching year-range raw sheet (`2006-15`, `2016-19`, `2020-24`) and intersected; pairs with shared raw rows are listed. Codes in unrelated classifications (e.g. `econ=Wage bill` vs `econ=Capital expenditures`) are never compared.
+Detects raw-data rows double-counted by the Approved/Executed SUMIFS formulas. For each classification level (`econ`, `econ_sub`, `func`, `func_sub`) every pair of codes qualifying at that level has its SUMIFS filter applied to the matching year-range raw sheet (`2006-15`, `2016-19`, `2020-24`); the intersection is the set of raw rows that satisfy BOTH formulas at once — i.e. rows the workbook's formulas count twice. Two kinds of overlap are reported:
+
+- **Same-value pairs** — two codes share the same value at a level (e.g. both `econ=Wage bill`). If the overcounted amount equals each code's own total, the two filters are effectively identical — rename or drop one.
+- **Cross-category pairs** — two codes carry different values at the same level (e.g. `econ=Wage bill` vs `econ=Goods and services`, or `econ_sub=Basic wages` vs `econ_sub=Recurrent maintenance`). Those categories are meant to be mutually exclusive, so *any* intersection is an overcounting bug.
+
+Pair annotations like `cross econ (Wage bill vs Goods and services)` mark the cross-category case in bold; `same econ=X` marks the same-value case.
+
+> _Reading the tables below:_ `Σ overcounted` is the sum of a raw measure (approved / executed) over rows matched by BOTH codes — i.e. the exact amount that would be double-counted if the two codes' totals were added. The scale-context table shows each code's full raw-sheet total alongside the overcounted amount and its ratio to the smaller total.
 
 Subnational `SBN_*` codes are evaluated in a separate section because they are cross-cutting (admin × category) rather than a standard econ/func breakdown.
 
-## Primary overlaps — 3 pair(s)
+## Primary overlaps — 6 pair(s)
 
 
 ### 2006-2015 (raw sheet `2006-15`)
 
 
+#### EXP_ECON — 3 overlap(s)
+
+### `EXP_ECON_GOO_SER_EMP_CON_EXE` vs `EXP_ECON_SOC_ASS_EXE` — **cross `econ_sub`** (`Employment contracts` vs `Social assistance`)
+
+- **EXP_ECON_GOO_SER_EMP_CON_EXE** — _Spending in Goods and services (employment contracts)_
+- **EXP_ECON_SOC_ASS_EXE** — _Social Assistance_
+- **1 raw rows in the intersection.**
+
+**Excel formulas (sample year 2006)**
+```
+EXP_ECON_GOO_SER_EMP_CON_EXE:
+  =SUM(SUMIFS(approved,year,C$1,transfer,"Excluding transfers",econ2,"113.16 Research and innovation services contracted out by self-finance facilities"))
+
+EXP_ECON_SOC_ASS_EXE:
+  =SUMIFS(approved,year,C$1,func1,"10 Social care and social insurance",transfer,"Excluding transfers")-C19
+```
+
+**Totals across all years** — scale context for the overcounted amount:
+
+| measure | Σ code A (full) | Σ code B (full) | **Σ overcounted** | overcounted ÷ min(A,B) |
+|---|---:|---:|---:|---:|
+| approved | 128,338,700 | 105,283,914,953 | **12,100** | 0.0% |
+| executed | 349,395,337 | 104,348,537,224 | **0** | 0.0% |
+
+**Per-year overcounted amount** — sum of each measure over raw rows matching BOTH codes (the exact amount that would be double-counted if code A + code B were added):
+
+| year | rows in overlap | Σ approved overcounted | Σ executed overcounted |
+|---:|---:|---:|---:|
+| 2008 | 1 | 12,100 | 0 |
+
+### `EXP_ECON_REC_MAI_EXE` vs `EXP_ECON_SOC_ASS_EXE` — **cross `econ_sub`** (`Recurrent maintenance` vs `Social assistance`)
+
+- **EXP_ECON_REC_MAI_EXE** — _Spending in recurrent maintenance_
+- **EXP_ECON_SOC_ASS_EXE** — _Social Assistance_
+- **74 raw rows in the intersection.**
+
+**Excel formulas (sample year 2006)**
+```
+EXP_ECON_REC_MAI_EXE:
+  =SUMIFS(approved,year,C$1,transfer,"Excluding transfers",econ2,"113.18 Current repair of equipment and inventory")
+
+EXP_ECON_SOC_ASS_EXE:
+  =SUMIFS(approved,year,C$1,func1,"10 Social care and social insurance",transfer,"Excluding transfers")-C19
+```
+
+**Totals across all years** — scale context for the overcounted amount:
+
+| measure | Σ code A (full) | Σ code B (full) | **Σ overcounted** | overcounted ÷ min(A,B) |
+|---|---:|---:|---:|---:|
+| approved | 186,965,308 | 105,283,914,953 | **8,837,014** | 4.7% |
+| executed | 360,196,664 | 104,348,537,224 | **16,560,658** | 4.6% |
+
+**Per-year overcounted amount** — sum of each measure over raw rows matching BOTH codes (the exact amount that would be double-counted if code A + code B were added):
+
+| year | rows in overlap | Σ approved overcounted | Σ executed overcounted |
+|---:|---:|---:|---:|
+| 2006 | 8 | 1,177,100 | 1,183,569 |
+| 2007 | 7 | 1,406,700 | 1,136,466 |
+| 2008 | 7 | 1,596,820 | 1,296,614 |
+| 2009 | 7 | 1,477,634 | 1,456,655 |
+| 2010 | 6 | 1,153,510 | 1,307,716 |
+| 2011 | 8 | 0 | 1,521,003 |
+| 2012 | 8 | 0 | 1,903,077 |
+| 2013 | 7 | 0 | 2,077,999 |
+| 2014 | 8 | 966,250 | 2,160,480 |
+| 2015 | 8 | 1,059,000 | 2,517,079 |
+
+### `EXP_ECON_SOC_ASS_EXE` vs `EXP_ECON_SUB_PRO_EXE` — **cross `econ_sub`** (`Social assistance` vs `Subsidies to production`)
+
+- **EXP_ECON_SOC_ASS_EXE** — _Social Assistance_
+- **EXP_ECON_SUB_PRO_EXE** — _Spending: Subsidies to production_
+- **6 raw rows in the intersection.**
+
+**Excel formulas (sample year 2006)**
+```
+EXP_ECON_SOC_ASS_EXE:
+  =SUMIFS(approved,year,C$1,func1,"10 Social care and social insurance",transfer,"Excluding transfers")-C19
+
+EXP_ECON_SUB_PRO_EXE:
+  =SUMIFS(approved,year,C$1,transfer,"Excluding transfers",econ1,"132 Transfers for production purposes")
+```
+
+**Totals across all years** — scale context for the overcounted amount:
+
+| measure | Σ code A (full) | Σ code B (full) | **Σ overcounted** | overcounted ÷ min(A,B) |
+|---|---:|---:|---:|---:|
+| approved | 105,283,914,953 | 5,609,219,238 | **710,000** | 0.0% |
+| executed | 104,348,537,224 | 7,236,743,250 | **267,100** | 0.0% |
+
+**Per-year overcounted amount** — sum of each measure over raw rows matching BOTH codes (the exact amount that would be double-counted if code A + code B were added):
+
+| year | rows in overlap | Σ approved overcounted | Σ executed overcounted |
+|---:|---:|---:|---:|
+| 2007 | 1 | 0 | 0 |
+| 2008 | 1 | 310,000 | 0 |
+| 2009 | 1 | 110,000 | 0 |
+| 2010 | 1 | 90,000 | 0 |
+| 2014 | 1 | 0 | 134,400 |
+| 2015 | 1 | 200,000 | 132,700 |
+
+
 #### EXP_FUNC — 1 overlap(s)
 
-### `EXP_FUNC_PRI_EDU_EXE` vs `EXP_FUNC_PRI_SEC_EDU_EXE` — siblings under func=`Education`
+### `EXP_FUNC_PRI_EDU_EXE` vs `EXP_FUNC_PRI_SEC_EDU_EXE` — **cross `func_sub`** (`Primary education` vs `Primary and secondary education`)
 
 - **EXP_FUNC_PRI_EDU_EXE** — _Spending in primary education_
 - **EXP_FUNC_PRI_SEC_EDU_EXE** — _Spending in primary and secondary education_
@@ -32,20 +140,27 @@ EXP_FUNC_PRI_SEC_EDU_EXE:
   =SUMIFS(approved,year,C$1,transfer,"Excluding transfers",func1,"06 Education",func2,"06.01 Preschool education") + SUMIFS(approved,year,C$1,transfer,"Excluding transfers",func1,"06 Education",func2,"06.02 Primary education") + SUMIFS(approved,year,C$1,transfer,"Excluding transfers",func1,"06 Education",func2,"06.03 Secondary education")
 ```
 
-**Per-year totals and gap** — each code's full raw-sheet total for the year; `gap = Σ EXP_FUNC_PRI_EDU_EXE − Σ EXP_FUNC_PRI_SEC_EDU_EXE`. A positive gap means the first code is larger by that amount.
+**Totals across all years** — scale context for the overcounted amount:
 
-| year | Σ approved · A | Σ approved · B | gap approved (A−B) | Σ executed · A | Σ executed · B | gap executed (A−B) |
-|---:|---:|---:|---:|---:|---:|---:|
-| 2006 | 448,539,816 | 448,539,816 | 0 | 534,851,690 | 534,851,690 | 0 |
-| 2007 | 659,512,113 | 659,512,113 | 0 | 721,481,010 | 721,481,010 | 0 |
-| 2008 | 876,260,022 | 876,260,022 | 0 | 951,927,623 | 951,927,623 | 0 |
-| 2009 | 1,026,191,795 | 1,026,191,795 | 0 | 1,113,175,371 | 1,113,175,371 | 0 |
-| 2010 | 1,267,682,300 | 1,267,682,300 | 0 | 1,300,563,595 | 1,300,563,595 | 0 |
-| 2011 | 1,384,477,894 | 1,384,477,894 | 0 | 1,414,470,967 | 1,414,470,967 | 0 |
-| 2012 | 1,604,310,328 | 1,604,310,328 | 0 | 1,647,857,046 | 1,647,857,046 | 0 |
-| 2013 | 1,708,594,034 | 1,708,594,034 | 0 | 1,680,545,670 | 1,680,545,670 | 0 |
-| 2014 | 1,896,570,890 | 1,896,570,890 | 0 | 2,004,227,579 | 2,004,227,579 | 0 |
-| 2015 | 2,253,562,660 | 2,253,562,660 | 0 | 2,374,810,166 | 2,374,810,166 | 0 |
+| measure | Σ code A (full) | Σ code B (full) | **Σ overcounted** | overcounted ÷ min(A,B) |
+|---|---:|---:|---:|---:|
+| approved | 13,125,701,852 | 13,125,701,852 | **13,125,701,852** | 100.0% |
+| executed | 13,743,910,717 | 13,743,910,717 | **13,743,910,717** | 100.0% |
+
+**Per-year overcounted amount** — sum of each measure over raw rows matching BOTH codes (the exact amount that would be double-counted if code A + code B were added):
+
+| year | rows in overlap | Σ approved overcounted | Σ executed overcounted |
+|---:|---:|---:|---:|
+| 2006 | 45 | 448,539,816 | 534,851,690 |
+| 2007 | 47 | 659,512,113 | 721,481,010 |
+| 2008 | 50 | 876,260,022 | 951,927,623 |
+| 2009 | 57 | 1,026,191,795 | 1,113,175,371 |
+| 2010 | 51 | 1,267,682,300 | 1,300,563,595 |
+| 2011 | 63 | 1,384,477,894 | 1,414,470,967 |
+| 2012 | 66 | 1,604,310,328 | 1,647,857,046 |
+| 2013 | 65 | 1,708,594,034 | 1,680,545,670 |
+| 2014 | 62 | 1,896,570,890 | 2,004,227,579 |
+| 2015 | 67 | 2,253,562,660 | 2,374,810,166 |
 
 
 ### 2016-2019 (raw sheet `2016-19`)
@@ -68,14 +183,21 @@ REV_ECON_EXC_EXE:
   =SUMIFS(approved_16,year_16,M$1,transfer_16,"Cu exceptia transferurilor", econ0_16,"Revenues",econ4_16,"114200 Accize")
 ```
 
-**Per-year totals and gap** — each code's full raw-sheet total for the year; `gap = Σ REV_ECON_CUS_EXC_EXE − Σ REV_ECON_EXC_EXE`. A positive gap means the first code is larger by that amount.
+**Totals across all years** — scale context for the overcounted amount:
 
-| year | Σ approved · A | Σ approved · B | gap approved (A−B) | Σ executed · A | Σ executed · B | gap executed (A−B) |
-|---:|---:|---:|---:|---:|---:|---:|
-| 2016 | 4,303,245,332 | 4,303,245,332 | 0 | 4,546,393,966 | 4,546,393,966 | 0 |
-| 2017 | 5,074,736,388 | 5,074,736,388 | 0 | 5,949,996,961 | 5,949,996,961 | 0 |
-| 2018 | 5,903,326,000 | 5,903,326,000 | 0 | 5,683,413,797 | 5,683,413,797 | 0 |
-| 2019 | 6,731,804,600 | 6,731,804,600 | 0 | 6,221,951,954 | 6,221,951,954 | 0 |
+| measure | Σ code A (full) | Σ code B (full) | **Σ overcounted** | overcounted ÷ min(A,B) |
+|---|---:|---:|---:|---:|
+| approved | 22,013,112,320 | 22,013,112,320 | **22,013,112,320** | 100.0% |
+| executed | 22,401,756,678 | 22,401,756,678 | **22,401,756,678** | 100.0% |
+
+**Per-year overcounted amount** — sum of each measure over raw rows matching BOTH codes (the exact amount that would be double-counted if code A + code B were added):
+
+| year | rows in overlap | Σ approved overcounted | Σ executed overcounted |
+|---:|---:|---:|---:|
+| 2016 | 21 | 4,303,245,332 | 4,546,393,966 |
+| 2017 | 21 | 5,074,736,388 | 5,949,996,961 |
+| 2018 | 44 | 5,903,326,000 | 5,683,413,797 |
+| 2019 | 38 | 6,731,804,600 | 6,221,951,954 |
 
 
 ### 2020-2024 (raw sheet `2020-24`)
@@ -98,342 +220,26 @@ REV_ECON_EXC_EXE:
   =SUMIFS(approved_20,year_20,Q$1,transfer_20,"Cu exceptia transferurilor", econ0_20,"Revenues",econ4_20,"114200 Accize")
 ```
 
-**Per-year totals and gap** — each code's full raw-sheet total for the year; `gap = Σ REV_ECON_CUS_EXC_EXE − Σ REV_ECON_EXC_EXE`. A positive gap means the first code is larger by that amount.
+**Totals across all years** — scale context for the overcounted amount:
 
-| year | Σ approved · A | Σ approved · B | gap approved (A−B) | Σ executed · A | Σ executed · B | gap executed (A−B) |
-|---:|---:|---:|---:|---:|---:|---:|
-| 2020 | 6,990,399,000 | 6,990,399,000 | 0 | 6,468,735,883 | 6,468,735,883 | 0 |
-| 2021 | 7,042,776,000 | 7,042,776,000 | 0 | 7,608,283,953 | 7,608,283,953 | 0 |
-| 2022 | 8,041,750,000 | 8,041,750,000 | 0 | 8,012,552,858 | 8,012,552,858 | 0 |
-| 2023 | 9,273,665,000 | 9,273,665,000 | 0 | 10,138,102,758 | 10,138,102,758 | 0 |
-| 2024 | 10,456,623,800 | 10,456,623,800 | 0 | 11,447,666,298 | 11,447,666,298 | 0 |
+| measure | Σ code A (full) | Σ code B (full) | **Σ overcounted** | overcounted ÷ min(A,B) |
+|---|---:|---:|---:|---:|
+| approved | 41,805,213,800 | 41,805,213,800 | **41,805,213,800** | 100.0% |
+| executed | 43,675,341,750 | 43,675,341,750 | **43,675,341,750** | 100.0% |
+
+**Per-year overcounted amount** — sum of each measure over raw rows matching BOTH codes (the exact amount that would be double-counted if code A + code B were added):
+
+| year | rows in overlap | Σ approved overcounted | Σ executed overcounted |
+|---:|---:|---:|---:|
+| 2020 | 18 | 6,990,399,000 | 6,468,735,883 |
+| 2021 | 19 | 7,042,776,000 | 7,608,283,953 |
+| 2022 | 18 | 8,041,750,000 | 8,012,552,858 |
+| 2023 | 19 | 9,273,665,000 | 10,138,102,758 |
+| 2024 | 19 | 10,456,623,800 | 11,447,666,298 |
 
 
-## Subnational (`SBN_*`) overlaps — 12 pair(s)
+## Subnational (`SBN_*`) overlaps — 0 pair(s)
 
 _SBN codes filter by `admin1="local"` and are expected to be subsets of their non-SBN parents. Listed here so the SME can confirm the subset relationship is clean._
 
-
-### 2006-2015 (raw sheet `2006-15`)
-
-### `EXP_ECON_CAP_EXP_EXE` vs `EXP_ECON_SBN_CAP_SPE_EXE` — same `econ`=`Capital expenditures`
-
-- **EXP_ECON_CAP_EXP_EXE** — _Spending: Capital Expenditures_
-- **EXP_ECON_SBN_CAP_SPE_EXE** — _Subnational: Capital spending_
-- **2,394 raw rows in the intersection.**
-
-**Excel formulas (sample year 2006)**
-```
-EXP_ECON_CAP_EXP_EXE:
-  =SUMIFS(approved,year,C$1,transfer,"Excluding transfers",exp_type,"Capital")
-
-EXP_ECON_SBN_CAP_SPE_EXE:
-  =SUMIFS(approved,year,C$1,admin1,"Local",transfer,"Excluding transfers", exp_type,"Capital")
-```
-
-**Per-year totals and gap** — each code's full raw-sheet total for the year; `gap = Σ EXP_ECON_CAP_EXP_EXE − Σ EXP_ECON_SBN_CAP_SPE_EXE`. A positive gap means the first code is larger by that amount.
-
-| year | Σ approved · A | Σ approved · B | gap approved (A−B) | Σ executed · A | Σ executed · B | gap executed (A−B) |
-|---:|---:|---:|---:|---:|---:|---:|
-| 2006 | 2,179,057,510 | 280,507,810 | 1,898,549,700 | 4,024,122,917 | 1,361,998,279 | 2,662,124,638 |
-| 2007 | 2,865,070,996 | 569,102,392 | 2,295,968,604 | 4,002,537,648 | 1,116,083,819 | 2,886,453,828 |
-| 2008 | 3,292,268,684 | 602,365,092 | 2,689,903,592 | 4,379,081,356 | 1,089,874,820 | 3,289,206,536 |
-| 2009 | 4,469,302,163 | 717,254,463 | 3,752,047,700 | 2,990,221,801 | 766,217,897 | 2,224,003,904 |
-| 2010 | 4,094,958,638 | 734,729,834 | 3,360,228,804 | 3,430,782,775 | 950,426,058 | 2,480,356,718 |
-| 2011 | 4,575,615,247 | 829,340,015 | 3,746,275,232 | 4,273,198,583 | 1,084,909,807 | 3,188,288,776 |
-| 2012 | 5,236,757,223 | 870,167,323 | 4,366,589,900 | 5,445,563,196 | 1,059,070,883 | 4,386,492,313 |
-| 2013 | 5,937,534,113 | 815,459,713 | 5,122,074,400 | 6,961,875,886 | 1,421,474,658 | 5,540,401,229 |
-| 2014 | 7,567,326,346 | 1,365,796,246 | 6,201,530,100 | 9,290,076,649 | 2,780,469,769 | 6,509,606,880 |
-| 2015 | 9,407,987,618 | 1,104,497,653 | 8,303,489,966 | 7,770,869,102 | 2,034,216,054 | 5,736,653,048 |
-
-### `EXP_FUNC_EDU_EXE` vs `EXP_FUNC_SBN_EDU_EXE` — same `func`=`Education`
-
-- **EXP_FUNC_EDU_EXE** — _Education (COFOG 709)_
-- **EXP_FUNC_SBN_EDU_EXE** — _Subnational: Spending in education_
-- **2,394 raw rows in the intersection.**
-
-**Excel formulas (sample year 2006)**
-```
-EXP_FUNC_EDU_EXE:
-  =SUMIFS(approved,year,C$1,transfer,"Excluding transfers",func1,"06 Education")
-
-EXP_FUNC_SBN_EDU_EXE:
-  =SUMIFS(approved,year,C$1,transfer,"Excluding transfers",func1,"06 Education",admin1,"local")
-```
-
-**Per-year totals and gap** — each code's full raw-sheet total for the year; `gap = Σ EXP_FUNC_EDU_EXE − Σ EXP_FUNC_SBN_EDU_EXE`. A positive gap means the first code is larger by that amount.
-
-| year | Σ approved · A | Σ approved · B | gap approved (A−B) | Σ executed · A | Σ executed · B | gap executed (A−B) |
-|---:|---:|---:|---:|---:|---:|---:|
-| 2006 | 2,894,972,149 | 1,794,870,549 | 1,100,101,600 | 3,680,225,311 | 2,347,695,854 | 1,332,529,457 |
-| 2007 | 3,929,389,455 | 2,580,962,155 | 1,348,427,300 | 4,258,784,449 | 2,802,463,662 | 1,456,320,787 |
-| 2008 | 4,790,857,030 | 3,210,088,830 | 1,580,768,200 | 5,193,674,088 | 3,426,984,660 | 1,766,689,429 |
-| 2009 | 5,394,256,874 | 3,518,983,074 | 1,875,273,800 | 5,671,899,957 | 3,910,475,321 | 1,761,424,637 |
-| 2010 | 6,428,012,602 | 4,529,903,202 | 1,898,109,400 | 6,574,842,820 | 4,586,853,547 | 1,987,989,273 |
-| 2011 | 6,918,208,277 | 4,810,228,557 | 2,107,979,720 | 6,868,916,646 | 4,797,076,819 | 2,071,839,827 |
-| 2012 | 7,544,431,674 | 5,258,616,274 | 2,285,815,400 | 7,396,776,520 | 5,187,499,876 | 2,209,276,644 |
-| 2013 | 7,249,195,571 | 5,339,903,671 | 1,909,291,900 | 7,064,038,539 | 5,248,642,832 | 1,815,395,707 |
-| 2014 | 7,694,430,924 | 5,675,148,524 | 2,019,282,400 | 7,823,617,292 | 5,899,040,470 | 1,924,576,822 |
-| 2015 | 8,791,919,531 | 6,442,540,131 | 2,349,379,400 | 8,499,688,757 | 6,328,083,962 | 2,171,604,795 |
-
-### `EXP_FUNC_HEA_EXE` vs `EXP_FUNC_SBN_HEA_EXE` — same `func`=`Health`
-
-- **EXP_FUNC_HEA_EXE** — _Health (COFOG 707)_
-- **EXP_FUNC_SBN_HEA_EXE** — _Subnational: Spending in health_
-- **700 raw rows in the intersection.**
-
-**Excel formulas (sample year 2006)**
-```
-EXP_FUNC_HEA_EXE:
-  =SUMIFS(approved,year,C$1,transfer,"Excluding transfers",func1,"09 Healthcare")
-
-EXP_FUNC_SBN_HEA_EXE:
-  =SUMIFS(approved,year,C$1,transfer,"Excluding transfers",func1,"09 Healthcare",admin1,"local")
-```
-
-**Per-year totals and gap** — each code's full raw-sheet total for the year; `gap = Σ EXP_FUNC_HEA_EXE − Σ EXP_FUNC_SBN_HEA_EXE`. A positive gap means the first code is larger by that amount.
-
-| year | Σ approved · A | Σ approved · B | gap approved (A−B) | Σ executed · A | Σ executed · B | gap executed (A−B) |
-|---:|---:|---:|---:|---:|---:|---:|
-| 2006 | 2,052,625,910 | 22,394,306 | 2,030,231,604 | 2,153,920,086 | 87,318,464 | 2,066,601,623 |
-| 2007 | 2,603,739,900 | 69,956,200 | 2,533,783,700 | 2,629,061,990 | 92,600,209 | 2,536,461,781 |
-| 2008 | 3,373,487,796 | 73,790,900 | 3,299,696,896 | 3,392,923,980 | 150,599,953 | 3,242,324,027 |
-| 2009 | 4,082,964,685 | 125,781,685 | 3,957,183,000 | 3,848,456,639 | 74,678,283 | 3,773,778,356 |
-| 2010 | 4,081,769,786 | 87,373,194 | 3,994,396,592 | 3,996,565,248 | 114,578,437 | 3,881,986,810 |
-| 2011 | 4,304,631,096 | 61,363,900 | 4,243,267,196 | 4,259,632,648 | 75,844,558 | 4,183,788,091 |
-| 2012 | 4,633,743,756 | 86,037,156 | 4,547,706,600 | 4,762,682,045 | 79,330,594 | 4,683,351,451 |
-| 2013 | 5,190,418,643 | 66,671,543 | 5,123,747,100 | 5,228,090,444 | 96,590,092 | 5,131,500,352 |
-| 2014 | 5,648,911,721 | 102,269,721 | 5,546,642,000 | 5,918,971,329 | 137,790,569 | 5,781,180,759 |
-| 2015 | 6,818,270,883 | 101,661,083 | 6,716,609,800 | 6,477,782,664 | 133,160,453 | 6,344,622,211 |
-
-### `EXP_FUNC_AGR_EXE` vs `EXP_FUNC_SBN_AGR_EXE` — siblings under func=`Economic affairs`
-
-- **EXP_FUNC_AGR_EXE** — _Spending in agriculture_
-- **EXP_FUNC_SBN_AGR_EXE** — _Subnational: Spending in agriculture_
-- **624 raw rows in the intersection.**
-
-**Excel formulas (sample year 2006)**
-```
-EXP_FUNC_AGR_EXE:
-  =SUMIFS(approved,year,C$1,transfer,"Excluding transfers",func1,"11 Agriculture, forestry, fishery and water service")
-
-EXP_FUNC_SBN_AGR_EXE:
-  =SUMIFS(approved,year,C$1,transfer,"Excluding transfers",func1,"11 Agriculture, forestry, fishery and water service",admin1,"local")
-```
-
-**Per-year totals and gap** — each code's full raw-sheet total for the year; `gap = Σ EXP_FUNC_AGR_EXE − Σ EXP_FUNC_SBN_AGR_EXE`. A positive gap means the first code is larger by that amount.
-
-| year | Σ approved · A | Σ approved · B | gap approved (A−B) | Σ executed · A | Σ executed · B | gap executed (A−B) |
-|---:|---:|---:|---:|---:|---:|---:|
-| 2006 | 636,654,650 | 41,014,150 | 595,640,500 | 685,335,935 | 61,987,376 | 623,348,559 |
-| 2007 | 817,330,700 | 60,693,800 | 756,636,900 | 1,230,315,246 | 79,719,356 | 1,150,595,890 |
-| 2008 | 864,562,500 | 88,243,700 | 776,318,800 | 1,244,329,107 | 96,369,588 | 1,147,959,519 |
-| 2009 | 880,491,900 | 14,125,200 | 866,366,700 | 1,034,123,378 | 14,094,900 | 1,020,028,479 |
-| 2010 | 785,958,100 | 12,787,900 | 773,170,200 | 857,734,151 | 17,955,946 | 839,778,205 |
-| 2011 | 833,107,004 | 16,351,300 | 816,755,704 | 843,462,831 | 18,498,515 | 824,964,316 |
-| 2012 | 996,465,500 | 19,855,200 | 976,610,300 | 1,272,734,557 | 19,857,614 | 1,252,876,943 |
-| 2013 | 1,522,960,300 | 22,437,400 | 1,500,522,900 | 1,386,297,857 | 27,411,095 | 1,358,886,762 |
-| 2014 | 1,944,792,300 | 23,690,000 | 1,921,102,300 | 2,045,140,912 | 36,719,510 | 2,008,421,403 |
-| 2015 | 2,600,586,002 | 19,937,700 | 2,580,648,302 | 2,211,379,587 | 38,653,566 | 2,172,726,021 |
-
-
-### 2016-2019 (raw sheet `2016-19`)
-
-### `EXP_ECON_CAP_EXP_EXE` vs `EXP_ECON_SBN_CAP_SPE_EXE` — same `econ`=`Capital expenditures`
-
-- **EXP_ECON_CAP_EXP_EXE** — _Spending: Capital Expenditures_
-- **EXP_ECON_SBN_CAP_SPE_EXE** — _Subnational: Capital spending_
-- **240,662 raw rows in the intersection.**
-
-**Excel formulas (sample year 2016)**
-```
-EXP_ECON_CAP_EXP_EXE:
-  =SUMIFS(approved_16,year_16,M$1,transfer_16,"Cu exceptia transferurilor", econ0_16,"Expenditures",exp_type_16,"capitale")
-
-EXP_ECON_SBN_CAP_SPE_EXE:
-  =SUMIFS(approved_16,year_16,M$1,transfer_16,"Cu exceptia transferurilor", econ0_16,"Expenditures",admin1_16,"locale", econ1_16,"300000 Active nefinanciare")
-```
-
-**Per-year totals and gap** — each code's full raw-sheet total for the year; `gap = Σ EXP_ECON_CAP_EXP_EXE − Σ EXP_ECON_SBN_CAP_SPE_EXE`. A positive gap means the first code is larger by that amount.
-
-| year | Σ approved · A | Σ approved · B | gap approved (A−B) | Σ executed · A | Σ executed · B | gap executed (A−B) |
-|---:|---:|---:|---:|---:|---:|---:|
-| 2016 | 5,144,099,184 | 1,765,952,158 | 3,378,147,026 | 4,874,821,176 | 2,424,238,892 | 2,450,582,284 |
-| 2017 | 5,809,859,808 | 2,228,528,170 | 3,581,331,638 | 5,579,402,504 | 3,234,694,386 | 2,344,708,118 |
-| 2018 | 7,767,906,820 | 2,626,227,660 | 5,141,679,160 | 5,944,508,945 | 3,667,034,880 | 2,277,474,066 |
-| 2019 | 7,151,009,140 | 2,997,638,310 | 4,153,370,830 | 6,411,495,931 | 3,847,534,816 | 2,563,961,115 |
-
-### `EXP_FUNC_EDU_EXE` vs `EXP_FUNC_SBN_EDU_EXE` — same `func`=`Education`
-
-- **EXP_FUNC_EDU_EXE** — _Education (COFOG 709)_
-- **EXP_FUNC_SBN_EDU_EXE** — _Subnational: Spending in education_
-- **350,765 raw rows in the intersection.**
-
-**Excel formulas (sample year 2016)**
-```
-EXP_FUNC_EDU_EXE:
-  =SUMIFS(approved_16,year_16,M$1,transfer_16,"Cu exceptia transferurilor", econ0_16,"Expenditures",func1_16,"0900 Invatamint")
-
-EXP_FUNC_SBN_EDU_EXE:
-  =SUMIFS(approved_16,year_16,M$1,transfer_16,"Cu exceptia transferurilor", econ0_16,"Expenditures",admin1_16,"locale", func1_16,"0900 Invatamint")
-```
-
-**Per-year totals and gap** — each code's full raw-sheet total for the year; `gap = Σ EXP_FUNC_EDU_EXE − Σ EXP_FUNC_SBN_EDU_EXE`. A positive gap means the first code is larger by that amount.
-
-| year | Σ approved · A | Σ approved · B | gap approved (A−B) | Σ executed · A | Σ executed · B | gap executed (A−B) |
-|---:|---:|---:|---:|---:|---:|---:|
-| 2016 | 9,311,350,340 | 6,795,348,840 | 2,516,001,500 | 8,555,623,890 | 6,561,118,121 | 1,994,505,769 |
-| 2017 | 9,687,119,742 | 7,132,712,630 | 2,554,407,112 | 9,672,923,856 | 7,449,466,450 | 2,223,457,406 |
-| 2018 | 10,642,982,020 | 8,004,904,620 | 2,638,077,400 | 10,470,705,800 | 8,076,052,947 | 2,394,652,854 |
-| 2019 | 11,410,012,850 | 8,558,245,050 | 2,851,767,800 | 12,127,194,082 | 9,559,473,484 | 2,567,720,598 |
-
-### `EXP_FUNC_HEA_EXE` vs `EXP_FUNC_SBN_HEA_EXE` — same `func`=`Health`
-
-- **EXP_FUNC_HEA_EXE** — _Health (COFOG 707)_
-- **EXP_FUNC_SBN_HEA_EXE** — _Subnational: Spending in health_
-- **1,139 raw rows in the intersection.**
-
-**Excel formulas (sample year 2016)**
-```
-EXP_FUNC_HEA_EXE:
-  =SUMIFS(approved_16,year_16,M$1,transfer_16,"Cu exceptia transferurilor",econ0_16,"Expenditures",func1_16,"0700 Ocrotirea sanatatii")
-
-EXP_FUNC_SBN_HEA_EXE:
-  =SUMIFS(approved_16,year_16,M$1,transfer_16,"Cu exceptia transferurilor", econ0_16,"Expenditures",admin1_16,"locale", func1_16,"0700 Ocrotirea sanatatii")
-```
-
-**Per-year totals and gap** — each code's full raw-sheet total for the year; `gap = Σ EXP_FUNC_HEA_EXE − Σ EXP_FUNC_SBN_HEA_EXE`. A positive gap means the first code is larger by that amount.
-
-| year | Σ approved · A | Σ approved · B | gap approved (A−B) | Σ executed · A | Σ executed · B | gap executed (A−B) |
-|---:|---:|---:|---:|---:|---:|---:|
-| 2016 | 6,594,041,804 | 84,303,900 | 6,509,737,904 | 6,503,002,786 | 74,799,989 | 6,428,202,797 |
-| 2017 | 7,220,034,504 | 102,006,700 | 7,118,027,804 | 7,266,893,667 | 139,482,231 | 7,127,411,436 |
-| 2018 | 8,033,104,600 | 117,677,000 | 7,915,427,600 | 7,798,965,494 | 166,929,955 | 7,632,035,539 |
-| 2019 | 9,127,186,400 | 152,649,900 | 8,974,536,500 | 8,635,808,056 | 173,108,552 | 8,462,699,505 |
-
-### `EXP_FUNC_AGR_EXE` vs `EXP_FUNC_SBN_AGR_EXE` — siblings under func=`Economic affairs`
-
-- **EXP_FUNC_AGR_EXE** — _Spending in agriculture_
-- **EXP_FUNC_SBN_AGR_EXE** — _Subnational: Spending in agriculture_
-- **2,529 raw rows in the intersection.**
-
-**Excel formulas (sample year 2016)**
-```
-EXP_FUNC_AGR_EXE:
-  =SUMIFS(approved_16,year_16,M$1,transfer_16,"Cu exceptia transferurilor", econ0_16,"Expenditures",func2_16,"0420 Agricultura, gospodarie silvica, gospodarie piscicola si gospodarie de vinatoare")
-
-EXP_FUNC_SBN_AGR_EXE:
-  =SUMIFS(approved_16,year_16,M$1,transfer_16,"Cu exceptia transferurilor", econ0_16,"Expenditures",admin1_16,"locale", func2_16,"0420 Agricultura, gospodarie silvica, gospodarie piscicola si gospodarie de vinatoare")
-```
-
-**Per-year totals and gap** — each code's full raw-sheet total for the year; `gap = Σ EXP_FUNC_AGR_EXE − Σ EXP_FUNC_SBN_AGR_EXE`. A positive gap means the first code is larger by that amount.
-
-| year | Σ approved · A | Σ approved · B | gap approved (A−B) | Σ executed · A | Σ executed · B | gap executed (A−B) |
-|---:|---:|---:|---:|---:|---:|---:|
-| 2016 | 1,745,103,416 | 23,236,800 | 1,721,866,616 | 1,340,469,833 | 38,855,541 | 1,301,614,292 |
-| 2017 | 1,852,999,504 | 33,890,500 | 1,819,109,004 | 1,630,060,266 | 32,472,690 | 1,597,587,576 |
-| 2018 | 1,851,599,260 | 25,407,170 | 1,826,192,090 | 1,458,781,852 | 42,972,175 | 1,415,809,676 |
-| 2019 | 1,760,528,960 | 36,678,460 | 1,723,850,500 | 1,514,778,121 | 32,004,083 | 1,482,774,037 |
-
-
-### 2020-2024 (raw sheet `2020-24`)
-
-### `EXP_ECON_CAP_EXP_EXE` vs `EXP_ECON_SBN_CAP_SPE_EXE` — same `econ`=`Capital expenditures`
-
-- **EXP_ECON_CAP_EXP_EXE** — _Spending: Capital Expenditures_
-- **EXP_ECON_SBN_CAP_SPE_EXE** — _Subnational: Capital spending_
-- **151,698 raw rows in the intersection.**
-
-**Excel formulas (sample year 2020)**
-```
-EXP_ECON_CAP_EXP_EXE:
-  =SUMIFS(approved_20,year_20,Q$1,transfer_20,"Cu exceptia transferurilor", econ0_20,"Expenditures",exp_type_20,"Capitale")
-
-EXP_ECON_SBN_CAP_SPE_EXE:
-  =SUMIFS(approved_20,year_20,Q$1,transfer_20,"Cu exceptia transferurilor", econ0_20,"Expenditures",admin1_20,"locale", econ1_20,"300000 Active nefinanciare")
-```
-
-**Per-year totals and gap** — each code's full raw-sheet total for the year; `gap = Σ EXP_ECON_CAP_EXP_EXE − Σ EXP_ECON_SBN_CAP_SPE_EXE`. A positive gap means the first code is larger by that amount.
-
-| year | Σ approved · A | Σ approved · B | gap approved (A−B) | Σ executed · A | Σ executed · B | gap executed (A−B) |
-|---:|---:|---:|---:|---:|---:|---:|
-| 2020 | 8,863,604,397 | 2,991,123,737 | 5,872,480,660 | 6,790,396,298 | 3,813,626,041 | 2,976,770,257 |
-| 2021 | 7,502,557,188 | 4,115,911,188 | 3,386,646,000 | 8,141,853,195 | 4,970,742,723 | 3,171,110,472 |
-| 2022 | 8,073,527,690 | 3,423,261,990 | 4,650,265,700 | 9,265,992,692 | 5,570,342,073 | 3,695,650,619 |
-| 2023 | 8,850,943,970 | 3,873,115,800 | 4,977,828,170 | 10,760,464,234 | 6,866,021,556 | 3,894,442,677 |
-| 2024 | 9,591,272,140 | 4,244,901,600 | 5,346,370,540 | 10,648,556,021 | 6,037,939,892 | 4,610,616,130 |
-
-### `EXP_FUNC_EDU_EXE` vs `EXP_FUNC_SBN_EDU_EXE` — same `func`=`Education`
-
-- **EXP_FUNC_EDU_EXE** — _Education (COFOG 709)_
-- **EXP_FUNC_SBN_EDU_EXE** — _Subnational: Spending in education_
-- **203,609 raw rows in the intersection.**
-
-**Excel formulas (sample year 2020)**
-```
-EXP_FUNC_EDU_EXE:
-  =SUMIFS(approved_20,year_20,Q$1,transfer_20,"Cu exceptia transferurilor", econ0_20,"Expenditures",func1_20,"0900 Invatamint")
-
-EXP_FUNC_SBN_EDU_EXE:
-  =SUMIFS(approved_20,year_20,Q$1,transfer_20,"Cu exceptia transferurilor", econ0_20,"Expenditures",admin1_20,"locale", func1_20,"0900 Invatamint")
-```
-
-**Per-year totals and gap** — each code's full raw-sheet total for the year; `gap = Σ EXP_FUNC_EDU_EXE − Σ EXP_FUNC_SBN_EDU_EXE`. A positive gap means the first code is larger by that amount.
-
-| year | Σ approved · A | Σ approved · B | gap approved (A−B) | Σ executed · A | Σ executed · B | gap executed (A−B) |
-|---:|---:|---:|---:|---:|---:|---:|
-| 2020 | 13,200,078,170 | 10,237,306,170 | 2,962,772,000 | 12,588,294,771 | 9,911,638,561 | 2,676,656,210 |
-| 2021 | 13,552,781,031 | 10,813,433,931 | 2,739,347,100 | 13,401,920,041 | 10,833,548,396 | 2,568,371,645 |
-| 2022 | 25,551,466,670 | 11,896,042,870 | 13,655,423,800 | 28,038,690,474 | 13,373,129,611 | 14,665,560,863 |
-| 2023 | 31,473,172,600 | 14,419,240,800 | 17,053,931,800 | 33,387,656,876 | 15,848,222,585 | 17,539,434,291 |
-| 2024 | 32,915,187,300 | 15,508,720,100 | 17,406,467,200 | 34,705,008,478 | 16,243,726,764 | 18,461,281,714 |
-
-### `EXP_FUNC_HEA_EXE` vs `EXP_FUNC_SBN_HEA_EXE` — same `func`=`Health`
-
-- **EXP_FUNC_HEA_EXE** — _Health (COFOG 707)_
-- **EXP_FUNC_SBN_HEA_EXE** — _Subnational: Spending in health_
-- **1,263 raw rows in the intersection.**
-
-**Excel formulas (sample year 2020)**
-```
-EXP_FUNC_HEA_EXE:
-  =SUMIFS(approved_20,year_20,Q$1,transfer_20,"Cu exceptia transferurilor",econ0_20,"Expenditures",func1_20,"0700 Ocrotirea sanatatii")
-
-EXP_FUNC_SBN_HEA_EXE:
-  =SUMIFS(approved_20,year_20,Q$1,transfer_20,"Cu exceptia transferurilor", econ0_20,"Expenditures",admin1_20,"locale", func1_20,"0700 Ocrotirea sanatatii")
-```
-
-**Per-year totals and gap** — each code's full raw-sheet total for the year; `gap = Σ EXP_FUNC_HEA_EXE − Σ EXP_FUNC_SBN_HEA_EXE`. A positive gap means the first code is larger by that amount.
-
-| year | Σ approved · A | Σ approved · B | gap approved (A−B) | Σ executed · A | Σ executed · B | gap executed (A−B) |
-|---:|---:|---:|---:|---:|---:|---:|
-| 2020 | 10,064,552,000 | 127,444,800 | 9,937,107,200 | 9,990,801,149 | 175,730,925 | 9,815,070,224 |
-| 2021 | 13,783,303,736 | 164,513,836 | 13,618,789,900 | 13,528,985,184 | 163,964,630 | 13,365,020,554 |
-| 2022 | 14,563,224,800 | 134,611,900 | 14,428,612,900 | 13,242,820,008 | 153,529,142 | 13,089,290,866 |
-| 2023 | 16,148,621,200 | 117,177,300 | 16,031,443,900 | 15,801,467,175 | 112,142,418 | 15,689,324,757 |
-| 2024 | 17,898,261,900 | 84,357,100 | 17,813,904,800 | 17,904,121,162 | 88,550,228 | 17,815,570,934 |
-
-### `EXP_FUNC_AGR_EXE` vs `EXP_FUNC_SBN_AGR_EXE` — siblings under func=`Economic affairs`
-
-- **EXP_FUNC_AGR_EXE** — _Spending in agriculture_
-- **EXP_FUNC_SBN_AGR_EXE** — _Subnational: Spending in agriculture_
-- **2,450 raw rows in the intersection.**
-
-**Excel formulas (sample year 2020)**
-```
-EXP_FUNC_AGR_EXE:
-  =SUMIFS(approved_20,year_20,Q$1,transfer_20,"Cu exceptia transferurilor", econ0_20,"Expenditures",func2_20,"0420 Agricultura, gospodarie silvica, gospodarie piscicola si gospodarie de vinatoare")
-
-EXP_FUNC_SBN_AGR_EXE:
-  =SUMIFS(approved_20,year_20,Q$1,transfer_20,"Cu exceptia transferurilor", econ0_20,"Expenditures",admin1_20,"locale", func2_20,"0420 Agricultura, gospodarie silvica, gospodarie piscicola si gospodarie de vinatoare")
-```
-
-**Per-year totals and gap** — each code's full raw-sheet total for the year; `gap = Σ EXP_FUNC_AGR_EXE − Σ EXP_FUNC_SBN_AGR_EXE`. A positive gap means the first code is larger by that amount.
-
-| year | Σ approved · A | Σ approved · B | gap approved (A−B) | Σ executed · A | Σ executed · B | gap executed (A−B) |
-|---:|---:|---:|---:|---:|---:|---:|
-| 2020 | 1,907,786,820 | 41,973,720 | 1,865,813,100 | 1,739,779,818 | 29,583,343 | 1,710,196,475 |
-| 2021 | 1,858,526,300 | 35,800,900 | 1,822,725,400 | 1,976,833,103 | 30,730,469 | 1,946,102,633 |
-| 2022 | 2,408,914,600 | 32,120,400 | 2,376,794,200 | 2,535,123,360 | 33,183,667 | 2,501,939,693 |
-| 2023 | 2,549,520,700 | 34,539,400 | 2,514,981,300 | 2,752,759,345 | 34,122,639 | 2,718,636,706 |
-| 2024 | 2,782,534,900 | 39,989,200 | 2,742,545,700 | 3,008,946,398 | 36,394,557 | 2,972,551,841 |
+_No SBN overlaps detected._

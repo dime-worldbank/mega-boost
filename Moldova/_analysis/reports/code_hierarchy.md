@@ -2,9 +2,9 @@
 
 Every non-CROSS TAG code mapped to canonical `econ` / `econ_sub` / `func` / `func_sub` labels shared with the other countries in the cross-country aggregate. Review the groupings below and flag anything that should land under a different parent, plus any code flagged in the _Notes_ column.
 
-- Non-CROSS TAG codes in dictionary: **65**
+- Non-CROSS TAG codes in dictionary: **64**
 - `EXP_CROSS_*` codes excluded (double-count with EXP_ECON×EXP_FUNC parents): **86**
-- Meta-rollup codes excluded (EXP_FUNC_ECO_REL_EXE): **1**
+- Meta-rollup codes excluded (EXP_FUNC_ECO_REL_EXE, REV_ECON_TOT_EXE): **2**
 - Codes with a flagged `decompose_notes` entry: **8**
 
 
@@ -161,9 +161,6 @@ Every non-CROSS TAG code mapped to canonical `econ` / `econ_sub` / `func` / `fun
 ### Taxes on goods and services — 1 code(s)
   - **VAT**
     - `REV_ECON_VAT_EXE` — Revenues: VAT
-
-### Total revenue — 1 code(s)
-  - `REV_ECON_TOT_EXE` — Revenues: Total
 
 ### (no assignment yet)
   - `REV_ECON_SBN_OWN_EXE` — Revenues: Subnational own revenues
