@@ -313,6 +313,27 @@ def _load_driver_csv(name: str) -> list[dict]:
         return list(_csv.DictReader(f))
 
 
+# Cache driver CSVs at module scope — each DLT table function used to reload
+# tag_rules.csv and code_dictionary.csv, which is wasteful and adds to driver
+# memory churn. With caching, each CSV is read once per pipeline invocation.
+from functools import lru_cache
+
+
+@lru_cache(maxsize=None)
+def _driver_rules() -> list[dict]:
+    return _load_driver_csv("tag_rules.csv")
+
+
+@lru_cache(maxsize=None)
+def _driver_code_dict() -> list[dict]:
+    return _load_driver_csv("code_dictionary.csv")
+
+
+@lru_cache(maxsize=None)
+def _allowed_codes() -> frozenset:
+    return frozenset(r["code"] for r in _driver_code_dict())
+
+
 def _rules_for_range(all_rules: list[dict], rk: str, code_prefix: str,
                      allowed_codes: set[str]) -> list[dict]:
     """Rules for range `rk` whose code starts with `code_prefix` (EXP_ECON_ /
@@ -380,37 +401,60 @@ def _tagged_revenue_per_range(rk: str, all_rules: list[dict],
     return df
 
 
+# One silver table per year-range keeps each Spark plan (and its Python-side
+# build) small — essential for driver memory on modest clusters. The user-
+# facing `mda_expenditure_silver` / `mda_revenue_silver` tables below just
+# union the pre-materialised per-range silvers, which is a near-free plan.
+
+@dlt.table(name="mda_expenditure_silver_base",
+           comment="Per-row EXP silver for the 2006-15 raw sheet. "
+                   "econ_code / func_code assigned by first-matching tag rule.")
+def expenditure_silver_base():
+    return _tagged_expenditure_per_range("base", _driver_rules(), _allowed_codes())
+
+
+@dlt.table(name="mda_expenditure_silver_16",
+           comment="Per-row EXP silver for the 2016-19 raw sheet.")
+def expenditure_silver_16():
+    return _tagged_expenditure_per_range("16", _driver_rules(), _allowed_codes())
+
+
+@dlt.table(name="mda_expenditure_silver_20",
+           comment="Per-row EXP silver for the 2020-24 raw sheet.")
+def expenditure_silver_20():
+    return _tagged_expenditure_per_range("20", _driver_rules(), _allowed_codes())
+
+
 @dlt.table(name="mda_expenditure_silver",
-           comment="One row per raw expenditure record with econ_code and "
-                   "func_code assigned by first-matching tag rule in workbook "
-                   "sheet-row order. Unmatched rows kept with NULL code.")
+           comment="Union of the three per-range EXP silvers. One row per "
+                   "raw expenditure record; econ_code / func_code from the "
+                   "first-matching tag rule in workbook sheet-row order.")
 def expenditure_silver():
-    all_rules = _load_driver_csv("tag_rules.csv")
-    allowed = {r["code"] for r in _load_driver_csv("code_dictionary.csv")}
-    per_range = []
-    for rk in RANGE_CONFIG:
-        per_range.append(_tagged_expenditure_per_range(rk, all_rules, allowed))
-    return reduce(lambda a, b: a.unionByName(b, allowMissingColumns=True), per_range)
+    return (dlt.read("mda_expenditure_silver_base")
+            .unionByName(dlt.read("mda_expenditure_silver_16"), allowMissingColumns=True)
+            .unionByName(dlt.read("mda_expenditure_silver_20"), allowMissingColumns=True))
+
+
+@dlt.table(name="mda_revenue_silver_16",
+           comment="Per-row REV silver for the 2016-19 raw sheet. Pre-2016 "
+                   "excluded (workbook has no revenue rows before 2016).")
+def revenue_silver_16():
+    return _tagged_revenue_per_range("16", _driver_rules(), _allowed_codes())
+
+
+@dlt.table(name="mda_revenue_silver_20",
+           comment="Per-row REV silver for the 2020-24 raw sheet.")
+def revenue_silver_20():
+    return _tagged_revenue_per_range("20", _driver_rules(), _allowed_codes())
 
 
 @dlt.table(name="mda_revenue_silver",
-           comment="One row per raw revenue record with econ_code assigned "
-                   "by first-matching REV_ECON_* rule. Pre-2016 excluded "
-                   "(workbook has no revenue rows before 2016).")
+           comment="Union of the two per-range REV silvers. One row per raw "
+                   "revenue record with econ_code from the first-matching "
+                   "REV_ECON_* rule.")
 def revenue_silver():
-    all_rules = _load_driver_csv("tag_rules.csv")
-    allowed = {r["code"] for r in _load_driver_csv("code_dictionary.csv")}
-    per_range = []
-    for rk in RANGE_CONFIG:
-        df = _tagged_revenue_per_range(rk, all_rules, allowed)
-        if df is not None:
-            per_range.append(df)
-    if not per_range:
-        # Defensive: no range carries revenue. Emit an empty frame with the
-        # expected columns so downstream consumers don't break.
-        return dlt.read(RANGE_CONFIG["16"]["bronze"]).limit(0) \
-            .withColumn("econ_code", lit(None).cast("string"))
-    return reduce(lambda a, b: a.unionByName(b, allowMissingColumns=True), per_range)
+    return (dlt.read("mda_revenue_silver_16")
+            .unionByName(dlt.read("mda_revenue_silver_20"), allowMissingColumns=True))
 
 
 # ---------- Gold ----------
@@ -420,7 +464,7 @@ def _code_dict_splits() -> tuple[DataFrame, DataFrame]:
     from `code_dictionary.csv` split by `tag_kind`. Revenue and expenditure
     econ labels share the same table because both sit under `tag_kind`
     prefix `EXP_ECON`/`REV_ECON`."""
-    rows = _load_driver_csv("code_dictionary.csv")
+    rows = _driver_code_dict()
     econ_rows = [
         {"econ_code": r["code"], "econ": r["econ"] or None,
          "econ_sub": r["econ_sub"] or None}
