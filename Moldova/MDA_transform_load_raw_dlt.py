@@ -425,16 +425,6 @@ def expenditure_silver_20():
     return _tagged_expenditure_per_range("20", _driver_rules(), _allowed_codes())
 
 
-@dlt.table(name="mda_expenditure_silver",
-           comment="Union of the three per-range EXP silvers. One row per "
-                   "raw expenditure record; econ_code / func_code from the "
-                   "first-matching tag rule in workbook sheet-row order.")
-def expenditure_silver():
-    return (dlt.read("mda_expenditure_silver_base")
-            .unionByName(dlt.read("mda_expenditure_silver_16"), allowMissingColumns=True)
-            .unionByName(dlt.read("mda_expenditure_silver_20"), allowMissingColumns=True))
-
-
 @dlt.table(name="mda_revenue_silver_16",
            comment="Per-row REV silver for the 2016-19 raw sheet. Pre-2016 "
                    "excluded (workbook has no revenue rows before 2016).")
@@ -447,14 +437,10 @@ def revenue_silver_16():
 def revenue_silver_20():
     return _tagged_revenue_per_range("20", _driver_rules(), _allowed_codes())
 
-
-@dlt.table(name="mda_revenue_silver",
-           comment="Union of the two per-range REV silvers. One row per raw "
-                   "revenue record with econ_code from the first-matching "
-                   "REV_ECON_* rule.")
-def revenue_silver():
-    return (dlt.read("mda_revenue_silver_16")
-            .unionByName(dlt.read("mda_revenue_silver_20"), allowMissingColumns=True))
+# No union silvers: a pre-unioned `mda_expenditure_silver` / `mda_revenue_silver`
+# would just materialise a cheap unionByName a second time. Gold reads the
+# three per-range silvers directly and unions them there — one fewer
+# materialisation hop, same output.
 
 
 # ---------- Gold ----------
@@ -493,10 +479,14 @@ def _derive_admin0(admin1_col: str):
 @dlt.table(name="mda_boost_gold",
            comment="Moldova BOOST expenditure gold — one row per raw "
                    "expenditure record with econ/func labels via "
-                   "code_dictionary join. Schema matches "
+                   "code_dictionary join. Unions the three per-range "
+                   "expenditure silvers directly (no intermediate union "
+                   "silver table). Schema matches "
                    "cross_country_aggregate_dlt.boost_gold.")
 def boost_gold():
-    silver = dlt.read("mda_expenditure_silver")
+    silver = (dlt.read("mda_expenditure_silver_base")
+              .unionByName(dlt.read("mda_expenditure_silver_16"), allowMissingColumns=True)
+              .unionByName(dlt.read("mda_expenditure_silver_20"), allowMissingColumns=True))
     econ_df, func_df = _code_dict_splits()
 
     # Admin mapping rationale:
