@@ -287,10 +287,16 @@ def s_rev_20():   return _silver("20", "REV")
 # ---------- gold ----------
 
 def _admin0():
-    lc = lower(col("admin1"))
-    return (when(lc.isin(["central", "centrale", "centrala"]), lit("Central"))
-            .when(lc.isin(["local", "locale"]), lit("Regional"))
-            .otherwise(col("admin1")))
+    """Binarise to the boost_gold admin0 vocabulary (Central / Regional),
+    matching the Central-vs-else convention used in
+    `cross_country_aggregate_dlt.py` for geo0. Anything that isn't one of
+    Moldova's Central-spelled variants (Central / Centrale / Centrala) is
+    classified Regional — collapses the rare `Other` admin1 value (44
+    rows in 2016-19) into Regional rather than leaking it into the
+    published table."""
+    return (when(lower(col("admin1")).isin(["central", "centrale", "centrala"]),
+                 lit("Central"))
+            .otherwise(lit("Regional")))
 
 
 @dlt.table(
