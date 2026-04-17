@@ -30,8 +30,8 @@ from pathlib import Path
 from openpyxl import load_workbook
 from openpyxl.utils import column_index_from_string
 
-XLSX = Path("/Users/ysuzuki2/Developer/mega-boost/temp/Moldova BOOST.xlsx")
-ROOT = Path("/Users/ysuzuki2/Developer/mega-boost/Moldova/_analysis")
+ROOT = Path(__file__).resolve().parent.parent          # Moldova/_analysis
+XLSX = ROOT.parent.parent / "temp" / "Moldova BOOST.xlsx"
 OUT = ROOT / "data"
 OUT.mkdir(parents=True, exist_ok=True)
 

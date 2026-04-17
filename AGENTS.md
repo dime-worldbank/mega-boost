@@ -61,8 +61,23 @@ fails or produces wrong results for this country.
 ```
 
 Copy `Zimbabwe/_analysis/scripts/*.py` and the `README.md` over.
-Update the hardcoded `ROOT = Path(".../Zimbabwe/_analysis")` to this
-country's folder. Also update the XLSX path in each script.
+
+**Resolve paths relative to `__file__`**, not absolute:
+
+```python
+ROOT = Path(__file__).resolve().parent.parent          # <Country>/_analysis
+XLSX = ROOT.parent.parent / "temp" / "<Country> BOOST.xlsx"
+```
+
+Absolute paths like `Path("/Users/…/Zimbabwe/_analysis")` break as soon
+as the repo is checked out somewhere else — another dev machine, CI,
+Databricks Repos — and on Databricks you can only reliably reference
+files in the same repo folder. `__file__`-relative resolution works
+everywhere. Same pattern applies to the DLT notebook's driver-CSV
+lookup (see `Moldova/MDA_transform_load_raw_dlt.py:ANALYSIS_DIR`).
+
+Also update the XLSX filename (`Zimbabwe BOOST.xlsx` → actual filename)
+and any hard-coded country-name strings in script comments / docstrings.
 
 ### Phase 1 — Workbook reconnaissance
 

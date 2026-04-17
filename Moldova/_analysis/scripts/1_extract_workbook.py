@@ -17,8 +17,10 @@ from pathlib import Path
 
 from openpyxl import load_workbook
 
-XLSX = Path("/Users/ysuzuki2/Developer/mega-boost/temp/Moldova BOOST.xlsx")
-ROOT = Path("/Users/ysuzuki2/Developer/mega-boost/Moldova/_analysis")
+# Resolve paths relative to this file so the script works from any
+# checkout location (local dev, CI, Databricks Repos).
+ROOT = Path(__file__).resolve().parent.parent          # Moldova/_analysis
+XLSX = ROOT.parent.parent / "temp" / "Moldova BOOST.xlsx"
 OUT = ROOT / "data"
 OUT.mkdir(parents=True, exist_ok=True)
 
