@@ -136,16 +136,40 @@ def _code_dict() -> list[dict]:   return _load_csv("code_dictionary.csv")
 def _allowed() -> frozenset:      return frozenset(r["code"] for r in _code_dict())
 
 
+@lru_cache(maxsize=None)
+def _code_has_sub() -> dict:
+    """For each dictionary code, whether its sub label is populated.
+    EXP_ECON / REV_ECON check `econ_sub`; EXP_FUNC checks `func_sub`.
+    Used as the primary sort key in `_rules_for` so sub-level rules win
+    priority over rollup rules — otherwise early-sheet rollups (WAG_BIL,
+    CAP_EXP, USE_GOO_SER) eat rows before later sub-level codes
+    (SOC_ASS, PEN_CON, REC_MAI, …) can match, leaving `econ_sub` /
+    `func_sub` mostly NULL."""
+    out = {}
+    for r in _code_dict():
+        if r["tag_kind"] in ("EXP_ECON", "REV_ECON"):
+            out[r["code"]] = bool(r.get("econ_sub"))
+        elif r["tag_kind"] == "EXP_FUNC":
+            out[r["code"]] = bool(r.get("func_sub"))
+        else:
+            out[r["code"]] = False
+    return out
+
+
 def _rules_for(rk: str, prefix: str) -> list[dict]:
     """TAG rules dispatched to range `rk` whose code has the given prefix and
     is present in code_dictionary (excludes CROSS and meta-rollups).
-    Ordered by workbook sheet row — the SME's authoritative priority."""
+    Ordered by (sub-level first, then workbook sheet row) — sub-level rules
+    win priority over rollup rules so `econ_sub` / `func_sub` actually get
+    populated; the original SME sheet order is the tie-breaker within each
+    group."""
     allowed = _allowed()
+    has_sub = _code_has_sub()
     rules = [r for r in _rules()
              if r["row_type"] == "TAG" and r["sheet"] == "Approved"
              and _classify(r["measure"]) == rk
              and r["code"].startswith(prefix) and r["code"] in allowed]
-    return sorted(rules, key=lambda r: int(r["row"]))
+    return sorted(rules, key=lambda r: (not has_sub.get(r["code"], False), int(r["row"])))
 
 
 # ---------- cascade builder ----------

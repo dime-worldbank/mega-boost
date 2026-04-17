@@ -378,11 +378,15 @@ silver's `_rule_match_expr` OR's across branches. Don't collapse this
 back to a single-criterion rule; you'll miss rows the Excel formula
 captures via the second SUMIFS.
 
-**Priority (= code order) is intentional.** When two rules share rows,
-the earlier-in-sheet rule wins the tag. `reports/overlap_report.md` is
-the audit artifact that surfaces these tie-breaks so the SME can
-confirm or reorder — do **not** re-sort rules by specificity or try to
-resolve overlaps in code.
+**Priority: sub-level first, sheet order as tiebreaker.** Within a
+cascade, rules whose dictionary entry has a non-null `econ_sub` (or
+`func_sub`) come first; plain rollup rules fill the remainder in the
+SME's sheet order. Without this, rollups that live early in the sheet
+(`WAG_BIL`, `CAP_EXP`, `USE_GOO_SER`) scoop up rows before the later
+sub-level codes (`SOC_ASS`, `PEN_CON`, `REC_MAI`, …) get a chance to
+match, leaving `econ_sub` / `func_sub` mostly NULL. The SME still
+controls ordering within each group, and `reports/overlap_report.md`
+continues to surface conflicts for triage.
 
 **Unmatched rows stay in silver with code=NULL.** A row that passes the
 uniform filter but no cascade rule matches surfaces as a coverage hole
