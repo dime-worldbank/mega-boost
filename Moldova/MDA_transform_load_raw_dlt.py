@@ -34,25 +34,56 @@ Raw admin1 is just the Central/Local flag; the 142 distinct entity
 names (district councils, ministries, committees) live in raw admin2.
 """
 import json
+import os
 from functools import lru_cache, reduce
 from operator import and_, or_
 from pathlib import Path
 
-import dlt
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import broadcast, col, lit, lower, when
 
+IS_DATABRICKS = "DATABRICKS_RUNTIME_VERSION" in os.environ
 
 COUNTRY = "Moldova"
-MICRODATA_DIR = f"/Volumes/prd_mega/sboost4/vboost4/Workspace/microdata_csv/{COUNTRY}"
-# Driver CSVs (tag_rules.csv, code_dictionary.csv) live alongside this
-# notebook — Databricks repos only reliably address files in the same
-# folder, and keeping them co-located makes the pipeline self-contained.
-# The `_onboarding/` folder carries every other analysis artefact (raw
-# reports, auxiliary CSVs, the offline scripts) and is not required at
-# pipeline run-time.
-DRIVER_DIR = (Path(__file__).resolve().parent
-              if "__file__" in globals() else Path("Moldova"))
+
+# Runtime setup differs between Databricks (DLT notebook) and local
+# PySpark. Driver CSVs (tag_rules.csv, code_dictionary.csv) live next to
+# this file in both cases; the `_onboarding/` folder carries the rest of
+# the analysis artefacts and isn't required at pipeline run-time.
+if IS_DATABRICKS:
+    import dlt  # noqa: F401 — injected by the DLT runtime
+    # Databricks Repos notebooks resolve relative paths against their own
+    # folder, so `.` points at the driver CSVs co-located with this file.
+    # `Path(__file__)` is not reliable in the DLT runtime.
+    DRIVER_DIR = "."
+    MICRODATA_DIR = f"/Volumes/prd_mega/sboost4/vboost4/Workspace/microdata_csv/{COUNTRY}"
+else:
+    # Local PySpark run. `dlt` doesn't exist off-Databricks — stub a tiny
+    # replacement so the same `@dlt.table`-decorated functions work: the
+    # decorator registers the factory; `dlt.read(name)` materialises and
+    # caches the referenced frame on first access. See `Moldova/README.md`
+    # for run instructions.
+    class _LocalDLT:
+        def __init__(self):
+            self._fns, self._cache = {}, {}
+        def table(self, name=None, **_ignored):
+            def deco(fn):
+                self._fns[name or fn.__name__] = fn
+                return fn
+            return deco
+        def read(self, name):
+            if name not in self._cache:
+                self._cache[name] = self._fns[name]()
+            return self._cache[name]
+    dlt = _LocalDLT()
+    DRIVER_DIR = str(Path(__file__).resolve().parent)
+    MICRODATA_DIR = os.environ.get(
+        "MICRODATA_DIR",
+        str(Path(__file__).resolve().parent / "_onboarding" / "raw_csv"),
+    )
+    spark = (SparkSession.builder.appName(f"{COUNTRY}_BOOST_local")
+             .config("spark.sql.session.timeZone", "UTC")
+             .getOrCreate())
 # NOTE: pinned bronze schemas were removed because they dropped 2020-24
 # data on Databricks — the CSV column layout the extract script produces
 # didn't match a static schema in at least one range, and Spark quietly
@@ -99,7 +130,7 @@ def _classify(measure: str) -> str | None:
 
 def _load_csv(name: str) -> list[dict]:
     import csv as _csv
-    with open(DRIVER_DIR / name) as f:
+    with open(f"{DRIVER_DIR}/{name}") as f:
         return list(_csv.DictReader(f))
 
 
@@ -362,3 +393,19 @@ def boost_gold():
                 col("revised").cast("double"),
                 col("executed").cast("double"),
             ))
+
+
+# ---------- local entrypoint ----------
+# On Databricks the DLT runtime invokes each @dlt.table; locally the
+# stub above only registers them. Running this file directly triggers
+# the whole cascade via `dlt.read("mda_boost_gold")` and writes the
+# result to `LOCAL_GOLD_OUT` (default: _onboarding/reports/local_gold.parquet).
+
+if __name__ == "__main__" and not IS_DATABRICKS:
+    out = os.environ.get(
+        "LOCAL_GOLD_OUT",
+        str(Path(__file__).resolve().parent / "_onboarding" / "reports" / "local_gold.parquet"),
+    )
+    gold = dlt.read("mda_boost_gold")
+    gold.write.mode("overwrite").parquet(out)
+    print(f"Wrote {gold.count():,} rows → {out}")
