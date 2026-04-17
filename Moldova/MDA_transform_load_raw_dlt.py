@@ -288,15 +288,14 @@ def s_rev_20():   return _silver("20", "REV")
 
 def _admin0():
     """Binarise to the boost_gold admin0 vocabulary (Central / Regional),
-    matching the Central-vs-else convention used in
-    `cross_country_aggregate_dlt.py` for geo0. Anything that isn't one of
-    Moldova's Central-spelled variants (Central / Centrale / Centrala) is
-    classified Regional — collapses the rare `Other` admin1 value (44
-    rows in 2016-19) into Regional rather than leaking it into the
-    published table."""
-    return (when(lower(col("admin1")).isin(["central", "centrale", "centrala"]),
-                 lit("Central"))
-            .otherwise(lit("Regional")))
+    matching the default-Central convention used across most of the repo
+    (Kenya, Bangladesh, Liberia, South Africa — `.otherwise('Central')`).
+    Flag the explicit Regional signal (Moldova's local-government values)
+    and let everything else — Central / Centrale / Centrala / Other /
+    any future spelling — fall through to Central."""
+    return (when(lower(col("admin1")).isin(["local", "locale"]),
+                 lit("Regional"))
+            .otherwise(lit("Central")))
 
 
 @dlt.table(

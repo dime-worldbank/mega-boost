@@ -221,9 +221,8 @@ def main() -> None:
 
     def _admin0(v):
         s = str(v).lower() if pd.notna(v) else None
-        if s in ("central", "centrale", "centrala"): return "Central"
-        if s in ("local", "locale"):                  return "Regional"
-        return v
+        if s in ("local", "locale"): return "Regional"
+        return "Central"  # default Central (matches Kenya/Bangladesh/etc.)
     exp_silver["admin0"] = exp_silver["admin1"].map(_admin0)
     raw_admin2 = exp_silver["admin2"] if "admin2" in exp_silver.columns else pd.Series([None]*len(exp_silver))
     exp_silver["admin1"] = raw_admin2.where(exp_silver["admin0"] == "Regional", None)
