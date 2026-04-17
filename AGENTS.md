@@ -393,6 +393,40 @@ gold so NULL codes become NULL labels — visible in the output.
 discrepancy review runs in local testing, not as part of the Spark
 pipeline — keep the DLT file strictly bronze/silver/gold.
 
+**Pin types explicitly on the final gold select.**
+[cross_country_aggregate_dlt.py:40](cross_country_aggregate_dlt.py#L40)
+asserts that every country's `{iso}_boost_gold` has `approved` and
+`executed` as `DoubleType` and hard-fails the whole cross-country union
+otherwise. Even when bronze already uses `DoubleType`, intermediate
+ops (joins, NULL coercion under `unionByName(allowMissingColumns=True)`,
+etc.) can shift types — so cast every output column on the final
+`.select(...)`:
+
+```python
+.select(
+    col("country_name").cast("string"),
+    col("year").cast("int"),
+    col("admin0").cast("string"), col("admin1").cast("string"),
+    col("admin2").cast("string"), col("geo0").cast("string"),
+    col("geo1").cast("string"),
+    col("func").cast("string"), col("func_sub").cast("string"),
+    col("econ").cast("string"), col("econ_sub").cast("string"),
+    col("approved").cast("double"),
+    col("revised").cast("double"),
+    col("executed").cast("double"),
+)
+```
+
+Same pattern Kenya uses at [Kenya/KEN_transform_load_dlt.py:236](Kenya/KEN_transform_load_dlt.py#L236)
+and Moldova at [Moldova/MDA_transform_load_raw_dlt.py](Moldova/MDA_transform_load_raw_dlt.py).
+
+**Also pin the bronze schemas.** Pass a `StructType` via
+`spark.read.format("csv").schema(...)` and drop `inferSchema=true`.
+`inferSchema` re-scans the full CSV on the driver just to guess types
+(~1 GB of driver memory on a 186 MB file — a real OOM risk on modest
+clusters), and any misguess propagates through silver into gold where
+the cross-country type assertion catches it anyway.
+
 ### Phase 8 — Discrepancy review (local)
 
 Run the discrepancy review as a local test (not inside the DLT
@@ -522,3 +556,9 @@ Only when all boxes are ticked should the PR be opened.
     blocks. Only extracting the first SUMIFS silently undercounts
     whatever the second block covers. `criteria_json` must be a
     list-of-lists.
+13. **Shipping the gold table without explicit type casts.** The
+    cross-country aggregator asserts `approved` and `executed` are
+    `DoubleType`. Bronze alone isn't enough — the final `gold.select(...)`
+    must cast every column, or a silent type drift through
+    joins/unions will fail the aggregator's assertion and block the
+    country from merging.
