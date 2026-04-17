@@ -40,8 +40,9 @@ from pathlib import Path
 
 import dlt
 from pyspark.sql import DataFrame
-from pyspark.sql.functions import (
-    col, concat, lit, lower, monotonically_increasing_id, when,
+from pyspark.sql.functions import broadcast, col, lit, lower, when
+from pyspark.sql.types import (
+    DoubleType, IntegerType, StringType, StructField, StructType,
 )
 
 
@@ -49,9 +50,38 @@ COUNTRY = "Moldova"
 MICRODATA_DIR = f"/Volumes/prd_mega/sboost4/vboost4/Workspace/microdata_csv/{COUNTRY}"
 ANALYSIS_DIR = (Path(__file__).resolve().parent / "_analysis" / "data"
                 if "__file__" in globals() else Path("Moldova/_analysis/data"))
-CSV_OPTS = {"header": "true", "multiline": "true", "quote": '"',
-            "escape": '"', "inferSchema": "true"}
+# Explicit schemas for the raw CSVs — skips the full-file scan that
+# `inferSchema=true` would run on the driver (≈1 GB / scan on the 186 MB
+# 2016-19 sheet) and guarantees stable types across runs.
+CSV_OPTS = {"header": "true", "multiline": "true", "quote": '"', "escape": '"'}
 TRANSFER_KEEP = {"excluding transfers", "cu exceptia transferurilor"}
+
+_NUMERIC = {"year": IntegerType(), "approved": DoubleType(),
+            "executed": DoubleType(), "revised": DoubleType(),
+            "adjusted": DoubleType()}
+
+
+def _schema(cols: list[str]) -> StructType:
+    return StructType([StructField(c, _NUMERIC.get(c, StringType())) for c in cols])
+
+
+SCHEMA_BASE = _schema([
+    "year", "admin1", "func1", "func2", "econ1", "econ2",
+    "exp_type", "transfer", "approved", "adjusted", "executed",
+])
+SCHEMA_16 = _schema([
+    "year", "admin1", "admin2", "func1", "func2", "func3",
+    "econ0", "econ1", "econ2", "econ3", "econ4", "econ5", "econ6",
+    "exp_type", "transfer", "fin_source1",
+    "approved", "revised", "executed",
+    "program1", "program2", "activity",
+])
+SCHEMA_20 = _schema([
+    "year", "admin1", "admin2", "func1", "func2", "func3",
+    "econ0", "econ1", "econ2", "econ3", "econ4", "econ5", "econ6",
+    "exp_type", "transfer", "fin_source1",
+    "approved", "adjusted", "executed",
+])
 
 # Named-range → raw-column mapping per year-range sheet. 2016-19 has
 # `revised` + program/activity; 2020-24 has `adjusted` instead.
@@ -68,14 +98,14 @@ MAP_20 = {**{f"{f}_20": f for f in _WIDE_FIELDS}, "adjusted_20": "adjusted"}
 
 RANGES = {
     "base": {"csv": "2006-15.csv", "bronze": "mda_raw_2006_15_bronze",
-             "map": MAP_BASE, "transfer_key": "transfer",
-             "econ0_key": None, "id": "mda_base_"},
+             "map": MAP_BASE, "schema": SCHEMA_BASE, "transfer_key": "transfer",
+             "econ0_key": None},
     "16":   {"csv": "2016-19.csv", "bronze": "mda_raw_2016_19_bronze",
-             "map": MAP_16,   "transfer_key": "transfer_16",
-             "econ0_key": "econ0_16", "id": "mda_16_"},
+             "map": MAP_16,   "schema": SCHEMA_16,   "transfer_key": "transfer_16",
+             "econ0_key": "econ0_16"},
     "20":   {"csv": "2020-24.csv", "bronze": "mda_raw_2020_24_bronze",
-             "map": MAP_20,   "transfer_key": "transfer_20",
-             "econ0_key": "econ0_20", "id": "mda_20_"},
+             "map": MAP_20,   "schema": SCHEMA_20,   "transfer_key": "transfer_20",
+             "econ0_key": "econ0_20"},
 }
 
 
@@ -197,9 +227,12 @@ def _cascade(df: DataFrame, rules: list[dict], mapping: dict, out: str) -> DataF
 # ---------- bronze / silver factories ----------
 
 def _bronze(rk: str) -> DataFrame:
+    """Load raw CSV with a pinned schema — no driver-side inferSchema pass,
+    no synthetic `id` column (gold doesn't need one)."""
     cfg = RANGES[rk]
-    df = spark.read.format("csv").options(**CSV_OPTS).load(f"{MICRODATA_DIR}/{cfg['csv']}")
-    return df.withColumn("id", concat(lit(cfg["id"]), monotonically_increasing_id()))
+    return (spark.read.format("csv").options(**CSV_OPTS)
+            .schema(cfg["schema"])
+            .load(f"{MICRODATA_DIR}/{cfg['csv']}"))
 
 
 def _silver(rk: str, kind: str) -> DataFrame | None:
@@ -285,9 +318,11 @@ def boost_gold():
          "func_sub": r["func_sub"] or None}
         for r in rows if r["tag_kind"] == "EXP_FUNC"
     ])
+    # Lookup tables are tiny (~60 rows) — broadcast-join so Spark skips the
+    # shuffle it would otherwise do on the per-row silver (~1.36M rows).
     return (silver
-            .join(econ_df, "econ_code", "left")
-            .join(func_df, "func_code", "left")
+            .join(broadcast(econ_df), "econ_code", "left")
+            .join(broadcast(func_df), "func_code", "left")
             .withColumn("country_name", lit("Moldova"))
             .withColumn("admin0", _admin0())
             # Admin1/2 carry the entity name (district or ministry) from raw
