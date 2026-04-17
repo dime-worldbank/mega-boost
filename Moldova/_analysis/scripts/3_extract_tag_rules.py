@@ -129,44 +129,79 @@ def extract_sumifs_blocks(formula: str) -> list[str]:
     return blocks
 
 
-def _parse_one_block(block: str) -> tuple[str, list[dict]]:
-    """Parse a single SUMIFS(...) inner arg-string into (measure, criteria)."""
+def _split_array_constant(raw: str) -> list[str]:
+    """Split `{"a","b","c"}` into its string elements, respecting quoted commas."""
+    inner = raw.strip()[1:-1]  # drop { }
+    parts = []
+    buf = []
+    in_str = False
+    for ch in inner:
+        if ch == '"':
+            in_str = not in_str
+            buf.append(ch)
+        elif ch == "," and not in_str:
+            parts.append("".join(buf).strip())
+            buf = []
+        else:
+            buf.append(ch)
+    if buf:
+        parts.append("".join(buf).strip())
+    return parts
+
+
+def _parse_one_block(block: str) -> tuple[str, list[list[dict]]]:
+    """Parse a single SUMIFS(...) block. Each (field, value-or-array) pair
+    becomes one or more criteria options; array constants like
+    `{"A","B","C"}` expand to N alternatives. The cartesian product across
+    criteria yields a list of criterion-lists — `SUMIFS(…, econ2, {"A","B"})`
+    becomes two branches (one with `econ2 = "A"`, one with `econ2 = "B"`)
+    because Excel applies SUMIFS once per array element and the caller sums
+    the results.
+
+    Returns (measure, branches). An empty `branches` list means the block
+    couldn't be parsed cleanly."""
+    from itertools import product
+
     args = split_sumifs_args(block)
     if len(args) < 3:
         return args[0] if args else "", []
     measure = args[0]
-    criteria = []
+
+    per_criterion: list[list[dict]] = []
     for k in range(1, len(args) - 1, 2):
         field = args[k].strip()
         raw_value = args[k + 1].strip()
-        op, lit = parse_criterion(raw_value)
-        criteria.append({"field": field, "op": op, "value": lit})
-    return measure, criteria
+        if raw_value.startswith("{") and raw_value.endswith("}"):
+            elements = _split_array_constant(raw_value)
+            opts = []
+            for elem in elements:
+                op, lit = parse_criterion(elem)
+                opts.append({"field": field, "op": op, "value": lit})
+            per_criterion.append(opts)
+        else:
+            op, lit = parse_criterion(raw_value)
+            per_criterion.append([{"field": field, "op": op, "value": lit}])
+
+    branches = [list(combo) for combo in product(*per_criterion)]
+    return measure, branches
 
 
 def parse_criteria(formula: str) -> tuple[str, list[list[dict]], list[str]]:
-    """Parse every SUMIFS block in a formula. Excel cells that combine SUMIFS
-    via addition (`=SUMIFS(…) + SUMIFS(…)`) are logically OR'd — a raw row
-    contributes to the cell total if it matches ANY SUMIFS block. We capture
-    all blocks here so downstream silver-layer tagging can honour that OR.
+    """See the original docstring for the OR-across-blocks semantics.
 
-    Returns `(primary_measure, criteria_groups, measures_per_block)`:
-      - `primary_measure`: first block's measure — determines which raw sheet
-        the rule dispatches to
-      - `criteria_groups`: list of criterion-lists, one per SUMIFS block.
-        A rule matches a row if ANY inner list fully matches.
-      - `measures_per_block`: one measure per block, flagged if a later block
-        uses a different measure (rare; mostly happens with `'Raw2'!$F:$F`
-        supplements, which the pipeline can't evaluate cleanly)."""
+    Returns `(primary_measure, criteria_groups, measures_per_block)` where
+    `criteria_groups` is a FLAT list of all branches (block-level OR + any
+    array-constant expansion). A raw row satisfies the rule when any single
+    inner list's criteria all match."""
     blocks = extract_sumifs_blocks(formula)
     if not blocks:
         return "", [], []
     groups: list[list[dict]] = []
     measures: list[str] = []
     for blk in blocks:
-        m, crits = _parse_one_block(blk)
-        if crits:
-            groups.append(crits)
+        m, branches = _parse_one_block(blk)
+        if branches:
+            groups.extend(branches)
         measures.append(m)
     primary = measures[0] if measures else ""
     return primary, groups, measures
