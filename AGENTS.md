@@ -429,6 +429,19 @@ report is clean and discrepancy review is below 5%.
   it from admin1 values, some only have Central.
 - **Year span & column layout** — wide vs. long format.
 - **Missing-value markers** — `..`, `—`, blank, `N/A`.
+- **Hidden supplemental sheets** — Moldova's workbook has a hidden
+  `Raw2` sheet (admin6 schema, no econ0) referenced by ~40 formulas as a
+  `+ SUM(SUMIFS('Raw2'!…))` supplement. These can be surfaced by
+  `openpyxl`'s `sheet_state == 'hidden'`. If the supplement is small the
+  pragmatic choice is to skip it and document the coverage gap in
+  `parsing_verification.md` and the DLT header (Moldova's approach). If
+  it matters for downstream numbers, add a fourth bronze + mapping.
+- **Cell-arithmetic around SUMIFS** — `=SUMIFS(…) - C19` subtracts a
+  sibling cell's value to disambiguate sub-categories. The parser only
+  captures the SUMIFS; the `-cell_ref` is silently dropped. Surfaces as
+  a MISMATCH in `reports/parsing_verification.md`. Resolution is either
+  SME-side (split the combined formula into two codes) or a parser
+  extension that evaluates referenced cells.
 
 See the "Country-Specific Pitfalls" section of each country's folder and
 [Albania/ALB_transform_load_raw_dlt.py](Albania/ALB_transform_load_raw_dlt.py) /

@@ -15,6 +15,27 @@
 # `econ0_* = "Revenues"` criterion to distinguish revenue rows. Pre-2016
 # has no econ0 column and no revenue coverage in the workbook.
 #
+# NOT MODELLED (documented coverage gaps):
+#
+#   - Hidden `Raw2` sheet. A handful of tag rules (≈40 formulas) add a
+#     `+ SUM(SUMIFS('Raw2'!$F:$F, …))` supplement to their primary SUMIFS,
+#     pulling extra rows from a hidden 7-column sheet whose schema
+#     (`admin6` instead of `admin1`, no `econ0`) doesn't cleanly union
+#     with the three main raw sheets. The Raw2 branch's contribution is
+#     silently dropped, which causes `EXP_FUNC_WAT_SAN_EXE` and a couple
+#     of `EXP_CROSS_*` codes to undercount (see
+#     `_analysis/reports/parsing_verification.md`). Resolution is either
+#     SME-side (merge Raw2 upstream into the main sheets) or a pipeline
+#     refactor to support a fourth bronze with its own mapping.
+#
+#   - Cell-subtraction (`=SUMIFS(…) - C19`). A few tag rows adjust the
+#     SUMIFS result by subtracting a sibling cell's value to avoid
+#     double-counting a specific sub-category. The parser captures the
+#     SUMIFS but drops the `-cell_ref`, so silver overcounts for the
+#     affected codes (SOC_ASS, PUB_SAF, SOC_PRO). Resolution: either
+#     split these codes into two rules in the workbook, or add a cell-ref
+#     evaluation step to the parser.
+#
 # SILVER — per-row if-else tagging (Albania pattern).
 # ------------------------------------------------------------------
 # Each raw expenditure row is tagged with:
