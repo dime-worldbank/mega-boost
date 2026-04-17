@@ -1,520 +1,305 @@
 # Databricks notebook source
-# Moldova BOOST DLT pipeline.
-#
-# Moldova splits raw microdata across three year-range sheets (`2006-15`,
-# `2016-19`, `2020-24`) with different column schemas and bilingual filter
-# values (English pre-2016, Romanian 2016+). Each tag rule in `tag_rules.csv`
-# carries a `measure` field that dispatches the rule to the correct raw
-# sheet:
-#
-#   measure ∈ {approved, executed}            → 2006-15 bronze
-#   measure ∈ {approved_16, executed_16}      → 2016-19 bronze
-#   measure ∈ {approved_20, executed_20}      → 2020-24 bronze
-#
-# Revenue rules live in the same raw sheets; 2016+ variants add an
-# `econ0_* = "Revenues"` criterion to distinguish revenue rows. Pre-2016
-# has no econ0 column and no revenue coverage in the workbook.
-#
-# NOT MODELLED (documented coverage gaps):
-#
-#   - Hidden `Raw2` sheet. A handful of tag rules (≈40 formulas) add a
-#     `+ SUM(SUMIFS('Raw2'!$F:$F, …))` supplement to their primary SUMIFS,
-#     pulling extra rows from a hidden 7-column sheet whose schema
-#     (`admin6` instead of `admin1`, no `econ0`) doesn't cleanly union
-#     with the three main raw sheets. The Raw2 branch's contribution is
-#     silently dropped, which causes `EXP_FUNC_WAT_SAN_EXE` and a couple
-#     of `EXP_CROSS_*` codes to undercount (see
-#     `_analysis/reports/parsing_verification.md`). Resolution is either
-#     SME-side (merge Raw2 upstream into the main sheets) or a pipeline
-#     refactor to support a fourth bronze with its own mapping.
-#
-#   - Cell-subtraction (`=SUMIFS(…) - C19`). A few tag rows adjust the
-#     SUMIFS result by subtracting a sibling cell's value to avoid
-#     double-counting a specific sub-category. The parser captures the
-#     SUMIFS but drops the `-cell_ref`, so silver overcounts for the
-#     affected codes (SOC_ASS, PUB_SAF, SOC_PRO). Resolution: either
-#     split these codes into two rules in the workbook, or add a cell-ref
-#     evaluation step to the parser.
-#
-# SILVER — per-row if-else tagging (Albania pattern).
-# ------------------------------------------------------------------
-# Each raw expenditure row is tagged with:
-#   - econ_code: first EXP_ECON_* tag rule whose SUMIFS criteria the row
-#     satisfies, scanned in the workbook's sheet-row order
-#   - func_code: first EXP_FUNC_* tag rule, same scan
-# Revenue rows are similarly tagged with econ_code from REV_ECON_* rules.
-#
-# Multi-SUMIFS formulas (e.g. `=SUMIFS(…) + SUMIFS(…)`) are treated as OR:
-# a row matches if ANY SUMIFS block's criteria are all satisfied. See
-# `_analysis/data/tag_rules.csv` — `criteria_json` is a list-of-lists; each
-# inner list is one SUMIFS block.
-#
-# We keep rows that pass the uniform filter (transfer filter + econ0) but
-# don't match any rule — their code column is NULL so coverage holes are
-# visible in silver. Gold is left-joined so NULL codes get NULL labels.
-#
-# Priority (code order) is intentional: overlaps between rules are listed
-# in `_analysis/reports/overlap_report.md` for SME review, and the SME's
-# choice of sheet-row order determines which code wins.
-#
-# Gold is NOT an aggregate. Row count in `mda_boost_gold` equals the
-# filtered bronze row count: every input line item is preserved, tagged
-# with its econ / econ_sub / func / func_sub labels (via code_dictionary
-# join) and remapped admin0 / admin1 / admin2 / geo0 / geo1. Downstream
-# consumers can group however they want.
-#
-# Admin hierarchy (Moldova-specific — see boost_gold for detail):
-#   admin0 = Central / Regional / Other  (from raw admin1 flag)
-#   admin1 = raw admin2 entity for Regional rows (district/council name)
-#   admin2 = raw admin2 entity for Central rows  (ministry/agency name)
-#   geo0   = admin0;   geo1 = admin1
-# Raw admin1 ("Locale"/"Centrale"/"Local"/"Central"/"Other") is a coarse
-# flag only; Moldova's actual entity names live in raw admin2.
+"""Moldova BOOST DLT pipeline.
 
+Raw microdata splits across three year-range sheets (`2006-15`, `2016-19`,
+`2020-24`) with different schemas and bilingual filter values (English
+pre-2016, Romanian 2016+). Each tag rule in `tag_rules.csv` carries a
+`measure` field (`approved` / `approved_16` / `approved_20` etc.) that
+dispatches the rule to the matching raw sheet. Revenue rows live in the
+same sheets; 2016+ formulas add `econ0_* = "Revenues"` to distinguish
+them. Pre-2016 has no `econ0` → no revenue coverage.
+
+Silver uses per-row if-else tagging (Albania pattern): each raw row gets
+`econ_code` + `func_code` from the first-matching tag rule in workbook
+sheet-row order. Multi-SUMIFS formulas are OR'd across blocks. Rows
+that pass the uniform filter but match no rule stay in silver with NULL
+code (coverage holes). Gold left-joins `code_dictionary.csv`.
+
+Gold is NOT aggregated — row count equals filtered bronze row count.
+Each input line is preserved with its tags and admin remap.
+
+Not modelled (documented gaps — surfaced by Phase 7 verification):
+- Hidden `Raw2` sheet: ~40 formulas add supplements from a 7-column
+  sheet (`admin6` / no `econ0`) whose schema doesn't union cleanly.
+  Under-counts EXP_FUNC_WAT_SAN and a few EXP_CROSS codes.
+- Cell-subtraction (`=SUMIFS(…) - C19`): parser drops the `-cell_ref`
+  suffix, over-counts SOC_ASS, PUB_SAF, SOC_PRO.
+
+Admin hierarchy (applied in gold):
+  admin0 = Central / Regional / Other   (from raw admin1 flag)
+  admin1 = raw admin2 entity    when admin0 = Regional (district/council)
+  admin2 = raw admin2 entity    when admin0 = Central  (ministry/agency)
+  geo0 = admin0, geo1 = admin1
+Raw admin1 is just the Central/Local flag; the 142 distinct entity
+names (district councils, ministries, committees) live in raw admin2.
+"""
 import json
-from functools import reduce
+from functools import lru_cache, reduce
 from operator import and_, or_
 from pathlib import Path
 
 import dlt
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import (
-    col, lit, lower, when, concat, monotonically_increasing_id,
+    col, concat, lit, lower, monotonically_increasing_id, when,
 )
 
-TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
-WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
+
 COUNTRY = "Moldova"
-COUNTRY_MICRODATA_DIR = f"{WORKSPACE_DIR}/microdata_csv/{COUNTRY}"
+MICRODATA_DIR = f"/Volumes/prd_mega/sboost4/vboost4/Workspace/microdata_csv/{COUNTRY}"
+ANALYSIS_DIR = (Path(__file__).resolve().parent / "_analysis" / "data"
+                if "__file__" in globals() else Path("Moldova/_analysis/data"))
+CSV_OPTS = {"header": "true", "multiline": "true", "quote": '"',
+            "escape": '"', "inferSchema": "true"}
+TRANSFER_KEEP = {"excluding transfers", "cu exceptia transferurilor"}
 
-ANALYSIS_DIR = (Path(__file__).resolve().parent / "_analysis" / "data") \
-    if "__file__" in globals() else Path("Moldova/_analysis/data")
+# Named-range → raw-column mapping per year-range sheet. 2016-19 has
+# `revised` + program/activity; 2020-24 has `adjusted` instead.
+_BASE_FIELDS = ["year", "admin1", "func1", "func2", "econ1", "econ2",
+                "exp_type", "transfer", "approved", "executed", "adjusted"]
+_WIDE_FIELDS = ["year", "admin1", "admin2", "func1", "func2", "func3",
+                "econ0", "econ1", "econ2", "econ3", "econ4", "econ5", "econ6",
+                "exp_type", "transfer", "fin_source1", "approved", "executed"]
+MAP_BASE = {f: f for f in _BASE_FIELDS}
+MAP_16 = {**{f"{f}_16": f for f in _WIDE_FIELDS},
+          "revised_16": "revised", "program1_16": "program1",
+          "program2_16": "program2", "activity_16": "activity"}
+MAP_20 = {**{f"{f}_20": f for f in _WIDE_FIELDS}, "adjusted_20": "adjusted"}
 
-CSV_READ_OPTIONS = {
-    "header": "true",
-    "multiline": "true",
-    "quote": '"',
-    "escape": '"',
-    "inferSchema": "true",
+RANGES = {
+    "base": {"csv": "2006-15.csv", "bronze": "mda_raw_2006_15_bronze",
+             "map": MAP_BASE, "transfer_key": "transfer",
+             "econ0_key": None, "id": "mda_base_"},
+    "16":   {"csv": "2016-19.csv", "bronze": "mda_raw_2016_19_bronze",
+             "map": MAP_16,   "transfer_key": "transfer_16",
+             "econ0_key": "econ0_16", "id": "mda_16_"},
+    "20":   {"csv": "2020-24.csv", "bronze": "mda_raw_2020_24_bronze",
+             "map": MAP_20,   "transfer_key": "transfer_20",
+             "econ0_key": "econ0_20", "id": "mda_20_"},
 }
 
-# Named-range → raw-column mapping per year-range sheet. Keys appear in the
-# Approved/Executed formulas; values are the raw CSV column headers.
-MAP_BASE = {  # 2006-15
-    "year": "year", "admin1": "admin1",
-    "func1": "func1", "func2": "func2",
-    "econ1": "econ1", "econ2": "econ2",
-    "exp_type": "exp_type", "transfer": "transfer",
-    "approved": "approved", "executed": "executed", "adjusted": "adjusted",
-}
 
-MAP_16 = {  # 2016-19
-    "year_16": "year",
-    "admin1_16": "admin1", "admin2_16": "admin2",
-    "func1_16": "func1", "func2_16": "func2", "func3_16": "func3",
-    "econ0_16": "econ0",
-    "econ1_16": "econ1", "econ2_16": "econ2", "econ3_16": "econ3",
-    "econ4_16": "econ4", "econ5_16": "econ5", "econ6_16": "econ6",
-    "exp_type_16": "exp_type", "transfer_16": "transfer",
-    "fin_source1_16": "fin_source1",
-    "approved_16": "approved", "revised_16": "revised",
-    "executed_16": "executed",
-    "program1_16": "program1", "program2_16": "program2",
-    "activity_16": "activity",
-}
-
-MAP_20 = {  # 2020-24
-    "year_20": "year",
-    "admin1_20": "admin1", "admin2_20": "admin2",
-    "func1_20": "func1", "func2_20": "func2", "func3_20": "func3",
-    "econ0_20": "econ0",
-    "econ1_20": "econ1", "econ2_20": "econ2", "econ3_20": "econ3",
-    "econ4_20": "econ4", "econ5_20": "econ5", "econ6_20": "econ6",
-    "exp_type_20": "exp_type", "transfer_20": "transfer",
-    "fin_source1_20": "fin_source1",
-    "approved_20": "approved", "adjusted_20": "adjusted",
-    "executed_20": "executed",
-}
-
-RANGE_CONFIG = {
-    "base": {"bronze": "mda_raw_2006_15_bronze",  "mapping": MAP_BASE,
-             "transfer_col": "transfer", "econ0_col": None},
-    "16":   {"bronze": "mda_raw_2016_19_bronze",  "mapping": MAP_16,
-             "transfer_col": "transfer_16", "econ0_col": "econ0_16"},
-    "20":   {"bronze": "mda_raw_2020_24_bronze",  "mapping": MAP_20,
-             "transfer_col": "transfer_20", "econ0_col": "econ0_20"},
-}
-
-# Uniform filter values: the `transfer` column values kept by every tag rule.
-UNIFORM_TRANSFER_VALUES = {"excluding transfers", "cu exceptia transferurilor"}
-
-
-def classify_measure(measure: str) -> str | None:
-    """Return the range-key a rule's measure dispatches to (or None)."""
-    if measure in ("approved", "executed"):
-        return "base"
-    if measure.endswith("_16"):
-        return "16"
-    if measure.endswith("_20"):
-        return "20"
+def _classify(measure: str) -> str | None:
+    if measure in ("approved", "executed"): return "base"
+    if measure.endswith("_16"): return "16"
+    if measure.endswith("_20"): return "20"
     return None
 
 
-# ---------- Bronze ----------
+# ---------- driver CSVs (cached) ----------
 
-@dlt.table(name="mda_raw_2006_15_bronze",
-           comment="Raw 2006-15 sheet from Moldova BOOST workbook. No cleaning.")
-def raw_2006_15_bronze():
-    df = (spark.read.format("csv")
-          .options(**CSV_READ_OPTIONS)
-          .load(f"{COUNTRY_MICRODATA_DIR}/2006-15.csv"))
-    return df.withColumn("id", concat(lit("mda_base_"), monotonically_increasing_id()))
-
-
-@dlt.table(name="mda_raw_2016_19_bronze",
-           comment="Raw 2016-19 sheet from Moldova BOOST workbook. No cleaning.")
-def raw_2016_19_bronze():
-    df = (spark.read.format("csv")
-          .options(**CSV_READ_OPTIONS)
-          .load(f"{COUNTRY_MICRODATA_DIR}/2016-19.csv"))
-    return df.withColumn("id", concat(lit("mda_16_"), monotonically_increasing_id()))
-
-
-@dlt.table(name="mda_raw_2020_24_bronze",
-           comment="Raw 2020-24 sheet from Moldova BOOST workbook. No cleaning.")
-def raw_2020_24_bronze():
-    df = (spark.read.format("csv")
-          .options(**CSV_READ_OPTIONS)
-          .load(f"{COUNTRY_MICRODATA_DIR}/2020-24.csv"))
-    return df.withColumn("id", concat(lit("mda_20_"), monotonically_increasing_id()))
-
-
-# ---------- Tag-rule compilation helpers ----------
-
-def _criterion_to_col_expr(col_name: str, op: str, value):
-    """Translate a single SUMIFS criterion into a Spark Column boolean expr.
-    Supports an extra `op` — `in` / `not in` — emitted by `_compact_branches`
-    when an array-constant expansion can collapse to a single `isin`."""
-    if op in ("in", "not in"):
-        vals = [str(v).lower() for v in value]
-        expr = lower(col(col_name).cast("string")).isin(vals)
-        return ~expr if op == "not in" else expr
-    val_str = str(value)
-    if "*" in val_str:
-        like = val_str.replace("*", "%").lower()
-        expr = lower(col(col_name)).like(like)
-        return ~expr if op == "<>" else expr
-    if op in ("=", "<>"):
-        try:
-            float(val_str)
-            expr = col(col_name).cast("string") == val_str
-        except ValueError:
-            expr = lower(col(col_name).cast("string")) == val_str.lower()
-        return ~expr if op == "<>" else expr
-    v = float(val_str)
-    c = col(col_name).cast("double")
-    return {"<": c < v, "<=": c <= v, ">": c > v, ">=": c >= v}[op]
-
-
-def _compact_branches(criteria_groups: list[list[dict]]) -> list[list[dict]]:
-    """Collapse array-constant expansion back into a single branch with an
-    `in`/`not in` op when possible.
-
-    `SUMIFS(..., econ2, {"a","b","c","d"})` enters this file as 4 branches
-    that share all criteria except the value at one position. Keeping them
-    as 4 separate OR'd AND-chains bloats the Spark expression tree and makes
-    codegen slow / memory-hungry; Spark's `isin` is a single SQL predicate
-    regardless of list length. We detect the pattern by checking that every
-    branch has the same (field, op) at every position and that values differ
-    at exactly one position — then rewrite that position to use `in`."""
-    if len(criteria_groups) <= 1:
-        return criteria_groups
-    lengths = {len(b) for b in criteria_groups}
-    if len(lengths) != 1:
-        return criteria_groups
-    n = lengths.pop()
-    if n == 0:
-        return criteria_groups
-    varying: list[tuple[int, list]] = []
-    for i in range(n):
-        fields = {b[i]["field"] for b in criteria_groups}
-        ops = {b[i]["op"] for b in criteria_groups}
-        values = [b[i]["value"] for b in criteria_groups]
-        if len(fields) != 1 or len(ops) != 1:
-            return criteria_groups
-        if len(set(values)) > 1:
-            varying.append((i, values))
-    if len(varying) != 1:
-        return criteria_groups
-    k, values = varying[0]
-    base = criteria_groups[0][k]
-    if base["op"] not in ("=", "<>"):
-        return criteria_groups
-    compacted = list(criteria_groups[0])
-    compacted[k] = {
-        "field": base["field"],
-        "op": "in" if base["op"] == "=" else "not in",
-        "value": list(values),
-    }
-    return [compacted]
-
-
-def _rule_match_expr(criteria_groups: list[list[dict]], mapping: dict[str, str]):
-    """OR across SUMIFS blocks; AND within a block. Returns a Column, or None
-    if no block is fully evaluable (e.g. all fields reference a sheet not in
-    this mapping — happens for rules dispatched to a different range, or the
-    hidden `Raw2` sheet)."""
-    criteria_groups = _compact_branches(criteria_groups)
-    branch_exprs = []
-    for branch in criteria_groups:
-        and_parts = []
-        ok = True
-        for c in branch:
-            if c["op"] == "=year":
-                continue  # year handled by the raw sheet's own `year` column
-            col_name = mapping.get(c["field"])
-            if col_name is None:
-                # Field lives outside this range's schema — drop the entire
-                # branch (we cannot evaluate it without false positives).
-                ok = False
-                break
-            and_parts.append(_criterion_to_col_expr(col_name, c["op"], c["value"]))
-        if not ok or not and_parts:
-            continue
-        branch_exprs.append(reduce(and_, and_parts))
-    if not branch_exprs:
-        return None
-    return reduce(or_, branch_exprs)
-
-
-def _apply_cascade(df: DataFrame, rules: list[dict], mapping: dict[str, str],
-                   out_col: str) -> DataFrame:
-    """Build a single flat CASE WHEN ... WHEN ... ELSE NULL END for the rule
-    cascade — one `when` per rule, in sheet-row order. A flat chain codegens
-    to one Spark case expression; the equivalent nested `when().otherwise(
-    when())` pattern produces a deep tree that can blow out codegen size on
-    small clusters."""
-    cascade = None
-    for r in rules:
-        match = _rule_match_expr(json.loads(r["criteria_json"]), mapping)
-        if match is None:
-            continue
-        code_lit = lit(r["code"])
-        cascade = when(match, code_lit) if cascade is None else cascade.when(match, code_lit)
-    if cascade is None:
-        return df.withColumn(out_col, lit(None).cast("string"))
-    return df.withColumn(out_col, cascade.otherwise(lit(None).cast("string")))
-
-
-def _load_driver_csv(name: str) -> list[dict]:
+def _load_csv(name: str) -> list[dict]:
     import csv as _csv
-    p = ANALYSIS_DIR / name
-    with open(p) as f:
+    with open(ANALYSIS_DIR / name) as f:
         return list(_csv.DictReader(f))
 
 
-# Cache driver CSVs at module scope — each DLT table function used to reload
-# tag_rules.csv and code_dictionary.csv, which is wasteful and adds to driver
-# memory churn. With caching, each CSV is read once per pipeline invocation.
-from functools import lru_cache
+@lru_cache(maxsize=None)
+def _rules() -> list[dict]:       return _load_csv("tag_rules.csv")
 
 
 @lru_cache(maxsize=None)
-def _driver_rules() -> list[dict]:
-    return _load_driver_csv("tag_rules.csv")
+def _code_dict() -> list[dict]:   return _load_csv("code_dictionary.csv")
 
 
 @lru_cache(maxsize=None)
-def _driver_code_dict() -> list[dict]:
-    return _load_driver_csv("code_dictionary.csv")
+def _allowed() -> frozenset:      return frozenset(r["code"] for r in _code_dict())
 
 
-@lru_cache(maxsize=None)
-def _allowed_codes() -> frozenset:
-    return frozenset(r["code"] for r in _driver_code_dict())
+def _rules_for(rk: str, prefix: str) -> list[dict]:
+    """TAG rules dispatched to range `rk` whose code has the given prefix and
+    is present in code_dictionary (excludes CROSS and meta-rollups).
+    Ordered by workbook sheet row — the SME's authoritative priority."""
+    allowed = _allowed()
+    rules = [r for r in _rules()
+             if r["row_type"] == "TAG" and r["sheet"] == "Approved"
+             and _classify(r["measure"]) == rk
+             and r["code"].startswith(prefix) and r["code"] in allowed]
+    return sorted(rules, key=lambda r: int(r["row"]))
 
 
-def _rules_for_range(all_rules: list[dict], rk: str, code_prefix: str,
-                     allowed_codes: set[str]) -> list[dict]:
-    """Rules for range `rk` whose code starts with `code_prefix` (EXP_ECON_ /
-    EXP_FUNC_ / REV_ECON_) and whose code is present in the dictionary — i.e.
-    not excluded as EXP_CROSS_* or meta-rollup. Ordered by workbook sheet row
-    (the SME's authoritative priority order)."""
-    out = [
-        r for r in all_rules
-        if r["row_type"] == "TAG"
-        and r["sheet"] == "Approved"
-        and classify_measure(r["measure"]) == rk
-        and r["code"].startswith(code_prefix)
-        and r["code"] in allowed_codes
-    ]
-    out.sort(key=lambda r: int(r["row"]))
-    return out
+# ---------- cascade builder ----------
+
+def _criterion_expr(col_name: str, op: str, value):
+    """Translate one SUMIFS criterion into a Spark Column bool expression."""
+    if op in ("in", "not in"):
+        e = lower(col(col_name).cast("string")).isin([str(v).lower() for v in value])
+        return ~e if op == "not in" else e
+    s = str(value)
+    if "*" in s:
+        e = lower(col(col_name)).like(s.replace("*", "%").lower())
+        return ~e if op == "<>" else e
+    if op in ("=", "<>"):
+        try:
+            float(s)
+            e = col(col_name).cast("string") == s
+        except ValueError:
+            e = lower(col(col_name).cast("string")) == s.lower()
+        return ~e if op == "<>" else e
+    v = float(s); c = col(col_name).cast("double")
+    return {"<": c < v, "<=": c <= v, ">": c > v, ">=": c >= v}[op]
 
 
-def _uniform_filter(df: DataFrame, cfg: dict, econ0_target: str | None) -> DataFrame:
-    """Apply the universal expenditure/revenue filter shared by every tag
-    rule: `transfer` must be one of the accepted values; for 2016+ the
-    `econ0` column must match the given target (`Expenditures` or
-    `Revenues`). Rows failing this filter are dropped."""
-    mapping = cfg["mapping"]
-    transfer_logical = cfg["transfer_col"]
-    transfer_col = mapping.get(transfer_logical)
-    if transfer_col:
-        df = df.filter(lower(col(transfer_col)).isin(list(UNIFORM_TRANSFER_VALUES)))
-    econ0_logical = cfg["econ0_col"]
-    if econ0_logical and econ0_target is not None:
-        econ0_col = mapping.get(econ0_logical)
-        if econ0_col:
-            df = df.filter(lower(col(econ0_col)) == econ0_target.lower())
-    return df
+def _compact(groups: list[list[dict]]) -> list[list[dict]]:
+    """Array-constant expansion → `in`/`not in` branch when branches differ
+    only at one `=` / `<>` position. Cuts Spark plan size for rules like
+    `SUMIFS(..., econ2, {"a","b","c","d"})`."""
+    if len(groups) <= 1 or len({len(b) for b in groups}) != 1:
+        return groups
+    n = len(groups[0])
+    varying = []
+    for i in range(n):
+        fields = {b[i]["field"] for b in groups}
+        ops    = {b[i]["op"]    for b in groups}
+        values = [b[i]["value"] for b in groups]
+        if len(fields) != 1 or len(ops) != 1: return groups
+        if len(set(values)) > 1: varying.append((i, values))
+    if len(varying) != 1 or groups[0][varying[0][0]]["op"] not in ("=", "<>"):
+        return groups
+    k, values = varying[0]
+    base = groups[0][k]
+    compacted = list(groups[0])
+    compacted[k] = {"field": base["field"],
+                    "op": "in" if base["op"] == "=" else "not in",
+                    "value": list(values)}
+    return [compacted]
 
 
-# ---------- Silver ----------
+def _rule_expr(groups: list[list[dict]], mapping: dict):
+    """OR across SUMIFS blocks, AND within each block. None if no block is
+    evaluable under `mapping` (e.g. Raw2 fields in this range)."""
+    branches = []
+    for branch in _compact(groups):
+        parts, ok = [], True
+        for c in branch:
+            if c["op"] == "=year": continue
+            cn = mapping.get(c["field"])
+            if cn is None: ok = False; break
+            parts.append(_criterion_expr(cn, c["op"], c["value"]))
+        if ok and parts:
+            branches.append(reduce(and_, parts))
+    return reduce(or_, branches) if branches else None
 
-def _tagged_expenditure_per_range(rk: str, all_rules: list[dict],
-                                   allowed_codes: set[str]) -> DataFrame:
-    cfg = RANGE_CONFIG[rk]
-    bronze = dlt.read(cfg["bronze"])
-    # Persist the filtered frame so the two cascades (econ + func) share one
-    # in-memory pass over the bronze rows instead of re-scanning.
-    df = _uniform_filter(bronze, cfg, econ0_target="Expenditures").persist()
-    mapping = cfg["mapping"]
-    econ_rules = _rules_for_range(all_rules, rk, "EXP_ECON_", allowed_codes)
-    func_rules = _rules_for_range(all_rules, rk, "EXP_FUNC_", allowed_codes)
-    df = _apply_cascade(df, econ_rules, mapping, "econ_code")
-    df = _apply_cascade(df, func_rules, mapping, "func_code")
-    return df
+
+def _cascade(df: DataFrame, rules: list[dict], mapping: dict, out: str) -> DataFrame:
+    """Flat CASE WHEN cascade: first matching rule wins, NULL otherwise.
+    Nested `when().otherwise(when())` would bloat codegen on small drivers."""
+    case = None
+    for r in rules:
+        m = _rule_expr(json.loads(r["criteria_json"]), mapping)
+        if m is None: continue
+        case = when(m, lit(r["code"])) if case is None else case.when(m, lit(r["code"]))
+    null_str = lit(None).cast("string")
+    return df.withColumn(out, null_str if case is None
+                         else case.otherwise(null_str))
 
 
-def _tagged_revenue_per_range(rk: str, all_rules: list[dict],
-                               allowed_codes: set[str]) -> DataFrame | None:
-    cfg = RANGE_CONFIG[rk]
-    if cfg["econ0_col"] is None:
-        # 2006-15 has no econ0 column — workbook carries no revenue rows.
+# ---------- bronze / silver factories ----------
+
+def _bronze(rk: str) -> DataFrame:
+    cfg = RANGES[rk]
+    df = spark.read.format("csv").options(**CSV_OPTS).load(f"{MICRODATA_DIR}/{cfg['csv']}")
+    return df.withColumn("id", concat(lit(cfg["id"]), monotonically_increasing_id()))
+
+
+def _silver(rk: str, kind: str) -> DataFrame | None:
+    """kind = 'EXP' or 'REV'. Returns None for ranges without revenue (base)."""
+    cfg = RANGES[rk]
+    if kind == "REV" and cfg["econ0_key"] is None:
         return None
-    bronze = dlt.read(cfg["bronze"])
-    df = _uniform_filter(bronze, cfg, econ0_target="Revenues").persist()
-    mapping = cfg["mapping"]
-    econ_rules = _rules_for_range(all_rules, rk, "REV_ECON_", allowed_codes)
-    df = _apply_cascade(df, econ_rules, mapping, "econ_code")
+    mp = cfg["map"]
+    df = dlt.read(cfg["bronze"]).filter(
+        lower(col(mp[cfg["transfer_key"]])).isin(list(TRANSFER_KEEP))
+    )
+    if cfg["econ0_key"]:
+        target = "expenditures" if kind == "EXP" else "revenues"
+        df = df.filter(lower(col(mp[cfg["econ0_key"]])) == target)
+    df = df.persist()  # econ + func cascades share one filtered pass
+    if kind == "EXP":
+        df = _cascade(df, _rules_for(rk, "EXP_ECON_"), mp, "econ_code")
+        df = _cascade(df, _rules_for(rk, "EXP_FUNC_"), mp, "func_code")
+    else:
+        df = _cascade(df, _rules_for(rk, "REV_ECON_"), mp, "econ_code")
     return df
 
 
-# One silver table per year-range keeps each Spark plan (and its Python-side
-# build) small — essential for driver memory on modest clusters. The user-
-# facing `mda_expenditure_silver` / `mda_revenue_silver` tables below just
-# union the pre-materialised per-range silvers, which is a near-free plan.
+# ---------- bronze tables ----------
 
-@dlt.table(name="mda_expenditure_silver_base",
-           comment="Per-row EXP silver for the 2006-15 raw sheet. "
-                   "econ_code / func_code assigned by first-matching tag rule.")
-def expenditure_silver_base():
-    return _tagged_expenditure_per_range("base", _driver_rules(), _allowed_codes())
+@dlt.table(name="mda_raw_2006_15_bronze")
+def b_base(): return _bronze("base")
 
+@dlt.table(name="mda_raw_2016_19_bronze")
+def b_16():   return _bronze("16")
 
-@dlt.table(name="mda_expenditure_silver_16",
-           comment="Per-row EXP silver for the 2016-19 raw sheet.")
-def expenditure_silver_16():
-    return _tagged_expenditure_per_range("16", _driver_rules(), _allowed_codes())
+@dlt.table(name="mda_raw_2020_24_bronze")
+def b_20():   return _bronze("20")
 
 
-@dlt.table(name="mda_expenditure_silver_20",
-           comment="Per-row EXP silver for the 2020-24 raw sheet.")
-def expenditure_silver_20():
-    return _tagged_expenditure_per_range("20", _driver_rules(), _allowed_codes())
+# ---------- per-range silver tables ----------
+# Split by range so DLT plans each independently; a single combined silver
+# built the whole cascade plan on the driver, which OOM'd modest clusters.
+
+@dlt.table(name="mda_expenditure_silver_base")
+def s_exp_base(): return _silver("base", "EXP")
+
+@dlt.table(name="mda_expenditure_silver_16")
+def s_exp_16():   return _silver("16", "EXP")
+
+@dlt.table(name="mda_expenditure_silver_20")
+def s_exp_20():   return _silver("20", "EXP")
+
+@dlt.table(name="mda_revenue_silver_16")
+def s_rev_16():   return _silver("16", "REV")
+
+@dlt.table(name="mda_revenue_silver_20")
+def s_rev_20():   return _silver("20", "REV")
 
 
-@dlt.table(name="mda_revenue_silver_16",
-           comment="Per-row REV silver for the 2016-19 raw sheet. Pre-2016 "
-                   "excluded (workbook has no revenue rows before 2016).")
-def revenue_silver_16():
-    return _tagged_revenue_per_range("16", _driver_rules(), _allowed_codes())
+# ---------- gold ----------
 
-
-@dlt.table(name="mda_revenue_silver_20",
-           comment="Per-row REV silver for the 2020-24 raw sheet.")
-def revenue_silver_20():
-    return _tagged_revenue_per_range("20", _driver_rules(), _allowed_codes())
-
-# No union silvers: a pre-unioned `mda_expenditure_silver` / `mda_revenue_silver`
-# would just materialise a cheap unionByName a second time. Gold reads the
-# three per-range silvers directly and unions them there — one fewer
-# materialisation hop, same output.
-
-
-# ---------- Gold ----------
-
-def _code_dict_splits() -> tuple[DataFrame, DataFrame]:
-    """Two label tables — one keyed on econ_code, one on func_code — derived
-    from `code_dictionary.csv` split by `tag_kind`. Revenue and expenditure
-    econ labels share the same table because both sit under `tag_kind`
-    prefix `EXP_ECON`/`REV_ECON`."""
-    rows = _driver_code_dict()
-    econ_rows = [
-        {"econ_code": r["code"], "econ": r["econ"] or None,
-         "econ_sub": r["econ_sub"] or None}
-        for r in rows if r["tag_kind"] in ("EXP_ECON", "REV_ECON")
-    ]
-    func_rows = [
-        {"func_code": r["code"], "func": r["func"] or None,
-         "func_sub": r["func_sub"] or None}
-        for r in rows if r["tag_kind"] == "EXP_FUNC"
-    ]
-    return (spark.createDataFrame(econ_rows),
-            spark.createDataFrame(func_rows))
-
-
-def _derive_admin0(admin1_col: str):
-    """Moldova raw admin1 is a coarse Central/Local/Other flag with era-
-    specific spelling — Central/Local in 2006-15, Centrale/Locale in
-    2016+. Collapse to the cross-country admin0 vocabulary (Central /
-    Regional / Other)."""
-    lc = lower(col(admin1_col))
+def _admin0():
+    lc = lower(col("admin1"))
     return (when(lc.isin(["central", "centrale", "centrala"]), lit("Central"))
             .when(lc.isin(["local", "locale"]), lit("Regional"))
-            .otherwise(col(admin1_col)))
+            .otherwise(col("admin1")))
 
 
-@dlt.table(name="mda_boost_gold",
-           comment="Moldova BOOST expenditure gold — one row per raw "
-                   "expenditure record with econ/func labels via "
-                   "code_dictionary join. Unions the three per-range "
-                   "expenditure silvers directly (no intermediate union "
-                   "silver table). Schema matches "
-                   "cross_country_aggregate_dlt.boost_gold.")
+@dlt.table(
+    name="mda_boost_gold",
+    comment="Moldova BOOST expenditure gold — one row per raw expenditure "
+            "record with econ/func labels via code_dictionary join. Schema "
+            "matches cross_country_aggregate_dlt.boost_gold.",
+)
 def boost_gold():
     silver = (dlt.read("mda_expenditure_silver_base")
               .unionByName(dlt.read("mda_expenditure_silver_16"), allowMissingColumns=True)
               .unionByName(dlt.read("mda_expenditure_silver_20"), allowMissingColumns=True))
-    econ_df, func_df = _code_dict_splits()
-
-    # Admin mapping rationale:
-    #   Moldova's raw admin1 is only ever Central/Local/Other — too coarse
-    #   for the cross-country `admin1` slot (state/province name). The
-    #   useful entity name (district council, ministry, committee — 142
-    #   distinct values in 2016-19) lives in raw admin2. Split it by
-    #   admin0 so the cross-country schema carries the right thing at the
-    #   right level:
-    #     * Regional rows → admin1 = raw admin2 (district/raion/UTAG)
-    #     * Central rows  → admin2 = raw admin2 (ministry/agency name)
-    #   2006-15 has no raw admin2, so admin1 and admin2 end up NULL there
-    #   (the pre-2016 workbook doesn't carry entity-level detail).
+    rows = _code_dict()
+    econ_df = spark.createDataFrame([
+        {"econ_code": r["code"], "econ": r["econ"] or None,
+         "econ_sub": r["econ_sub"] or None}
+        for r in rows if r["tag_kind"] in ("EXP_ECON", "REV_ECON")
+    ])
+    func_df = spark.createDataFrame([
+        {"func_code": r["code"], "func": r["func"] or None,
+         "func_sub": r["func_sub"] or None}
+        for r in rows if r["tag_kind"] == "EXP_FUNC"
+    ])
     return (silver
-            .join(econ_df, on="econ_code", how="left")
-            .join(func_df, on="func_code", how="left")
+            .join(econ_df, "econ_code", "left")
+            .join(func_df, "func_code", "left")
             .withColumn("country_name", lit("Moldova"))
-            .withColumn("admin0", _derive_admin0("admin1"))
-            .withColumn("raw_admin2_entity", col("admin2"))
-            .withColumn("admin1",
-                when(col("admin0") == "Regional", col("raw_admin2_entity"))
-                .otherwise(lit(None).cast("string")))
-            .withColumn("admin2",
-                when(col("admin0") == "Central", col("raw_admin2_entity"))
-                .otherwise(lit(None).cast("string")))
+            .withColumn("admin0", _admin0())
+            # Admin1/2 carry the entity name (district or ministry) from raw
+            # admin2; raw admin1 only held the Central/Local flag.
+            .withColumn("_entity", col("admin2"))
+            .withColumn("admin1", when(col("admin0") == "Regional",
+                                       col("_entity")).otherwise(lit(None).cast("string")))
+            .withColumn("admin2", when(col("admin0") == "Central",
+                                       col("_entity")).otherwise(lit(None).cast("string")))
             .withColumn("geo0", col("admin0"))
             .withColumn("geo1", col("admin1"))
-            .drop("raw_admin2_entity")
+            .drop("_entity")
             .select("country_name", "year",
                     "admin0", "admin1", "admin2", "geo0", "geo1",
                     "func", "func_sub", "econ", "econ_sub",
