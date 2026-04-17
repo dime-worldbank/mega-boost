@@ -228,12 +228,18 @@ def decompose(code: str) -> dict:
     return out
 
 
-def normalize_criteria_for_dedup(criteria: list[dict]) -> str:
-    """Stable string of (field, op, value) excluding the universal year/Exclude filters,
-    used to spot duplicate rules."""
+def normalize_criteria_for_dedup(groups: list[list[dict]]) -> str:
+    """Stable string over all OR-branches (SUMIFS blocks) in a rule: drop the
+    universal year/Exclude filters, sort each branch, then sort branches —
+    produces the same key for rules whose combined OR-expression is equivalent
+    regardless of branch order."""
     drop = {"Exclude", "year", "year_r"}
-    keep = sorted((c["field"], c["op"], c["value"]) for c in criteria if c["field"] not in drop)
-    return json.dumps(keep)
+    norm_branches = []
+    for branch in groups:
+        keep = sorted((c["field"], c["op"], c["value"]) for c in branch if c["field"] not in drop)
+        norm_branches.append(keep)
+    norm_branches.sort()
+    return json.dumps(norm_branches)
 
 
 # Meta-rollup codes that span an entire COFOG or econ category — they
@@ -243,8 +249,10 @@ def normalize_criteria_for_dedup(criteria: list[dict]) -> str:
 # cross-country aggregate and clutter overlap detection with parent
 # rollups that are expected to intersect their children.
 META_ROLLUP_CODES = {
-    "EXP_FUNC_ECO_REL_EXE",   # full COFOG 704 — contains ENE/TRA/AGR/ROA/…
-    "REV_ECON_TOT_EXE",       # total revenue — contains every revenue sub-code
+    "EXP_ECON_TOT_EXP_EXE",      # total expenditure — contains every EXP_ECON sub-code
+    "EXP_ECON_SBN_TOT_SPE_EXE",  # total subnational spending — contains every SBN sub-code
+    "EXP_FUNC_ECO_REL_EXE",      # full COFOG 704 — contains ENE/TRA/AGR/ROA/…
+    "REV_ECON_TOT_EXE",          # total revenue — contains every revenue sub-code
 }
 
 
@@ -283,10 +291,13 @@ def main():
             "func":             suggestions["suggested_func"],
             "func_sub":         suggestions["suggested_func_sub"],
             "decompose_notes":  suggestions["decompose_notes"],
-            "criteria_summary": ", ".join(
-                f"{c['field']}{c['op']}{c['value']}"
-                for c in json.loads(r["criteria_json"])
-                if c["field"] not in ("Exclude", "year", "year_r")
+            "criteria_summary": " OR ".join(
+                " AND ".join(
+                    f"{c['field']}{c['op']}{c['value']}"
+                    for c in group
+                    if c["field"] not in ("Exclude", "year", "year_r")
+                ) or "(universal)"
+                for group in json.loads(r["criteria_json"])
             ),
         })
 
@@ -402,10 +413,13 @@ def main():
         suspicious_lines.append("Multiple TAG rules resolve to identical SUMIFS criteria — likely a copy-paste oversight or two codes meant to differ via metadata only.\n")
         for group in dups:
             codes = ", ".join(f"`{r['code']}`" for r in group)
-            sample = json.loads(group[0]["criteria_json"])
-            crit_str = "; ".join(
-                f"{c['field']}{c['op']}{c['value']}"
-                for c in sample if c["field"] not in ("Exclude", "year", "year_r")
+            sample_groups = json.loads(group[0]["criteria_json"])
+            crit_str = " OR ".join(
+                " AND ".join(
+                    f"{c['field']}{c['op']}{c['value']}"
+                    for c in branch if c["field"] not in ("Exclude", "year", "year_r")
+                ) or "(universal)"
+                for branch in sample_groups
             )
             suspicious_lines.append(f"- {codes} → criteria: `{crit_str or '(no non-universal criteria)'}`")
 
@@ -425,7 +439,9 @@ def main():
         # to select subnational rows — that's not a copy-paste mismatch.
         if "_SBN_" in r["code"]:
             continue
-        crits = json.loads(r["criteria_json"])
+        groups = json.loads(r["criteria_json"])
+        # Flatten OR-branches for the mismatch heuristic (any branch pinning admin1 counts).
+        crits = [c for branch in groups for c in branch]
         admin1 = next((c for c in crits if c["field"] == "admin1"), None)
         if not admin1:
             continue

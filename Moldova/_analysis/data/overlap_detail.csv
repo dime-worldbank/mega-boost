@@ -16,16 +16,26 @@ primary,2006-2015,EXP_ECON,econ_sub:cross[Social assistance|Subsidies to product
 primary,2006-2015,EXP_ECON,econ_sub:cross[Social assistance|Subsidies to production],True,EXP_ECON_SOC_ASS_EXE,EXP_ECON_SUB_PRO_EXE,2010.0,1.0,90000.0,0.0
 primary,2006-2015,EXP_ECON,econ_sub:cross[Social assistance|Subsidies to production],True,EXP_ECON_SOC_ASS_EXE,EXP_ECON_SUB_PRO_EXE,2014.0,1.0,0.0,134400.0
 primary,2006-2015,EXP_ECON,econ_sub:cross[Social assistance|Subsidies to production],True,EXP_ECON_SOC_ASS_EXE,EXP_ECON_SUB_PRO_EXE,2015.0,1.0,200000.0,132700.0
-primary,2006-2015,EXP_FUNC,func_sub:cross[Primary education|Primary and secondary education],True,EXP_FUNC_PRI_EDU_EXE,EXP_FUNC_PRI_SEC_EDU_EXE,2006.0,45.0,448539816.0,534851689.52000004
-primary,2006-2015,EXP_FUNC,func_sub:cross[Primary education|Primary and secondary education],True,EXP_FUNC_PRI_EDU_EXE,EXP_FUNC_PRI_SEC_EDU_EXE,2007.0,47.0,659512113.0,721481010.3999999
-primary,2006-2015,EXP_FUNC,func_sub:cross[Primary education|Primary and secondary education],True,EXP_FUNC_PRI_EDU_EXE,EXP_FUNC_PRI_SEC_EDU_EXE,2008.0,50.0,876260022.0,951927622.5400008
-primary,2006-2015,EXP_FUNC,func_sub:cross[Primary education|Primary and secondary education],True,EXP_FUNC_PRI_EDU_EXE,EXP_FUNC_PRI_SEC_EDU_EXE,2009.0,57.0,1026191795.0,1113175371.3593726
-primary,2006-2015,EXP_FUNC,func_sub:cross[Primary education|Primary and secondary education],True,EXP_FUNC_PRI_EDU_EXE,EXP_FUNC_PRI_SEC_EDU_EXE,2010.0,51.0,1267682300.0,1300563595.1131542
-primary,2006-2015,EXP_FUNC,func_sub:cross[Primary education|Primary and secondary education],True,EXP_FUNC_PRI_EDU_EXE,EXP_FUNC_PRI_SEC_EDU_EXE,2011.0,63.0,1384477894.0,1414470966.810162
-primary,2006-2015,EXP_FUNC,func_sub:cross[Primary education|Primary and secondary education],True,EXP_FUNC_PRI_EDU_EXE,EXP_FUNC_PRI_SEC_EDU_EXE,2012.0,66.0,1604310328.2402344,1647857045.6793842
-primary,2006-2015,EXP_FUNC,func_sub:cross[Primary education|Primary and secondary education],True,EXP_FUNC_PRI_EDU_EXE,EXP_FUNC_PRI_SEC_EDU_EXE,2013.0,65.0,1708594034.0,1680545670.3709536
-primary,2006-2015,EXP_FUNC,func_sub:cross[Primary education|Primary and secondary education],True,EXP_FUNC_PRI_EDU_EXE,EXP_FUNC_PRI_SEC_EDU_EXE,2014.0,62.0,1896570890.0,2004227578.792871
-primary,2006-2015,EXP_FUNC,func_sub:cross[Primary education|Primary and secondary education],True,EXP_FUNC_PRI_EDU_EXE,EXP_FUNC_PRI_SEC_EDU_EXE,2015.0,67.0,2253562660.0,2374810166.0247984
+primary,2006-2015,EXP_FUNC,func_sub:cross[Primary education|Primary and secondary education],True,EXP_FUNC_PRI_EDU_EXE,EXP_FUNC_PRI_SEC_EDU_EXE,2006.0,86.0,500721006.0,609043676.0400001
+primary,2006-2015,EXP_FUNC,func_sub:cross[Primary education|Primary and secondary education],True,EXP_FUNC_PRI_EDU_EXE,EXP_FUNC_PRI_SEC_EDU_EXE,2007.0,88.0,723431285.0,784713673.1299998
+primary,2006-2015,EXP_FUNC,func_sub:cross[Primary education|Primary and secondary education],True,EXP_FUNC_PRI_EDU_EXE,EXP_FUNC_PRI_SEC_EDU_EXE,2008.0,90.0,934464899.0,1019294973.6000007
+primary,2006-2015,EXP_FUNC,func_sub:cross[Primary education|Primary and secondary education],True,EXP_FUNC_PRI_EDU_EXE,EXP_FUNC_PRI_SEC_EDU_EXE,2009.0,95.0,1080756762.0,1174082225.1193726
+primary,2006-2015,EXP_FUNC,func_sub:cross[Primary education|Primary and secondary education],True,EXP_FUNC_PRI_EDU_EXE,EXP_FUNC_PRI_SEC_EDU_EXE,2010.0,90.0,1342521220.0,1371926310.5355906
+primary,2006-2015,EXP_FUNC,func_sub:cross[Primary education|Primary and secondary education],True,EXP_FUNC_PRI_EDU_EXE,EXP_FUNC_PRI_SEC_EDU_EXE,2011.0,107.0,1452522842.0,1481336397.8028185
+primary,2006-2015,EXP_FUNC,func_sub:cross[Primary education|Primary and secondary education],True,EXP_FUNC_PRI_EDU_EXE,EXP_FUNC_PRI_SEC_EDU_EXE,2012.0,108.0,1678549819.6464844,1721999532.0894392
+primary,2006-2015,EXP_FUNC,func_sub:cross[Primary education|Primary and secondary education],True,EXP_FUNC_PRI_EDU_EXE,EXP_FUNC_PRI_SEC_EDU_EXE,2013.0,110.0,1802212314.0,1787157494.1258686
+primary,2006-2015,EXP_FUNC,func_sub:cross[Primary education|Primary and secondary education],True,EXP_FUNC_PRI_EDU_EXE,EXP_FUNC_PRI_SEC_EDU_EXE,2014.0,104.0,1994670280.0,2118328654.370527
+primary,2006-2015,EXP_FUNC,func_sub:cross[Primary education|Primary and secondary education],True,EXP_FUNC_PRI_EDU_EXE,EXP_FUNC_PRI_SEC_EDU_EXE,2015.0,106.0,2369341962.0,2498826982.8579445
+primary,2006-2015,EXP_FUNC,func_sub:cross[Primary and secondary education|Secondary education],True,EXP_FUNC_PRI_SEC_EDU_EXE,EXP_FUNC_SEC_EDU_EXE,2006.0,96.0,1483524410.0,1915341294.4600005
+primary,2006-2015,EXP_FUNC,func_sub:cross[Primary and secondary education|Secondary education],True,EXP_FUNC_PRI_SEC_EDU_EXE,EXP_FUNC_SEC_EDU_EXE,2007.0,92.0,2089716226.0,2215240024.0099998
+primary,2006-2015,EXP_FUNC,func_sub:cross[Primary and secondary education|Secondary education],True,EXP_FUNC_PRI_SEC_EDU_EXE,EXP_FUNC_SEC_EDU_EXE,2008.0,94.0,2533789443.0,2621017925.0400004
+primary,2006-2015,EXP_FUNC,func_sub:cross[Primary and secondary education|Secondary education],True,EXP_FUNC_PRI_SEC_EDU_EXE,EXP_FUNC_SEC_EDU_EXE,2009.0,96.0,2700169447.0,2906822211.448642
+primary,2006-2015,EXP_FUNC,func_sub:cross[Primary and secondary education|Secondary education],True,EXP_FUNC_PRI_SEC_EDU_EXE,EXP_FUNC_SEC_EDU_EXE,2010.0,95.0,3332498747.0,3379925581.977267
+primary,2006-2015,EXP_FUNC,func_sub:cross[Primary and secondary education|Secondary education],True,EXP_FUNC_PRI_SEC_EDU_EXE,EXP_FUNC_SEC_EDU_EXE,2011.0,121.0,3537333509.0,3514774322.003927
+primary,2006-2015,EXP_FUNC,func_sub:cross[Primary and secondary education|Secondary education],True,EXP_FUNC_PRI_SEC_EDU_EXE,EXP_FUNC_SEC_EDU_EXE,2012.0,120.0,3790364405.346092,3718661482.318524
+primary,2006-2015,EXP_FUNC,func_sub:cross[Primary and secondary education|Secondary education],True,EXP_FUNC_PRI_SEC_EDU_EXE,EXP_FUNC_SEC_EDU_EXE,2013.0,120.0,3781827328.0,3632688932.030755
+primary,2006-2015,EXP_FUNC,func_sub:cross[Primary and secondary education|Secondary education],True,EXP_FUNC_PRI_SEC_EDU_EXE,EXP_FUNC_SEC_EDU_EXE,2014.0,118.0,3925492923.0,3992604321.8033843
+primary,2006-2015,EXP_FUNC,func_sub:cross[Primary and secondary education|Secondary education],True,EXP_FUNC_PRI_SEC_EDU_EXE,EXP_FUNC_SEC_EDU_EXE,2015.0,120.0,4522297409.0,4175639244.1468244
 primary,2016-2019,REV_ECON,econ:Customs and excise=Customs and excise,False,REV_ECON_CUS_EXC_EXE,REV_ECON_EXC_EXE,2016.0,21.0,4303245332.0,4546393965.65
 primary,2016-2019,REV_ECON,econ:Customs and excise=Customs and excise,False,REV_ECON_CUS_EXC_EXE,REV_ECON_EXC_EXE,2017.0,21.0,5074736388.0,5949996961.34
 primary,2016-2019,REV_ECON,econ:Customs and excise=Customs and excise,False,REV_ECON_CUS_EXC_EXE,REV_ECON_EXC_EXE,2018.0,44.0,5903326000.0,5683413797.379999

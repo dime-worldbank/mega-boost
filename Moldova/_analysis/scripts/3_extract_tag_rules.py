@@ -129,14 +129,9 @@ def extract_sumifs_blocks(formula: str) -> list[str]:
     return blocks
 
 
-def parse_criteria(formula: str) -> tuple[str, list[dict]]:
-    """Return (measure, criteria) parsed from the FIRST SUMIFS in a formula.
-    measure is the named range / sheet ref summed (e.g., 'approved', 'executed').
-    """
-    blocks = extract_sumifs_blocks(formula)
-    if not blocks:
-        return "", []
-    args = split_sumifs_args(blocks[0])
+def _parse_one_block(block: str) -> tuple[str, list[dict]]:
+    """Parse a single SUMIFS(...) inner arg-string into (measure, criteria)."""
+    args = split_sumifs_args(block)
     if len(args) < 3:
         return args[0] if args else "", []
     measure = args[0]
@@ -147,6 +142,34 @@ def parse_criteria(formula: str) -> tuple[str, list[dict]]:
         op, lit = parse_criterion(raw_value)
         criteria.append({"field": field, "op": op, "value": lit})
     return measure, criteria
+
+
+def parse_criteria(formula: str) -> tuple[str, list[list[dict]], list[str]]:
+    """Parse every SUMIFS block in a formula. Excel cells that combine SUMIFS
+    via addition (`=SUMIFS(…) + SUMIFS(…)`) are logically OR'd — a raw row
+    contributes to the cell total if it matches ANY SUMIFS block. We capture
+    all blocks here so downstream silver-layer tagging can honour that OR.
+
+    Returns `(primary_measure, criteria_groups, measures_per_block)`:
+      - `primary_measure`: first block's measure — determines which raw sheet
+        the rule dispatches to
+      - `criteria_groups`: list of criterion-lists, one per SUMIFS block.
+        A rule matches a row if ANY inner list fully matches.
+      - `measures_per_block`: one measure per block, flagged if a later block
+        uses a different measure (rare; mostly happens with `'Raw2'!$F:$F`
+        supplements, which the pipeline can't evaluate cleanly)."""
+    blocks = extract_sumifs_blocks(formula)
+    if not blocks:
+        return "", [], []
+    groups: list[list[dict]] = []
+    measures: list[str] = []
+    for blk in blocks:
+        m, crits = _parse_one_block(blk)
+        if crits:
+            groups.append(crits)
+        measures.append(m)
+    primary = measures[0] if measures else ""
+    return primary, groups, measures
 
 
 # Shape-normalizer: replaces year-header cell refs (like M$1, N$1) with YEAR so
@@ -241,21 +264,23 @@ def main():
                     "code": code_cell, **meta_cells,
                     "years_covered": "", "year_min": None, "year_max": None,
                     "sample_formula": "", "sample_year": None,
-                    "measure": "", "criteria_json": "[]", "n_sumifs": 0,
+                    "measure": "", "criteria_json": "[]",
+                    "block_measures": "", "n_sumifs": 0,
                 })
                 continue
 
             # Emit one row per distinct shape group.
             for shape, g in sorted(shape_groups.items(), key=lambda kv: min(kv[1]["years"])):
                 row_type = "TAG" if g["has_sumifs"] else "ROLLUP"
-                measure, criteria = (
-                    parse_criteria(g["sample_formula"]) if row_type == "TAG" else ("", [])
-                )
+                if row_type == "TAG":
+                    measure, criteria_groups, block_measures = parse_criteria(g["sample_formula"])
+                else:
+                    measure, criteria_groups, block_measures = "", [], []
                 years_sorted = sorted(g["years"])
-                # Only the FIRST SUMIFS is captured in criteria_json. Flag rules
-                # where the formula combines multiple SUMIFS (e.g., Moldova rows
-                # that add a Raw2-sheet supplement) so Phase 4 can surface them.
-                n_sumifs = len(extract_sumifs_blocks(g["sample_formula"]))
+                # criteria_json is a list-of-lists: each inner list is one
+                # SUMIFS block's criteria. A raw row matches the rule if ANY
+                # inner list's criteria all match (SUMIFS+SUMIFS = OR).
+                n_sumifs = len(block_measures)
                 out_rows.append({
                     "sheet":          sheet,
                     "row":            r_idx,
@@ -268,7 +293,8 @@ def main():
                     "sample_formula": g["sample_formula"],
                     "sample_year":    g["sample_year"],
                     "measure":        measure,
-                    "criteria_json":  json.dumps(criteria, ensure_ascii=False),
+                    "criteria_json":  json.dumps(criteria_groups, ensure_ascii=False),
+                    "block_measures": "|".join(block_measures),
                     "n_sumifs":       n_sumifs,
                 })
 
@@ -289,9 +315,11 @@ def main():
         by_sheet_type[key] = by_sheet_type.get(key, 0) + 1
         if r["row_type"] != "TAG":
             continue
-        crits = json.loads(r["criteria_json"])
-        by_field_count[len(crits)] = by_field_count.get(len(crits), 0) + 1
-        for c in crits:
+        groups = json.loads(r["criteria_json"])
+        # Distribution key: criterion count of the first (primary) SUMIFS block.
+        primary = groups[0] if groups else []
+        by_field_count[len(primary)] = by_field_count.get(len(primary), 0) + 1
+        for c in primary:
             fields_used[c["field"]] = fields_used.get(c["field"], 0) + 1
         measures[r["measure"]] = measures.get(r["measure"], 0) + 1
     print("  rows by sheet × type:")

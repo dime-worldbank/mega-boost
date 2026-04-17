@@ -132,16 +132,26 @@ def _cmp(series: pd.Series, op: str, value: str) -> pd.Series:
     return {"<": s < v, "<=": s <= v, ">": s > v, ">=": s >= v}[op]
 
 
-def rule_mask(df: pd.DataFrame, criteria: list[dict], mapping: dict[str, str]) -> pd.Series:
-    mask = pd.Series(True, index=df.index)
-    for c in criteria:
-        if c["op"] == "=year":
-            continue
-        col = mapping.get(c["field"])
-        if col is None or col not in df.columns:
-            return pd.Series(False, index=df.index)
-        mask &= _cmp(df[col], c["op"], c["value"])
-    return mask
+def rule_mask(df: pd.DataFrame, criteria_groups: list[list[dict]],
+              mapping: dict[str, str]) -> pd.Series:
+    """A raw row matches the rule when at least one OR-branch (SUMIFS block)
+    is fully satisfied. Each branch AND-combines its criteria; the branches
+    are OR'd together."""
+    if not criteria_groups:
+        return pd.Series(False, index=df.index)
+    combined = pd.Series(False, index=df.index)
+    for branch in criteria_groups:
+        branch_mask = pd.Series(True, index=df.index)
+        for c in branch:
+            if c["op"] == "=year":
+                continue
+            col = mapping.get(c["field"])
+            if col is None or col not in df.columns:
+                branch_mask = pd.Series(False, index=df.index)
+                break
+            branch_mask &= _cmp(df[col], c["op"], c["value"])
+        combined |= branch_mask
+    return combined
 
 
 # ---------- peer grouping (same logic as before) ----------
@@ -350,10 +360,18 @@ def detect_overlaps(src_df: pd.DataFrame, mapping: dict[str, str],
     simply isn't measurable here."""
     masks: dict[str, pd.Series] = {}
     for code, rule in tag_rules.items():
-        crits = json.loads(rule["criteria_json"])
-        if not all(c["op"] == "=year" or c["field"] in mapping for c in crits):
+        groups = json.loads(rule["criteria_json"])
+        # Skip the rule here only if NO branch has any field in the current
+        # mapping — rules that mix mapped + Raw2 fields can still contribute
+        # via their mapped branches; rule_mask returns False for the unmapped
+        # ones, which is the conservative thing.
+        any_relevant = any(
+            any(c["op"] == "=year" or c["field"] in mapping for c in branch)
+            for branch in groups
+        )
+        if not any_relevant:
             continue
-        masks[code] = rule_mask(src_df, crits, mapping)
+        masks[code] = rule_mask(src_df, groups, mapping)
 
     records = []
     for a, b, tag_kind, shared in pairs:

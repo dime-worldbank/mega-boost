@@ -92,21 +92,19 @@ _None._
 
 Multiple TAG rules resolve to identical SUMIFS criteria — likely a copy-paste oversight or two codes meant to differ via metadata only.
 
-- `EXP_CROSS_CAP_EXP_TEL_EXE`, `EXP_FUNC_TEL_EXE` → criteria: `year_16=yearM$1; transfer_16=Cu exceptia transferurilor; econ0_16=Expenditures; func3_16=0831 Televiziune si radiodifuziune; econ1_16=300000 Active nefinanciare`
-- `EXP_CROSS_CAP_EXP_TEL_EXE`, `EXP_FUNC_TEL_EXE` → criteria: `year_20=yearQ$1; transfer_20=Cu exceptia transferurilor; econ0_20=Expenditures; func3_20=0831 Televiziune si radiodifuziune; econ1_20=300000 Active nefinanciare`
-- `EXP_CROSS_GOO_SER_EMP_CON_EDU_EXE`, `EXP_ECON_GOO_SER_EMP_CON_EXE` → criteria: `transfer=Excluding transfers; econ2=113.16 Research and innovation services contracted out by self-finance facilities`
-- `EXP_CROSS_SBN_CAP_EXP_ROA_EXE`, `EXP_CROSS_SBN_REC_EXP_ROA_EXE` → criteria: `year_16=yearM$1; transfer_16=Cu exceptia transferurilor; econ0_16=Expenditures; admin1_16=locale; func3_16=0451 Transport rutier; econ1_16=300000 Active nefinanciare`
-- `EXP_CROSS_SBN_CAP_EXP_ROA_EXE`, `EXP_CROSS_SBN_REC_EXP_ROA_EXE` → criteria: `year_20=yearQ$1; transfer_20=Cu exceptia transferurilor; econ0_20=Expenditures; admin1_20=locale; func3_20=0451 Transport rutier; econ1_20=300000 Active nefinanciare`
-- `EXP_CROSS_SUB_TRA_EXE`, `EXP_ECON_SUB_EXE`, `EXP_ECON_SUB_PRO_EXE` → criteria: `year_16=yearM$1; transfer_16=Cu exceptia transferurilor; econ0_16=Expenditures; econ2_16=250000 Subsidii`
-- `EXP_CROSS_SUB_TRA_EXE`, `EXP_ECON_SUB_EXE`, `EXP_ECON_SUB_PRO_EXE` → criteria: `year_20=yearQ$1; transfer_20=Cu exceptia transferurilor; econ0_20=Expenditures; econ2_20=250000 Sub*`
-- `EXP_CROSS_WAG_AGR_EXE`, `EXP_CROSS_WAG_HEA_EXE` → criteria: `transfer=Excluding transfers; func1=09 Healthcare; exp_type=Personnel`
-- `EXP_CROSS_WAG_PRI_EDU_EXE`, `EXP_CROSS_WAG_PRI_SEC_EDU_EXE` → criteria: `transfer=Excluding transfers; func1=06 Education; func2=06.01 Preschool education; exp_type=Personnel`
-- `EXP_ECON_SOC_ASS_EXE`, `EXP_FUNC_SOC_PRO_EXE` → criteria: `func1=10 Social care and social insurance; transfer=Excluding transfers`
-- `EXP_ECON_SUB_EXE`, `EXP_ECON_SUB_PRO_EXE` → criteria: `transfer=Excluding transfers; econ1=132 Transfers for production purposes`
-- `EXP_FUNC_ENV_PRO_EXE`, `EXP_FUNC_ENV_PRO_NEC_EXE` → criteria: `transfer=Excluding transfers; func1=12 Environment protection and hydrometeorology`
-- `EXP_FUNC_ENV_PRO_EXE`, `EXP_FUNC_ENV_PRO_NEC_EXE` → criteria: `year_16=yearM$1; transfer_16=Cu exceptia transferurilor; econ0_16=Expenditures; func1_16=0500 Protectia mediului`
-- `EXP_FUNC_ENV_PRO_EXE`, `EXP_FUNC_ENV_PRO_NEC_EXE` → criteria: `year_20=yearQ$1; transfer_20=Cu exceptia transferurilor; econ0_20=Expenditures; func1_20=0500 Protectia mediului`
-- `EXP_FUNC_PRI_EDU_EXE`, `EXP_FUNC_PRI_SEC_EDU_EXE` → criteria: `transfer=Excluding transfers; func1=06 Education; func2=06.01 Preschool education`
-- `REV_ECON_CUS_EXC_EXE`, `REV_ECON_EXC_EXE` → criteria: `year_16=yearM$1; transfer_16=Cu exceptia transferurilor; econ0_16=Revenues; econ4_16=114200 Accize`
-- `REV_ECON_CUS_EXC_EXE`, `REV_ECON_EXC_EXE` → criteria: `year_20=yearQ$1; transfer_20=Cu exceptia transferurilor; econ0_20=Revenues; econ4_20=114200 Accize`
-- `REV_ECON_PRO_TAX_EXE`, `REV_ECON_PRO_TAX_IMM_EXE` → criteria: `year_20=yearQ$1; transfer_20=Cu exceptia transferurilor; econ0_20=Revenues; econ3_20=113000 Impozite pe proprietate`
+- `EXP_CROSS_CAP_EXP_TEL_EXE`, `EXP_FUNC_TEL_EXE` → criteria: `year_16=yearM$1 AND transfer_16=Cu exceptia transferurilor AND econ0_16=Expenditures AND func3_16=0831 Televiziune si radiodifuziune AND econ1_16=300000 Active nefinanciare`
+- `EXP_CROSS_CAP_EXP_TEL_EXE`, `EXP_FUNC_TEL_EXE` → criteria: `year_20=yearQ$1 AND transfer_20=Cu exceptia transferurilor AND econ0_20=Expenditures AND func3_20=0831 Televiziune si radiodifuziune AND econ1_20=300000 Active nefinanciare`
+- `EXP_CROSS_GOO_SER_EMP_CON_EDU_EXE`, `EXP_ECON_GOO_SER_EMP_CON_EXE` → criteria: `transfer=Excluding transfers AND econ2=113.16 Research and innovation services contracted out by self-finance facilities`
+- `EXP_CROSS_SBN_CAP_EXP_ROA_EXE`, `EXP_CROSS_SBN_REC_EXP_ROA_EXE` → criteria: `year_16=yearM$1 AND transfer_16=Cu exceptia transferurilor AND econ0_16=Expenditures AND admin1_16=locale AND func3_16=0451 Transport rutier AND econ1_16=300000 Active nefinanciare`
+- `EXP_CROSS_SBN_CAP_EXP_ROA_EXE`, `EXP_CROSS_SBN_REC_EXP_ROA_EXE` → criteria: `year_20=yearQ$1 AND transfer_20=Cu exceptia transferurilor AND econ0_20=Expenditures AND admin1_20=locale AND func3_20=0451 Transport rutier AND econ1_20=300000 Active nefinanciare`
+- `EXP_CROSS_SUB_TRA_EXE`, `EXP_ECON_SUB_EXE`, `EXP_ECON_SUB_PRO_EXE` → criteria: `year_16=yearM$1 AND transfer_16=Cu exceptia transferurilor AND econ0_16=Expenditures AND econ2_16=250000 Subsidii`
+- `EXP_CROSS_SUB_TRA_EXE`, `EXP_ECON_SUB_EXE`, `EXP_ECON_SUB_PRO_EXE` → criteria: `year_20=yearQ$1 AND transfer_20=Cu exceptia transferurilor AND econ0_20=Expenditures AND econ2_20=250000 Sub*`
+- `EXP_CROSS_WAG_AGR_EXE`, `EXP_CROSS_WAG_HEA_EXE` → criteria: `transfer=Excluding transfers AND func1=09 Healthcare AND exp_type=Personnel`
+- `EXP_ECON_SOC_ASS_EXE`, `EXP_FUNC_SOC_PRO_EXE` → criteria: `func1=10 Social care and social insurance AND transfer=Excluding transfers`
+- `EXP_ECON_SUB_EXE`, `EXP_ECON_SUB_PRO_EXE` → criteria: `transfer=Excluding transfers AND econ1=132 Transfers for production purposes`
+- `EXP_FUNC_ENV_PRO_EXE`, `EXP_FUNC_ENV_PRO_NEC_EXE` → criteria: `transfer=Excluding transfers AND func1=12 Environment protection and hydrometeorology`
+- `EXP_FUNC_ENV_PRO_EXE`, `EXP_FUNC_ENV_PRO_NEC_EXE` → criteria: `year_16=yearM$1 AND transfer_16=Cu exceptia transferurilor AND econ0_16=Expenditures AND func1_16=0500 Protectia mediului`
+- `EXP_FUNC_ENV_PRO_EXE`, `EXP_FUNC_ENV_PRO_NEC_EXE` → criteria: `year_20=yearQ$1 AND transfer_20=Cu exceptia transferurilor AND econ0_20=Expenditures AND func1_20=0500 Protectia mediului`
+- `REV_ECON_CUS_EXC_EXE`, `REV_ECON_EXC_EXE` → criteria: `year_16=yearM$1 AND transfer_16=Cu exceptia transferurilor AND econ0_16=Revenues AND econ4_16=114200 Accize`
+- `REV_ECON_CUS_EXC_EXE`, `REV_ECON_EXC_EXE` → criteria: `year_20=yearQ$1 AND transfer_20=Cu exceptia transferurilor AND econ0_20=Revenues AND econ4_20=114200 Accize`
+- `REV_ECON_PRO_TAX_EXE`, `REV_ECON_PRO_TAX_IMM_EXE` → criteria: `year_20=yearQ$1 AND transfer_20=Cu exceptia transferurilor AND econ0_20=Revenues AND econ3_20=113000 Impozite pe proprietate`

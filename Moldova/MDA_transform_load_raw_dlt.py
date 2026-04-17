@@ -1,49 +1,50 @@
 # Databricks notebook source
 # Moldova BOOST DLT pipeline.
 #
-# Moldova's workbook splits raw microdata across three year-range sheets
-# (`2006-15`, `2016-19`, `2020-24`) with different column schemas and
-# different named-range suffixes in the Approved/Executed formulas. Each
-# tag rule in `tag_rules.csv` carries a `measure` field that dispatches the
-# rule to the correct raw sheet:
+# Moldova splits raw microdata across three year-range sheets (`2006-15`,
+# `2016-19`, `2020-24`) with different column schemas and bilingual filter
+# values (English pre-2016, Romanian 2016+). Each tag rule in `tag_rules.csv`
+# carries a `measure` field that dispatches the rule to the correct raw
+# sheet:
 #
 #   measure ∈ {approved, executed}            → 2006-15 bronze
 #   measure ∈ {approved_16, executed_16}      → 2016-19 bronze
 #   measure ∈ {approved_20, executed_20}      → 2020-24 bronze
 #
-# Revenue rules live in the same raw sheets; the 2016+ variants add an
-# `econ0_* = "Revenues"` criterion to distinguish revenue rows (pre-2016
-# has no econ0, so REV_* codes have no base-range variant — see
-# reports/workbook_inventory.md).
+# Revenue rules live in the same raw sheets; 2016+ variants add an
+# `econ0_* = "Revenues"` criterion to distinguish revenue rows. Pre-2016
+# has no econ0 column and no revenue coverage in the workbook.
 #
-# Two driver tables sit next to this notebook:
-#   _analysis/data/tag_rules.csv       — (code, criteria_json, measure,
-#                                         year_min/max, n_sumifs)
-#   _analysis/data/code_dictionary.csv — (code, econ, econ_sub, func, func_sub)
-#                                         EXP_CROSS_* rows excluded to avoid
-#                                         double-counting against the
-#                                         EXP_ECON_* × EXP_FUNC_* parents.
+# SILVER — per-row if-else tagging (Albania pattern).
+# ------------------------------------------------------------------
+# Each raw expenditure row is tagged with:
+#   - econ_code: first EXP_ECON_* tag rule whose SUMIFS criteria the row
+#     satisfies, scanned in the workbook's sheet-row order
+#   - func_code: first EXP_FUNC_* tag rule, same scan
+# Revenue rows are similarly tagged with econ_code from REV_ECON_* rules.
 #
-# Translation principle: apply each rule literally — no formula
-# reinterpretation, no value cleaning. Anything that smells like
-# interpretation gets reported in Moldova/_analysis/reports/ISSUES.md.
+# Multi-SUMIFS formulas (e.g. `=SUMIFS(…) + SUMIFS(…)`) are treated as OR:
+# a row matches if ANY SUMIFS block's criteria are all satisfied. See
+# `_analysis/data/tag_rules.csv` — `criteria_json` is a list-of-lists; each
+# inner list is one SUMIFS block.
 #
-# Known limitations (flagged in ISSUES.md for SME triage):
-#   - Rules with n_sumifs > 1 (Raw2 supplements, additive education
-#     formulas): only the first SUMIFS block is applied here.
-#   - admin0/geo0 derivation from Moldova's admin1 values ("Central"/"Local"
-#     pre-2016, "centrala"/"locale" 2016+) awaits SME confirmation.
-#   - `EXP_FUNC_REV_CUS_EXC_EXE`: code name is misleading; category says
-#     COFOG 708 "Recreation, culture and religion" — mapped accordingly but
-#     rename upstream.
+# We keep rows that pass the uniform filter (transfer filter + econ0) but
+# don't match any rule — their code column is NULL so coverage holes are
+# visible in silver. Gold is left-joined so NULL codes get NULL labels.
+#
+# Priority (code order) is intentional: overlaps between rules are listed
+# in `_analysis/reports/overlap_report.md` for SME review, and the SME's
+# choice of sheet-row order determines which code wins.
 
 import json
+from functools import reduce
+from operator import and_, or_
 from pathlib import Path
 
 import dlt
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import (
-    col, lit, sum as _sum, concat, monotonically_increasing_id,
+    col, lit, lower, when, concat, monotonically_increasing_id,
 )
 
 TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
@@ -62,9 +63,8 @@ CSV_READ_OPTIONS = {
     "inferSchema": "true",
 }
 
-# Named-range → raw-column mapping, one per year-range sheet (keys appear in
-# SUMIFS criteria; values are the CSV column headers). See
-# Moldova/_analysis/data/defined_names.csv.
+# Named-range → raw-column mapping per year-range sheet. Keys appear in the
+# Approved/Executed formulas; values are the raw CSV column headers.
 MAP_BASE = {  # 2006-15
     "year": "year", "admin1": "admin1",
     "func1": "func1", "func2": "func2",
@@ -102,15 +102,20 @@ MAP_20 = {  # 2020-24
 }
 
 RANGE_CONFIG = {
-    "base": {"bronze": "mda_raw_2006_15_bronze", "mapping": MAP_BASE},
-    "16":   {"bronze": "mda_raw_2016_19_bronze", "mapping": MAP_16},
-    "20":   {"bronze": "mda_raw_2020_24_bronze", "mapping": MAP_20},
+    "base": {"bronze": "mda_raw_2006_15_bronze",  "mapping": MAP_BASE,
+             "transfer_col": "transfer", "econ0_col": None},
+    "16":   {"bronze": "mda_raw_2016_19_bronze",  "mapping": MAP_16,
+             "transfer_col": "transfer_16", "econ0_col": "econ0_16"},
+    "20":   {"bronze": "mda_raw_2020_24_bronze",  "mapping": MAP_20,
+             "transfer_col": "transfer_20", "econ0_col": "econ0_20"},
 }
+
+# Uniform filter values: the `transfer` column values kept by every tag rule.
+UNIFORM_TRANSFER_VALUES = {"excluding transfers", "cu exceptia transferurilor"}
 
 
 def classify_measure(measure: str) -> str | None:
-    """Return the range-key a rule's measure dispatches to, or None for
-    unsupported measures (e.g. Raw2 supplements)."""
+    """Return the range-key a rule's measure dispatches to (or None)."""
     if measure in ("approved", "executed"):
         return "base"
     if measure.endswith("_16"):
@@ -123,7 +128,7 @@ def classify_measure(measure: str) -> str | None:
 # ---------- Bronze ----------
 
 @dlt.table(name="mda_raw_2006_15_bronze",
-           comment="Raw 2006-15 sheet from the Moldova BOOST workbook. No cleaning.")
+           comment="Raw 2006-15 sheet from Moldova BOOST workbook. No cleaning.")
 def raw_2006_15_bronze():
     df = (spark.read.format("csv")
           .options(**CSV_READ_OPTIONS)
@@ -132,7 +137,7 @@ def raw_2006_15_bronze():
 
 
 @dlt.table(name="mda_raw_2016_19_bronze",
-           comment="Raw 2016-19 sheet from the Moldova BOOST workbook. No cleaning.")
+           comment="Raw 2016-19 sheet from Moldova BOOST workbook. No cleaning.")
 def raw_2016_19_bronze():
     df = (spark.read.format("csv")
           .options(**CSV_READ_OPTIONS)
@@ -141,7 +146,7 @@ def raw_2016_19_bronze():
 
 
 @dlt.table(name="mda_raw_2020_24_bronze",
-           comment="Raw 2020-24 sheet from the Moldova BOOST workbook. No cleaning.")
+           comment="Raw 2020-24 sheet from Moldova BOOST workbook. No cleaning.")
 def raw_2020_24_bronze():
     df = (spark.read.format("csv")
           .options(**CSV_READ_OPTIONS)
@@ -149,43 +154,66 @@ def raw_2020_24_bronze():
     return df.withColumn("id", concat(lit("mda_20_"), monotonically_increasing_id()))
 
 
-# ---------- Tag rule application ----------
+# ---------- Tag-rule compilation helpers ----------
 
-def _criterion_to_sql(field_col: str, op: str, value: str) -> str:
-    """Translate a single SUMIFS criterion into a Spark SQL predicate. Excel
-    wildcards (trailing `*`) map to SQL LIKE; numeric values stay unquoted
-    against a cast string so int/float raw columns compare cleanly."""
-    val_str = value.replace("'", "''")
+def _criterion_to_col_expr(col_name: str, op: str, value: str):
+    """Translate a single SUMIFS criterion into a Spark Column boolean expr."""
+    val_str = str(value)
     if "*" in val_str:
-        like = val_str.replace("*", "%")
-        cmp = "NOT LIKE" if op == "<>" else "LIKE"
-        return f"lower({field_col}) {cmp} lower('{like}')"
+        like = val_str.replace("*", "%").lower()
+        expr = lower(col(col_name)).like(like)
+        return ~expr if op == "<>" else expr
     if op in ("=", "<>"):
-        sql_op = "!=" if op == "<>" else "="
         try:
             float(val_str)
-            return f"cast({field_col} as string) {sql_op} '{val_str}'"
+            expr = col(col_name).cast("string") == val_str
         except ValueError:
-            return f"lower(cast({field_col} as string)) {sql_op} lower('{val_str}')"
-    return f"cast({field_col} as double) {op} {val_str}"
+            expr = lower(col(col_name).cast("string")) == val_str.lower()
+        return ~expr if op == "<>" else expr
+    v = float(val_str)
+    c = col(col_name).cast("double")
+    return {"<": c < v, "<=": c <= v, ">": c > v, ">=": c >= v}[op]
 
 
-def _apply_rule(df: DataFrame, criteria: list[dict],
-                named_range_to_col: dict[str, str]) -> DataFrame:
-    where_parts = []
-    for c in criteria:
-        if c["op"] == "=year":
-            continue  # year handled via groupBy(year) downstream
-        col_name = named_range_to_col.get(c["field"])
-        if col_name is None:
-            # Unknown named range (e.g. a Raw2-sheet direct reference) —
-            # flagged in ISSUES.md; the rule's primary SUMIFS still applies,
-            # just without this criterion.
+def _rule_match_expr(criteria_groups: list[list[dict]], mapping: dict[str, str]):
+    """OR across SUMIFS blocks; AND within a block. Returns a Column, or None
+    if no block is fully evaluable (e.g. all fields reference a sheet not in
+    this mapping — happens for rules dispatched to a different range, or the
+    hidden `Raw2` sheet)."""
+    branch_exprs = []
+    for branch in criteria_groups:
+        and_parts = []
+        ok = True
+        for c in branch:
+            if c["op"] == "=year":
+                continue  # year handled by the raw sheet's own `year` column
+            col_name = mapping.get(c["field"])
+            if col_name is None:
+                # Field lives outside this range's schema — drop the entire
+                # branch (we cannot evaluate it without false positives).
+                ok = False
+                break
+            and_parts.append(_criterion_to_col_expr(col_name, c["op"], c["value"]))
+        if not ok or not and_parts:
             continue
-        where_parts.append(_criterion_to_sql(col_name, c["op"], c["value"]))
-    if where_parts:
-        df = df.where(" AND ".join(where_parts))
-    return df
+        branch_exprs.append(reduce(and_, and_parts))
+    if not branch_exprs:
+        return None
+    return reduce(or_, branch_exprs)
+
+
+def _apply_cascade(df: DataFrame, rules: list[dict], mapping: dict[str, str],
+                   out_col: str) -> DataFrame:
+    """Build a when/otherwise cascade in sheet-row order: the first rule whose
+    criteria match wins. Rows that match no rule get NULL in `out_col`."""
+    cascade = lit(None).cast("string")
+    # Build bottom-up so when(first).otherwise(when(second).otherwise(...)) nests correctly.
+    for r in reversed(rules):
+        match = _rule_match_expr(json.loads(r["criteria_json"]), mapping)
+        if match is None:
+            continue
+        cascade = when(match, lit(r["code"])).otherwise(cascade)
+    return df.withColumn(out_col, cascade)
 
 
 def _load_driver_csv(name: str) -> list[dict]:
@@ -195,96 +223,151 @@ def _load_driver_csv(name: str) -> list[dict]:
         return list(_csv.DictReader(f))
 
 
-def _silver_for_kind(kind_filter) -> DataFrame:
-    """Build a (year, code, approved, executed) silver DataFrame. For each
-    matching TAG rule, dispatch to the bronze corresponding to its measure
-    and sum approved/executed grouped by year. Results from the three
-    year-ranges union into one DataFrame. `kind_filter(rule)` decides which
-    rules participate (EXP vs REV)."""
-    rules = _load_driver_csv("tag_rules.csv")
-    code_dict = {r["code"]: r for r in _load_driver_csv("code_dictionary.csv")}
-
-    relevant = [
-        r for r in rules
+def _rules_for_range(all_rules: list[dict], rk: str, code_prefix: str,
+                     allowed_codes: set[str]) -> list[dict]:
+    """Rules for range `rk` whose code starts with `code_prefix` (EXP_ECON_ /
+    EXP_FUNC_ / REV_ECON_) and whose code is present in the dictionary — i.e.
+    not excluded as EXP_CROSS_* or meta-rollup. Ordered by workbook sheet row
+    (the SME's authoritative priority order)."""
+    out = [
+        r for r in all_rules
         if r["row_type"] == "TAG"
         and r["sheet"] == "Approved"
-        and r["code"] in code_dict
-        and classify_measure(r["measure"]) is not None
-        and kind_filter(r)
+        and classify_measure(r["measure"]) == rk
+        and r["code"].startswith(code_prefix)
+        and r["code"] in allowed_codes
     ]
+    out.sort(key=lambda r: int(r["row"]))
+    return out
 
-    bronzes = {rk: dlt.read(cfg["bronze"]) for rk, cfg in RANGE_CONFIG.items()}
 
-    per_rule_dfs = []
-    for r in relevant:
-        rk = classify_measure(r["measure"])
-        criteria = json.loads(r["criteria_json"])
-        filtered = _apply_rule(bronzes[rk], criteria, RANGE_CONFIG[rk]["mapping"])
-        agg = (filtered
-               .groupBy(col("year").cast("int").alias("year"))
-               .agg(_sum("approved").alias("approved"),
-                    _sum("executed").alias("executed"))
-               .withColumn("code", lit(r["code"])))
-        per_rule_dfs.append(agg)
+def _uniform_filter(df: DataFrame, cfg: dict, econ0_target: str | None) -> DataFrame:
+    """Apply the universal expenditure/revenue filter shared by every tag
+    rule: `transfer` must be one of the accepted values; for 2016+ the
+    `econ0` column must match the given target (`Expenditures` or
+    `Revenues`). Rows failing this filter are dropped."""
+    mapping = cfg["mapping"]
+    transfer_logical = cfg["transfer_col"]
+    transfer_col = mapping.get(transfer_logical)
+    if transfer_col:
+        df = df.filter(lower(col(transfer_col)).isin(list(UNIFORM_TRANSFER_VALUES)))
+    econ0_logical = cfg["econ0_col"]
+    if econ0_logical and econ0_target is not None:
+        econ0_col = mapping.get(econ0_logical)
+        if econ0_col:
+            df = df.filter(lower(col(econ0_col)) == econ0_target.lower())
+    return df
 
-    if not per_rule_dfs:
-        any_bronze = next(iter(bronzes.values()))
-        return any_bronze.limit(0).select(
-            lit(None).cast("int").alias("year"),
-            lit(None).cast("string").alias("code"),
-            lit(None).cast("double").alias("approved"),
-            lit(None).cast("double").alias("executed"),
-        )
-    silver = per_rule_dfs[0]
-    for d in per_rule_dfs[1:]:
-        silver = silver.unionByName(d)
-    return silver.select("year", "code", "approved", "executed")
+
+# ---------- Silver ----------
+
+def _tagged_expenditure_per_range(rk: str, all_rules: list[dict],
+                                   allowed_codes: set[str]) -> DataFrame:
+    cfg = RANGE_CONFIG[rk]
+    bronze = dlt.read(cfg["bronze"])
+    df = _uniform_filter(bronze, cfg, econ0_target="Expenditures")
+    mapping = cfg["mapping"]
+    econ_rules = _rules_for_range(all_rules, rk, "EXP_ECON_", allowed_codes)
+    func_rules = _rules_for_range(all_rules, rk, "EXP_FUNC_", allowed_codes)
+    df = _apply_cascade(df, econ_rules, mapping, "econ_code")
+    df = _apply_cascade(df, func_rules, mapping, "func_code")
+    return df
+
+
+def _tagged_revenue_per_range(rk: str, all_rules: list[dict],
+                               allowed_codes: set[str]) -> DataFrame | None:
+    cfg = RANGE_CONFIG[rk]
+    if cfg["econ0_col"] is None:
+        # 2006-15 has no econ0 column — workbook carries no revenue rows.
+        return None
+    bronze = dlt.read(cfg["bronze"])
+    df = _uniform_filter(bronze, cfg, econ0_target="Revenues")
+    mapping = cfg["mapping"]
+    econ_rules = _rules_for_range(all_rules, rk, "REV_ECON_", allowed_codes)
+    df = _apply_cascade(df, econ_rules, mapping, "econ_code")
+    return df
 
 
 @dlt.table(name="mda_expenditure_silver",
-           comment="One row per (year, code) — applies EXP_* TAG rules to the "
-                   "matching year-range bronze.")
+           comment="One row per raw expenditure record with econ_code and "
+                   "func_code assigned by first-matching tag rule in workbook "
+                   "sheet-row order. Unmatched rows kept with NULL code.")
 def expenditure_silver():
-    return _silver_for_kind(lambda r: r["code"].startswith("EXP_"))
+    all_rules = _load_driver_csv("tag_rules.csv")
+    allowed = {r["code"] for r in _load_driver_csv("code_dictionary.csv")}
+    per_range = []
+    for rk in RANGE_CONFIG:
+        per_range.append(_tagged_expenditure_per_range(rk, all_rules, allowed))
+    return reduce(lambda a, b: a.unionByName(b, allowMissingColumns=True), per_range)
 
 
 @dlt.table(name="mda_revenue_silver",
-           comment="One row per (year, code) — applies REV_* TAG rules to the "
-                   "matching year-range bronze. (Pre-2016 has no revenue data "
-                   "in the workbook, so no base-range REV rules exist.)")
+           comment="One row per raw revenue record with econ_code assigned "
+                   "by first-matching REV_ECON_* rule. Pre-2016 excluded "
+                   "(workbook has no revenue rows before 2016).")
 def revenue_silver():
-    return _silver_for_kind(lambda r: r["code"].startswith("REV_"))
+    all_rules = _load_driver_csv("tag_rules.csv")
+    allowed = {r["code"] for r in _load_driver_csv("code_dictionary.csv")}
+    per_range = []
+    for rk in RANGE_CONFIG:
+        df = _tagged_revenue_per_range(rk, all_rules, allowed)
+        if df is not None:
+            per_range.append(df)
+    if not per_range:
+        # Defensive: no range carries revenue. Emit an empty frame with the
+        # expected columns so downstream consumers don't break.
+        return dlt.read(RANGE_CONFIG["16"]["bronze"]).limit(0) \
+            .withColumn("econ_code", lit(None).cast("string"))
+    return reduce(lambda a, b: a.unionByName(b, allowMissingColumns=True), per_range)
 
 
 # ---------- Gold ----------
 
+def _code_dict_splits() -> tuple[DataFrame, DataFrame]:
+    """Two label tables — one keyed on econ_code, one on func_code — derived
+    from `code_dictionary.csv` split by `tag_kind`. Revenue and expenditure
+    econ labels share the same table because both sit under `tag_kind`
+    prefix `EXP_ECON`/`REV_ECON`."""
+    rows = _load_driver_csv("code_dictionary.csv")
+    econ_rows = [
+        {"econ_code": r["code"], "econ": r["econ"] or None,
+         "econ_sub": r["econ_sub"] or None}
+        for r in rows if r["tag_kind"] in ("EXP_ECON", "REV_ECON")
+    ]
+    func_rows = [
+        {"func_code": r["code"], "func": r["func"] or None,
+         "func_sub": r["func_sub"] or None}
+        for r in rows if r["tag_kind"] == "EXP_FUNC"
+    ]
+    return (spark.createDataFrame(econ_rows),
+            spark.createDataFrame(func_rows))
+
+
+def _derive_admin0(admin1_col: str):
+    """Moldova admin1 values differ by era: Central/Local (2006-15) vs
+    centrala/locale (2016+). Collapse to the cross-country admin0 vocabulary."""
+    lc = lower(col(admin1_col))
+    return (when(lc.isin(["central", "centrala"]), lit("Central"))
+            .when(lc.isin(["local", "locale"]), lit("Regional"))
+            .otherwise(col(admin1_col)))
+
+
 @dlt.table(name="mda_boost_gold",
-           comment="Moldova BOOST expenditure gold. Schema matches "
+           comment="Moldova BOOST expenditure gold — one row per raw "
+                   "expenditure record with econ/func labels via "
+                   "code_dictionary join. Schema matches "
                    "cross_country_aggregate_dlt.boost_gold.")
 def boost_gold():
     silver = dlt.read("mda_expenditure_silver")
-    code_dict_rows = _load_driver_csv("code_dictionary.csv")
-    code_df = spark.createDataFrame([
-        {"code": r["code"],
-         "econ": r["econ"] or None,
-         "econ_sub": r["econ_sub"] or None,
-         "func": r["func"] or None,
-         "func_sub": r["func_sub"] or None}
-        for r in code_dict_rows
-    ])
-
-    return (silver.join(code_df, on="code", how="left")
+    econ_df, func_df = _code_dict_splits()
+    return (silver
+            .join(econ_df, on="econ_code", how="left")
+            .join(func_df, on="func_code", how="left")
             .withColumn("country_name", lit("Moldova"))
-            # admin0/geo0/admin1/admin2 not carried through silver today.
-            # Moldova's admin1 values differ by era ("Central"/"Local" pre-2016,
-            # "centrala"/"locale" 2016+) — SME confirmation pending before
-            # deriving admin0 from the raw admin1 column. See ISSUES.md.
-            .withColumn("admin0", lit("Central"))
-            .withColumn("admin1", lit(None).cast("string"))
-            .withColumn("admin2", lit(None).cast("string"))
-            .withColumn("geo0",   lit("Central"))
-            .withColumn("geo1",   lit(None).cast("string"))
-            .withColumn("revised", lit(None).cast("double"))
+            .withColumn("admin0", _derive_admin0("admin1"))
+            .withColumn("geo0", col("admin0"))
+            .withColumn("geo1", col("admin1"))
+            # admin2 only exists in 2016+ bronzes; unionByName gave it NULL in base.
             .select("country_name", "year",
                     "admin0", "admin1", "admin2", "geo0", "geo1",
                     "func", "func_sub", "econ", "econ_sub",

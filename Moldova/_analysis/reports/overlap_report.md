@@ -16,7 +16,7 @@ Pair annotations like `cross econ (Wage bill vs Goods and services)` mark the cr
 
 Subnational `SBN_*` codes are evaluated in a separate section because they are cross-cutting (admin × category) rather than a standard econ/func breakdown.
 
-## Primary overlaps — 6 pair(s)
+## Primary overlaps — 7 pair(s)
 
 
 ### 2006-2015 (raw sheet `2006-15`)
@@ -123,13 +123,13 @@ EXP_ECON_SUB_PRO_EXE:
 | 2015 | 1 | 200,000 | 132,700 |
 
 
-#### EXP_FUNC — 1 overlap(s)
+#### EXP_FUNC — 2 overlap(s)
 
 ### `EXP_FUNC_PRI_EDU_EXE` vs `EXP_FUNC_PRI_SEC_EDU_EXE` — **cross `func_sub`** (`Primary education` vs `Primary and secondary education`)
 
 - **EXP_FUNC_PRI_EDU_EXE** — _Spending in primary education_
 - **EXP_FUNC_PRI_SEC_EDU_EXE** — _Spending in primary and secondary education_
-- **573 raw rows in the intersection.**
+- **984 raw rows in the intersection.**
 
 **Excel formulas (sample year 2006)**
 ```
@@ -144,23 +144,60 @@ EXP_FUNC_PRI_SEC_EDU_EXE:
 
 | measure | Σ code A (full) | Σ code B (full) | **Σ overcounted** | overcounted ÷ min(A,B) |
 |---|---:|---:|---:|---:|
-| approved | 13,125,701,852 | 13,125,701,852 | **13,125,701,852** | 100.0% |
-| executed | 13,743,910,717 | 13,743,910,717 | **13,743,910,717** | 100.0% |
+| approved | 13,879,192,390 | 45,576,206,237 | **13,879,192,390** | 100.0% |
+| executed | 14,566,709,920 | 46,639,425,259 | **14,566,709,920** | 100.0% |
 
 **Per-year overcounted amount** — sum of each measure over raw rows matching BOTH codes (the exact amount that would be double-counted if code A + code B were added):
 
 | year | rows in overlap | Σ approved overcounted | Σ executed overcounted |
 |---:|---:|---:|---:|
-| 2006 | 45 | 448,539,816 | 534,851,690 |
-| 2007 | 47 | 659,512,113 | 721,481,010 |
-| 2008 | 50 | 876,260,022 | 951,927,623 |
-| 2009 | 57 | 1,026,191,795 | 1,113,175,371 |
-| 2010 | 51 | 1,267,682,300 | 1,300,563,595 |
-| 2011 | 63 | 1,384,477,894 | 1,414,470,967 |
-| 2012 | 66 | 1,604,310,328 | 1,647,857,046 |
-| 2013 | 65 | 1,708,594,034 | 1,680,545,670 |
-| 2014 | 62 | 1,896,570,890 | 2,004,227,579 |
-| 2015 | 67 | 2,253,562,660 | 2,374,810,166 |
+| 2006 | 86 | 500,721,006 | 609,043,676 |
+| 2007 | 88 | 723,431,285 | 784,713,673 |
+| 2008 | 90 | 934,464,899 | 1,019,294,974 |
+| 2009 | 95 | 1,080,756,762 | 1,174,082,225 |
+| 2010 | 90 | 1,342,521,220 | 1,371,926,311 |
+| 2011 | 107 | 1,452,522,842 | 1,481,336,398 |
+| 2012 | 108 | 1,678,549,820 | 1,721,999,532 |
+| 2013 | 110 | 1,802,212,314 | 1,787,157,494 |
+| 2014 | 104 | 1,994,670,280 | 2,118,328,654 |
+| 2015 | 106 | 2,369,341,962 | 2,498,826,983 |
+
+### `EXP_FUNC_PRI_SEC_EDU_EXE` vs `EXP_FUNC_SEC_EDU_EXE` — **cross `func_sub`** (`Primary and secondary education` vs `Secondary education`)
+
+- **EXP_FUNC_PRI_SEC_EDU_EXE** — _Spending in primary and secondary education_
+- **EXP_FUNC_SEC_EDU_EXE** — _Spending in secondary education_
+- **1,072 raw rows in the intersection.**
+
+**Excel formulas (sample year 2006)**
+```
+EXP_FUNC_PRI_SEC_EDU_EXE:
+  =SUMIFS(approved,year,C$1,transfer,"Excluding transfers",func1,"06 Education",func2,"06.01 Preschool education") + SUMIFS(approved,year,C$1,transfer,"Excluding transfers",func1,"06 Education",func2,"06.02 Primary education") + SUMIFS(approved,year,C$1,transfer,"Excluding transfers",func1,"06 Education",func2,"06.03 Secondary education")
+
+EXP_FUNC_SEC_EDU_EXE:
+  =SUMIFS(approved,year,C$1,transfer,"Excluding transfers",func1,"06 Education",func2,"06.03 Secondary education")
+```
+
+**Totals across all years** — scale context for the overcounted amount:
+
+| measure | Σ code A (full) | Σ code B (full) | **Σ overcounted** | overcounted ÷ min(A,B) |
+|---|---:|---:|---:|---:|
+| approved | 45,576,206,237 | 31,697,013,847 | **31,697,013,847** | 100.0% |
+| executed | 46,639,425,259 | 32,072,715,339 | **32,072,715,339** | 100.0% |
+
+**Per-year overcounted amount** — sum of each measure over raw rows matching BOTH codes (the exact amount that would be double-counted if code A + code B were added):
+
+| year | rows in overlap | Σ approved overcounted | Σ executed overcounted |
+|---:|---:|---:|---:|
+| 2006 | 96 | 1,483,524,410 | 1,915,341,294 |
+| 2007 | 92 | 2,089,716,226 | 2,215,240,024 |
+| 2008 | 94 | 2,533,789,443 | 2,621,017,925 |
+| 2009 | 96 | 2,700,169,447 | 2,906,822,211 |
+| 2010 | 95 | 3,332,498,747 | 3,379,925,582 |
+| 2011 | 121 | 3,537,333,509 | 3,514,774,322 |
+| 2012 | 120 | 3,790,364,405 | 3,718,661,482 |
+| 2013 | 120 | 3,781,827,328 | 3,632,688,932 |
+| 2014 | 118 | 3,925,492,923 | 3,992,604,322 |
+| 2015 | 120 | 4,522,297,409 | 4,175,639,244 |
 
 
 ### 2016-2019 (raw sheet `2016-19`)

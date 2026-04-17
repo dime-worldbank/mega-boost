@@ -122,15 +122,21 @@ Parses every SUMIFS in the formula sheets into structured criteria:
 Output: `data/tag_rules.csv` — one row per formula sheet × tag row × distinct
 formula-shape group, with:
 - `code`, `category` — BOOST classification tag identifier + human label
-- `criteria_json` — the SUMIFS criteria
-- `measure` — which named range is being summed (e.g. `approved`, or
-  `approved_16` for a Moldova-style year-range-suffixed variant)
+- `criteria_json` — list-of-lists of SUMIFS criteria. Each inner list is
+  one SUMIFS block; a raw row matches the rule if **any** inner list's
+  criteria are all satisfied (i.e. Excel's `=SUMIFS(…) + SUMIFS(…)` is
+  treated as an OR across blocks).
+- `measure` — which named range is summed by the first SUMIFS block (e.g.
+  `approved`, or `approved_16` for a Moldova-style suffixed variant).
+  Determines which raw sheet the rule dispatches to.
+- `block_measures` — pipe-separated list of the measure per block,
+  useful for catching mixed-source rules that reference the hidden
+  `Raw2` sheet in a second block.
 - `years_covered`, `year_min`, `year_max` — the year columns that share
   this formula shape
-- `n_sumifs` — how many SUMIFS blocks the formula contains; only the FIRST
-  is captured in `criteria_json`, so `n_sumifs > 1` is a flag for SME
-  review (Moldova rows 205, 280… combine a primary SUMIFS with a
-  `Raw2` supplement or additive education formula)
+- `n_sumifs` — how many SUMIFS blocks the formula contains. Still useful
+  as a flag for SME review even though all blocks are captured in
+  `criteria_json`.
 - `row_type` — `TAG` (SUMIFS), `ROLLUP` (plain SUM), `HEADER` (no formula)
 
 **The same code can emit multiple rows** when its formula shape changes
@@ -228,11 +234,18 @@ dictionary to prevent double-counting — they're covered by the
 standalone ECON_* and FUNC_* codes.
 
 **Meta-rollup codes** (codes that aggregate a whole COFOG or econ
-category — e.g. Moldova's `EXP_FUNC_ECO_REL_EXE` = all COFOG 704 and
-`REV_ECON_TOT_EXE` = total revenue) must also be excluded. Add them to
-the `META_ROLLUP_CODES` set in `5_build_code_dictionary.py`. Without
-this the overlap audit shows the rollup intersecting every one of its
-component sub-codes, which is noise.
+category — e.g. Moldova's `EXP_ECON_TOT_EXP_EXE` = all expenditure,
+`EXP_ECON_SBN_TOT_SPE_EXE` = all subnational spending,
+`EXP_FUNC_ECO_REL_EXE` = all COFOG 704, `REV_ECON_TOT_EXE` = total
+revenue) must also be excluded. Add them to the `META_ROLLUP_CODES` set
+in `5_build_code_dictionary.py`. Excluding them matters for two
+reasons:
+
+1. In the overlap audit they would intersect every sub-code (noise).
+2. In the per-row cascade silver (Phase 7 Moldova pattern) they sit
+   near the top of the sheet with the broadest filter, so if not
+   excluded the cascade assigns every row to the rollup code and
+   classification granularity is lost.
 
 **Alongside `code_dictionary.csv`, Phase 5 emits
 `reports/code_hierarchy.md`** — a tree view grouping every code under
@@ -319,11 +332,47 @@ pattern is portable; only the maps change.
 sheets, emit one bronze per sheet and dispatch each rule to its bronze
 based on the rule's `measure` suffix. See
 [Moldova/MDA_transform_load_raw_dlt.py](Moldova/MDA_transform_load_raw_dlt.py):
-three `MAP_BASE` / `MAP_16` / `MAP_20` dictionaries, a `classify_measure()`
-helper, and a shared `_silver_for_kind()` that unions across ranges.
-EXP vs REV are both pulled from the same bronzes (Moldova distinguishes
-them via `econ0_* ∈ {"Expenditures","Revenues"}`); the kind filter just
-splits by code prefix (`EXP_*` vs `REV_*`).
+three `MAP_BASE` / `MAP_16` / `MAP_20` dictionaries and a
+`classify_measure()` helper. EXP vs REV are both pulled from the same
+bronzes (Moldova distinguishes them via `econ0_* ∈ {"Expenditures",
+"Revenues"}`).
+
+**Silver layer — per-row tagging, NOT SUMIFS aggregation.** Zimbabwe's
+original template iterates each tag rule and aggregates via SUMIFS,
+producing `(year, code, approved, executed)` rows. This is fine when
+codes don't overlap, but countries like Moldova have codes whose filters
+share raw rows — summing across codes then double-counts. The right
+shape is Albania's: emit one silver row per raw expenditure record and
+attach classification labels by **two parallel if-else cascades**:
+
+- `econ_code`: first matching `EXP_ECON_*` rule (REV rules for revenue
+  silver), scanned in workbook sheet-row order
+- `func_code`: first matching `EXP_FUNC_*` rule, same scan
+
+Each raw row thus carries at most one econ and one func label; summing
+across either dimension reproduces the corresponding Excel total
+exactly, and the dimensions are independent. A uniform pre-filter
+(`transfer` keep-rule + `econ0 ∈ {"Expenditures","Revenues"}` for 2016+)
+drops intra-budgetary transfers before tagging.
+
+**Multi-SUMIFS rules are OR'd.** When an Excel cell is
+`=SUMIFS(…) + SUMIFS(…)`, the two blocks are alternative ways for a raw
+row to be included — so Phase 3's `criteria_json` is a
+*list-of-lists* (each inner list = one SUMIFS block's criteria) and the
+silver's `_rule_match_expr` OR's across branches. Don't collapse this
+back to a single-criterion rule; you'll miss rows the Excel formula
+captures via the second SUMIFS.
+
+**Priority (= code order) is intentional.** When two rules share rows,
+the earlier-in-sheet rule wins the tag. `reports/overlap_report.md` is
+the audit artifact that surfaces these tie-breaks so the SME can
+confirm or reorder — do **not** re-sort rules by specificity or try to
+resolve overlaps in code.
+
+**Unmatched rows stay in silver with code=NULL.** A row that passes the
+uniform filter but no cascade rule matches surfaces as a coverage hole
+(NULL econ_code or func_code). Left-join to `code_dictionary.csv` in
+gold so NULL codes become NULL labels — visible in the output.
 
 **Do not include a `build_review()` call in the DLT notebook.** The
 discrepancy review runs in local testing, not as part of the Spark
@@ -434,3 +483,14 @@ Only when all boxes are ticked should the PR be opened.
    only with other SBN codes.
 10. **Putting `build_review()` in the DLT notebook.** The discrepancy
     review is a local-test step, not a pipeline stage.
+11. **Using SUMIFS aggregation for the silver layer when codes overlap.**
+    Zimbabwe's template works because its codes are near-mutually-
+    exclusive. If the overlap audit surfaces real intersections (Moldova
+    did), switch to the per-row if-else cascade pattern — each raw row
+    gets at most one `econ_code` and one `func_code`, and summing
+    downstream can't double-count.
+12. **Collapsing multi-SUMIFS rules to their first block.** Excel cells
+    like `=SUMIFS(…) + SUMIFS(…)` are a single rule with an OR across
+    blocks. Only extracting the first SUMIFS silently undercounts
+    whatever the second block covers. `criteria_json` must be a
+    list-of-lists.
