@@ -41,47 +41,21 @@ from pathlib import Path
 import dlt
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import broadcast, col, lit, lower, when
-from pyspark.sql.types import (
-    DoubleType, IntegerType, StringType, StructField, StructType,
-)
 
 
 COUNTRY = "Moldova"
 MICRODATA_DIR = f"/Volumes/prd_mega/sboost4/vboost4/Workspace/microdata_csv/{COUNTRY}"
 ANALYSIS_DIR = (Path(__file__).resolve().parent / "_analysis" / "data"
                 if "__file__" in globals() else Path("Moldova/_analysis/data"))
-# Explicit schemas for the raw CSVs — skips the full-file scan that
-# `inferSchema=true` would run on the driver (≈1 GB / scan on the 186 MB
-# 2016-19 sheet) and guarantees stable types across runs.
-CSV_OPTS = {"header": "true", "multiline": "true", "quote": '"', "escape": '"'}
+# NOTE: pinned bronze schemas were removed because they dropped 2020-24
+# data on Databricks — the CSV column layout the extract script produces
+# didn't match a static schema in at least one range, and Spark quietly
+# returned an empty / malformed frame. Falling back to `inferSchema`
+# gives up some driver memory but keeps the pipeline correct. Re-add
+# schemas only after verifying them against the actual bronze CSVs.
+CSV_OPTS = {"header": "true", "multiline": "true", "quote": '"',
+            "escape": '"', "inferSchema": "true"}
 TRANSFER_KEEP = {"excluding transfers", "cu exceptia transferurilor"}
-
-_NUMERIC = {"year": IntegerType(), "approved": DoubleType(),
-            "executed": DoubleType(), "revised": DoubleType(),
-            "adjusted": DoubleType()}
-
-
-def _schema(cols: list[str]) -> StructType:
-    return StructType([StructField(c, _NUMERIC.get(c, StringType())) for c in cols])
-
-
-SCHEMA_BASE = _schema([
-    "year", "admin1", "func1", "func2", "econ1", "econ2",
-    "exp_type", "transfer", "approved", "adjusted", "executed",
-])
-SCHEMA_16 = _schema([
-    "year", "admin1", "admin2", "func1", "func2", "func3",
-    "econ0", "econ1", "econ2", "econ3", "econ4", "econ5", "econ6",
-    "exp_type", "transfer", "fin_source1",
-    "approved", "revised", "executed",
-    "program1", "program2", "activity",
-])
-SCHEMA_20 = _schema([
-    "year", "admin1", "admin2", "func1", "func2", "func3",
-    "econ0", "econ1", "econ2", "econ3", "econ4", "econ5", "econ6",
-    "exp_type", "transfer", "fin_source1",
-    "approved", "adjusted", "executed",
-])
 
 # Named-range → raw-column mapping per year-range sheet. 2016-19 has
 # `revised` + program/activity; 2020-24 has `adjusted` instead.
@@ -98,13 +72,12 @@ MAP_20 = {**{f"{f}_20": f for f in _WIDE_FIELDS}, "adjusted_20": "adjusted"}
 
 RANGES = {
     "base": {"csv": "2006-15.csv", "bronze": "mda_raw_2006_15_bronze",
-             "map": MAP_BASE, "schema": SCHEMA_BASE, "transfer_key": "transfer",
-             "econ0_key": None},
+             "map": MAP_BASE, "transfer_key": "transfer", "econ0_key": None},
     "16":   {"csv": "2016-19.csv", "bronze": "mda_raw_2016_19_bronze",
-             "map": MAP_16,   "schema": SCHEMA_16,   "transfer_key": "transfer_16",
+             "map": MAP_16,   "transfer_key": "transfer_16",
              "econ0_key": "econ0_16"},
     "20":   {"csv": "2020-24.csv", "bronze": "mda_raw_2020_24_bronze",
-             "map": MAP_20,   "schema": SCHEMA_20,   "transfer_key": "transfer_20",
+             "map": MAP_20,   "transfer_key": "transfer_20",
              "econ0_key": "econ0_20"},
 }
 
@@ -251,11 +224,10 @@ def _cascade(df: DataFrame, rules: list[dict], mapping: dict, out: str) -> DataF
 # ---------- bronze / silver factories ----------
 
 def _bronze(rk: str) -> DataFrame:
-    """Load raw CSV with a pinned schema — no driver-side inferSchema pass,
-    no synthetic `id` column (gold doesn't need one)."""
+    """Load raw CSV with header-based inferSchema. No synthetic `id` column
+    (gold doesn't use one)."""
     cfg = RANGES[rk]
     return (spark.read.format("csv").options(**CSV_OPTS)
-            .schema(cfg["schema"])
             .load(f"{MICRODATA_DIR}/{cfg['csv']}"))
 
 

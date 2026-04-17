@@ -424,12 +424,18 @@ etc.) can shift types — so cast every output column on the final
 Same pattern Kenya uses at [Kenya/KEN_transform_load_dlt.py:236](Kenya/KEN_transform_load_dlt.py#L236)
 and Moldova at [Moldova/MDA_transform_load_raw_dlt.py](Moldova/MDA_transform_load_raw_dlt.py).
 
-**Also pin the bronze schemas.** Pass a `StructType` via
-`spark.read.format("csv").schema(...)` and drop `inferSchema=true`.
-`inferSchema` re-scans the full CSV on the driver just to guess types
-(~1 GB of driver memory on a 186 MB file — a real OOM risk on modest
-clusters), and any misguess propagates through silver into gold where
-the cross-country type assertion catches it anyway.
+**Bronze schema pinning — verify first.** `inferSchema=true` re-scans
+the full CSV on the driver just to guess types (~1 GB memory on a
+186 MB file — a real OOM risk on modest clusters). Pinning an explicit
+`StructType` via `.schema(...)` would skip that, but only works if the
+static schema exactly matches the CSV layout the extract script
+produces for every range. On Moldova, pinning a 19-field schema that
+drifted by one column silently returned malformed frames for the
+affected range — data looked fine in bronze counts but rows dropped
+out later. If you pin schemas: derive them *from an actual CSV sample*
+(not from the Excel sheet) and verify with a local `spark.read` test
+before deploying. Otherwise keep `inferSchema=true` and compensate for
+the driver-memory hit by scaling the driver or splitting bronze.
 
 ### Phase 8 — Discrepancy review (local)
 
