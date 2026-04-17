@@ -26,18 +26,34 @@ script.
 # optional: mkvirtualenv moldova_boost
 pip install pyspark pandas openpyxl
 
-# Where the raw year-range CSVs (2006-15.csv, 2016-19.csv, 2020-24.csv)
-# live on your machine. Default is Moldova/_onboarding/raw_csv/ if unset.
-export MICRODATA_DIR=/path/to/raw_csv
+# Input workbook (used by the extract step) and raw-CSV output dir.
+# Without these exports the extract script prompts on each run.
+export INPUT_FILE_NAME=/path/to/Moldova\ BOOST.xlsx
+export OUTPUT_DIR=/path/to/raw_csv
+```
+
+### Step 1 — extract raw CSVs from the workbook
+
+[MDA_extract_microdata_excel_to_csv.py](MDA_extract_microdata_excel_to_csv.py)
+reads the three year-range sheets from the Excel workbook and writes
+one CSV per range (`2006-15.csv`, `2016-19.csv`, `2020-24.csv`). No
+transformation — the raw bronze layer.
+
+```
+python MDA_extract_microdata_excel_to_csv.py
+```
+
+### Step 2 — run the Spark transform
+
+```
+# Where the bronze CSVs from Step 1 live. Defaults to the OUTPUT_DIR
+# you set above, or to Moldova/_onboarding/raw_csv/ if unset.
+export MICRODATA_DIR="$OUTPUT_DIR"
 
 # Optional: output path for the gold Parquet. Default is
 # Moldova/_onboarding/reports/local_gold.parquet.
 export LOCAL_GOLD_OUT=/path/to/local_gold.parquet
-```
 
-### Run (without Databricks)
-
-```
 python MDA_transform_load_raw_dlt.py
 ```
 
@@ -46,21 +62,19 @@ the per-range if-else cascade, union into `mda_boost_gold`, and write
 the result as Parquet. The row count matches the filtered bronze
 row count (no aggregation — one row per raw expenditure record).
 
-### Extracting the raw CSVs first
+### Quick-and-dirty alternative (no PySpark)
 
-If you don't yet have the per-range CSVs, run the pandas-only local
-runner under `_onboarding/` which also reads the source workbook
-directly:
+If you just want a pandas CSV of gold for offline inspection without
+installing Java/Spark, the onboarding folder has a pandas-only runner
+that reads the workbook directly:
 
 ```
 cd _onboarding
 python scripts/8_run_pipeline_local.py
 ```
 
-This writes a CSV version of gold to
-`_onboarding/reports/local_gold.csv` for quick inspection without
-PySpark. Not a replacement for the Spark path — the DLT pipeline
-remains authoritative.
+Output: `_onboarding/reports/local_gold.csv`. Not a replacement for
+the Spark path — the DLT pipeline remains authoritative.
 
 ### Files consumed at pipeline run-time
 
