@@ -320,6 +320,8 @@ def boost_gold():
     ])
     # Lookup tables are tiny (~60 rows) — broadcast-join so Spark skips the
     # shuffle it would otherwise do on the per-row silver (~1.36M rows).
+    # Explicit types on the final select: cross_country_aggregate_dlt.boost_gold
+    # asserts `approved` and `executed` are DoubleType and breaks otherwise.
     return (silver
             .join(broadcast(econ_df), "econ_code", "left")
             .join(broadcast(func_df), "func_code", "left")
@@ -335,7 +337,19 @@ def boost_gold():
             .withColumn("geo0", col("admin0"))
             .withColumn("geo1", col("admin1"))
             .drop("_entity")
-            .select("country_name", "year",
-                    "admin0", "admin1", "admin2", "geo0", "geo1",
-                    "func", "func_sub", "econ", "econ_sub",
-                    "approved", "revised", "executed"))
+            .select(
+                col("country_name").cast("string"),
+                col("year").cast("int"),
+                col("admin0").cast("string"),
+                col("admin1").cast("string"),
+                col("admin2").cast("string"),
+                col("geo0").cast("string"),
+                col("geo1").cast("string"),
+                col("func").cast("string"),
+                col("func_sub").cast("string"),
+                col("econ").cast("string"),
+                col("econ_sub").cast("string"),
+                col("approved").cast("double"),
+                col("revised").cast("double"),
+                col("executed").cast("double"),
+            ))
