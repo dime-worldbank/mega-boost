@@ -1,2 +1,5 @@
 temp/*
 *.DS_Store
+# Local-runner output (experimental — large, regenerable, not part of the pipeline).
+**/_onboarding/reports/local_gold.csv
+**/_onboarding/reports/local_revenue_gold.csv

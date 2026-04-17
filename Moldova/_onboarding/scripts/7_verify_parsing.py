@@ -35,11 +35,14 @@ from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 
 
-ROOT = Path(__file__).resolve().parent.parent          # Moldova/_analysis
-XLSX = ROOT.parent.parent / "temp" / "Moldova BOOST.xlsx"
+ROOT = Path(__file__).resolve().parent.parent          # Moldova/_onboarding
+COUNTRY_DIR = ROOT.parent                              # Moldova/
+XLSX = COUNTRY_DIR.parent / "temp" / "Moldova BOOST.xlsx"
 DATA = ROOT / "data"
 REPORTS = ROOT / "reports"
 REPORTS.mkdir(parents=True, exist_ok=True)
+# Driver CSV (tag_rules.csv) lives at COUNTRY_DIR for DLT pipeline consumption.
+TAG_RULES = COUNTRY_DIR / "tag_rules.csv"
 
 # Named-range → raw-column mapping per year-range sheet. Must match the
 # silver-layer maps in MDA_transform_load_raw_dlt.py.
@@ -192,7 +195,7 @@ def verify():
         raw[rk] = pd.read_excel(XLSX, sheet_name=cfg["sheet"])
         print(f"    {len(raw[rk]):,} rows × {len(raw[rk].columns)} cols")
 
-    with (DATA / "tag_rules.csv").open() as f:
+    with TAG_RULES.open() as f:
         rules = [r for r in csv.DictReader(f) if r["row_type"] == "TAG"]
     print(f"Verifying {len(rules)} TAG rules…\n")
 

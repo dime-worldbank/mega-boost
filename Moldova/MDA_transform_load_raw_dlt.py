@@ -45,8 +45,14 @@ from pyspark.sql.functions import broadcast, col, lit, lower, when
 
 COUNTRY = "Moldova"
 MICRODATA_DIR = f"/Volumes/prd_mega/sboost4/vboost4/Workspace/microdata_csv/{COUNTRY}"
-ANALYSIS_DIR = (Path(__file__).resolve().parent / "_analysis" / "data"
-                if "__file__" in globals() else Path("Moldova/_analysis/data"))
+# Driver CSVs (tag_rules.csv, code_dictionary.csv) live alongside this
+# notebook — Databricks repos only reliably address files in the same
+# folder, and keeping them co-located makes the pipeline self-contained.
+# The `_onboarding/` folder carries every other analysis artefact (raw
+# reports, auxiliary CSVs, the offline scripts) and is not required at
+# pipeline run-time.
+DRIVER_DIR = (Path(__file__).resolve().parent
+              if "__file__" in globals() else Path("Moldova"))
 # NOTE: pinned bronze schemas were removed because they dropped 2020-24
 # data on Databricks — the CSV column layout the extract script produces
 # didn't match a static schema in at least one range, and Spark quietly
@@ -93,7 +99,7 @@ def _classify(measure: str) -> str | None:
 
 def _load_csv(name: str) -> list[dict]:
     import csv as _csv
-    with open(ANALYSIS_DIR / name) as f:
+    with open(DRIVER_DIR / name) as f:
         return list(_csv.DictReader(f))
 
 

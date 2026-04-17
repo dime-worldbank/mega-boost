@@ -19,7 +19,7 @@ from openpyxl import load_workbook
 
 # Resolve paths relative to this file so the script works from any
 # checkout location (local dev, CI, Databricks Repos).
-ROOT = Path(__file__).resolve().parent.parent          # Moldova/_analysis
+ROOT = Path(__file__).resolve().parent.parent          # Moldova/_onboarding
 XLSX = ROOT.parent.parent / "temp" / "Moldova BOOST.xlsx"
 OUT = ROOT / "data"
 OUT.mkdir(parents=True, exist_ok=True)

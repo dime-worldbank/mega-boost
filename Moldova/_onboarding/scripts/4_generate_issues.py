@@ -23,12 +23,13 @@ from pathlib import Path
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 
-ROOT = Path(__file__).resolve().parent.parent          # Moldova/_analysis
-XLSX = ROOT.parent.parent / "temp" / "Moldova BOOST.xlsx"
+ROOT = Path(__file__).resolve().parent.parent          # Moldova/_onboarding
+COUNTRY_DIR = ROOT.parent                              # Moldova/
+XLSX = COUNTRY_DIR.parent / "temp" / "Moldova BOOST.xlsx"
 DATA = ROOT / "data"
 REPORTS = ROOT / "reports"
 REPORTS.mkdir(parents=True, exist_ok=True)
-OUT = DATA  # load_csv() reads inputs from data/
+OUT = DATA  # load_csv() reads inputs from data/ (tag_rules.csv lives at COUNTRY_DIR)
 
 VOLATILE = re.compile(r"\b(INDIRECT|OFFSET|TODAY|NOW|RAND|RANDBETWEEN)\s*\(", re.I)
 EXTERNAL_REF = re.compile(r"\[[^\]]+\.xls[xm]?\]")  # [OtherFile.xlsx]Sheet!A1
@@ -60,11 +61,14 @@ def normalize_measure_agnostic(formula: str) -> str:
 
 
 def load_csv(name: str) -> list[dict]:
-    p = OUT / name
-    if not p.exists():
-        return []
-    with p.open() as f:
-        return list(csv.DictReader(f))
+    """Look first at the country root (DLT drivers: tag_rules.csv,
+    code_dictionary.csv) then the onboarding data dir (everything else)."""
+    for base in (COUNTRY_DIR, OUT):
+        p = base / name
+        if p.exists():
+            with p.open() as f:
+                return list(csv.DictReader(f))
+    return []
 
 
 def main():

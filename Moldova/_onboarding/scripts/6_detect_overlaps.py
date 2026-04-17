@@ -33,14 +33,17 @@ from pathlib import Path
 
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parent.parent          # Moldova/_analysis
-XLSX = ROOT.parent.parent / "temp" / "Moldova BOOST.xlsx"
+ROOT = Path(__file__).resolve().parent.parent          # Moldova/_onboarding
+COUNTRY_DIR = ROOT.parent                              # Moldova/
+XLSX = COUNTRY_DIR.parent / "temp" / "Moldova BOOST.xlsx"
 DATA = ROOT / "data"
 REPORTS = ROOT / "reports"
 DATA.mkdir(parents=True, exist_ok=True)
 REPORTS.mkdir(parents=True, exist_ok=True)
-TAG_RULES = DATA / "tag_rules.csv"
-CODE_DICT = DATA / "code_dictionary.csv"
+# Driver CSVs live alongside the DLT notebook; analysis-only artefacts
+# (inventory, reports) stay in _onboarding/.
+TAG_RULES = COUNTRY_DIR / "tag_rules.csv"
+CODE_DICT = COUNTRY_DIR / "code_dictionary.csv"
 
 # Moldova raw data is split across three year-range sheets, each with its
 # own named-range suffix. Each entry below binds a range-key to the sheet and

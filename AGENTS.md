@@ -20,7 +20,9 @@ If any of these is missing, **ASK the user**.
 ## Core principles (do NOT violate)
 
 1. **Report, don't interpret.** If an Excel formula looks wrong, flag it
-   in `<Country>/_analysis/reports/ISSUES.md` — never silently patch.
+   in `<Country>/_onboarding/reports/ISSUES.md` — never silently patch.
+   (Older countries called this folder `_analysis/`; new onboardings use
+   `_onboarding/` — see Phase 0.)
 2. **Translate formulas literally.** The pipeline mirrors Excel SUMIFS
    criteria verbatim; any deviation is a reportable issue.
 3. **Driver CSVs, not code.** Country-specific classification logic lives
@@ -53,12 +55,24 @@ fails or produces wrong results for this country.
 <Country>/
 ├── <ISO3>_extract_microdata_excel_to_csv.py   # raw CSV dump (mirrors Albania/Kenya)
 ├── <ISO3>_transform_load_raw_dlt.py           # bronze/silver/gold (mirrors Zimbabwe)
-└── _analysis/
+├── tag_rules.csv                              # DLT driver — lives HERE (not _onboarding/)
+├── code_dictionary.csv                        # DLT driver — lives HERE (not _onboarding/)
+└── _onboarding/
     ├── README.md
-    ├── reports/         # human-readable outputs only
-    ├── data/            # machine CSVs consumed by the pipeline
-    └── scripts/         # 1_*.py … 6_*.py
+    ├── reports/         # human-readable outputs for SME triage
+    ├── data/            # analysis-only CSVs (sheet_inventory, formula_map, hardcoded_*, …)
+    └── scripts/         # 1_*.py … 8_*.py
 ```
+
+The **two driver CSVs** (`tag_rules.csv`, `code_dictionary.csv`) that
+the DLT notebook consumes live at the country-folder root alongside
+the notebook. Databricks Repos only reliably addresses files in the
+same folder as the running notebook, so keep these co-located. The
+`_onboarding/` folder holds everything else — the analysis scripts,
+the intermediate CSVs they produce, and the human-readable review
+reports (ISSUES.md, overlap_report.md, code_hierarchy.md,
+parsing_verification.md). `_onboarding/` is not required at pipeline
+run-time and may be excluded from production deployment.
 
 Copy `Zimbabwe/_analysis/scripts/*.py` and the `README.md` over.
 
@@ -185,7 +199,7 @@ patterns, but the mapping step still needs SME confirmation.
 
 **When raw data is split into multiple sheets (Moldova pattern):** define
 one mapping per year-range sheet, keyed by the measure suffix. See
-[Moldova/_analysis/scripts/6_detect_overlaps.py](Moldova/_analysis/scripts/6_detect_overlaps.py#L45)
+[Moldova/_onboarding/scripts/6_detect_overlaps.py](Moldova/_onboarding/scripts/6_detect_overlaps.py#L45)
 for `SHEET_MAPS = {"base": …, "16": …, "20": …}` and the
 `classify_measure()` dispatch. The silver layer in
 [Moldova/MDA_transform_load_raw_dlt.py](Moldova/MDA_transform_load_raw_dlt.py)
@@ -513,9 +527,10 @@ for examples of how different their logic is.
 
 Before the country is ready to merge:
 
-- [ ] `<Country>/_analysis/reports/ISSUES.md` reviewed by SME
-- [ ] `<Country>/_analysis/reports/overlap_report.md` reviewed by SME
-- [ ] `<Country>/_analysis/data/tag_rules.csv` + `code_dictionary.csv` committed
+- [ ] `<Country>/_onboarding/reports/ISSUES.md` reviewed by SME
+- [ ] `<Country>/_onboarding/reports/overlap_report.md` reviewed by SME
+- [ ] `<Country>/tag_rules.csv` + `<Country>/code_dictionary.csv` committed
+      at the country-folder root (alongside the DLT notebook)
 - [ ] `<ISO3>_extract_microdata_excel_to_csv.py` runs on Databricks
 - [ ] `<ISO3>_transform_load_raw_dlt.py` produces `<iso3>_boost_gold`
 - [ ] `quality/_reviews/<iso3>_discrepancy_review.md` below 5% threshold

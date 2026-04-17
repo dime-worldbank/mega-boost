@@ -35,11 +35,14 @@ from pathlib import Path
 import pandas as pd
 
 
-ROOT = Path(__file__).resolve().parent.parent          # Moldova/_analysis
+ROOT = Path(__file__).resolve().parent.parent          # Moldova/_onboarding
+COUNTRY_DIR = ROOT.parent                              # Moldova/
 DATA = ROOT / "data"
 REPORTS = ROOT / "reports"
-XLSX = ROOT.parent.parent / "temp" / "Moldova BOOST.xlsx"
+XLSX = COUNTRY_DIR.parent / "temp" / "Moldova BOOST.xlsx"
 REPORTS.mkdir(parents=True, exist_ok=True)
+TAG_RULES = COUNTRY_DIR / "tag_rules.csv"
+CODE_DICT = COUNTRY_DIR / "code_dictionary.csv"
 
 WRITE_REV = False  # flip to also write local_revenue_gold.csv
 
@@ -166,9 +169,9 @@ def main() -> None:
         sys.exit(1)
 
     # driver CSVs
-    with (DATA / "tag_rules.csv").open() as f:
+    with TAG_RULES.open() as f:
         all_rules = list(csv.DictReader(f))
-    with (DATA / "code_dictionary.csv").open() as f:
+    with CODE_DICT.open() as f:
         code_dict = list(csv.DictReader(f))
     allowed = {r["code"] for r in code_dict}
     has_sub: dict[str, bool] = {}

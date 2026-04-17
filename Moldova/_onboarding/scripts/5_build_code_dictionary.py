@@ -16,13 +16,16 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent          # Moldova/_analysis
+ROOT = Path(__file__).resolve().parent.parent          # Moldova/_onboarding
+COUNTRY_DIR = ROOT.parent                              # Moldova/
 DATA = ROOT / "data"
 REPORTS = ROOT / "reports"
 DATA.mkdir(parents=True, exist_ok=True)
 REPORTS.mkdir(parents=True, exist_ok=True)
-TAG_RULES = DATA / "tag_rules.csv"
-DICT_OUT  = DATA / "code_dictionary.csv"
+# Driver CSVs live alongside the DLT notebook (Moldova/) for pipeline
+# consumption; analysis-only artefacts stay in _onboarding/data/.
+TAG_RULES = COUNTRY_DIR / "tag_rules.csv"
+DICT_OUT  = COUNTRY_DIR / "code_dictionary.csv"
 ISSUES    = REPORTS / "ISSUES.md"
 
 # Token dictionaries for Moldova. Labels align with the canonical vocabulary

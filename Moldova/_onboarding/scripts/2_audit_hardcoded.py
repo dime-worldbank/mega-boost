@@ -30,7 +30,7 @@ def is_missing(v) -> bool:
         return True
     return False
 
-ROOT = Path(__file__).resolve().parent.parent          # Moldova/_analysis
+ROOT = Path(__file__).resolve().parent.parent          # Moldova/_onboarding
 XLSX = ROOT.parent.parent / "temp" / "Moldova BOOST.xlsx"
 OUT = ROOT / "data"
 OUT.mkdir(parents=True, exist_ok=True)

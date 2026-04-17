@@ -30,10 +30,15 @@ from pathlib import Path
 from openpyxl import load_workbook
 from openpyxl.utils import column_index_from_string
 
-ROOT = Path(__file__).resolve().parent.parent          # Moldova/_analysis
-XLSX = ROOT.parent.parent / "temp" / "Moldova BOOST.xlsx"
+ROOT = Path(__file__).resolve().parent.parent          # Moldova/_onboarding
+COUNTRY_DIR = ROOT.parent                              # Moldova/
+XLSX = COUNTRY_DIR.parent / "temp" / "Moldova BOOST.xlsx"
 OUT = ROOT / "data"
 OUT.mkdir(parents=True, exist_ok=True)
+# tag_rules.csv is consumed by the DLT transform at pipeline run-time, so
+# it sits alongside the DLT notebook (Moldova/) rather than inside the
+# onboarding workspace.
+TAG_RULES_OUT = COUNTRY_DIR / "tag_rules.csv"
 
 TARGET_SHEETS = ("Approved", "Executed")
 
@@ -334,7 +339,7 @@ def main():
                 })
 
     headers = list(out_rows[0].keys()) if out_rows else []
-    with (OUT / "tag_rules.csv").open("w", newline="") as f:
+    with TAG_RULES_OUT.open("w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=headers)
         w.writeheader()
         w.writerows(out_rows)
