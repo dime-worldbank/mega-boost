@@ -56,6 +56,20 @@
 # Priority (code order) is intentional: overlaps between rules are listed
 # in `_analysis/reports/overlap_report.md` for SME review, and the SME's
 # choice of sheet-row order determines which code wins.
+#
+# Gold is NOT an aggregate. Row count in `mda_boost_gold` equals the
+# filtered bronze row count: every input line item is preserved, tagged
+# with its econ / econ_sub / func / func_sub labels (via code_dictionary
+# join) and remapped admin0 / admin1 / admin2 / geo0 / geo1. Downstream
+# consumers can group however they want.
+#
+# Admin hierarchy (Moldova-specific — see boost_gold for detail):
+#   admin0 = Central / Regional / Other  (from raw admin1 flag)
+#   admin1 = raw admin2 entity for Regional rows (district/council name)
+#   admin2 = raw admin2 entity for Central rows  (ministry/agency name)
+#   geo0   = admin0;   geo1 = admin1
+# Raw admin1 ("Locale"/"Centrale"/"Local"/"Central"/"Other") is a coarse
+# flag only; Moldova's actual entity names live in raw admin2.
 
 import json
 from functools import reduce
@@ -365,10 +379,12 @@ def _code_dict_splits() -> tuple[DataFrame, DataFrame]:
 
 
 def _derive_admin0(admin1_col: str):
-    """Moldova admin1 values differ by era: Central/Local (2006-15) vs
-    centrala/locale (2016+). Collapse to the cross-country admin0 vocabulary."""
+    """Moldova raw admin1 is a coarse Central/Local/Other flag with era-
+    specific spelling — Central/Local in 2006-15, Centrale/Locale in
+    2016+. Collapse to the cross-country admin0 vocabulary (Central /
+    Regional / Other)."""
     lc = lower(col(admin1_col))
-    return (when(lc.isin(["central", "centrala"]), lit("Central"))
+    return (when(lc.isin(["central", "centrale", "centrala"]), lit("Central"))
             .when(lc.isin(["local", "locale"]), lit("Regional"))
             .otherwise(col(admin1_col)))
 
@@ -381,14 +397,33 @@ def _derive_admin0(admin1_col: str):
 def boost_gold():
     silver = dlt.read("mda_expenditure_silver")
     econ_df, func_df = _code_dict_splits()
+
+    # Admin mapping rationale:
+    #   Moldova's raw admin1 is only ever Central/Local/Other — too coarse
+    #   for the cross-country `admin1` slot (state/province name). The
+    #   useful entity name (district council, ministry, committee — 142
+    #   distinct values in 2016-19) lives in raw admin2. Split it by
+    #   admin0 so the cross-country schema carries the right thing at the
+    #   right level:
+    #     * Regional rows → admin1 = raw admin2 (district/raion/UTAG)
+    #     * Central rows  → admin2 = raw admin2 (ministry/agency name)
+    #   2006-15 has no raw admin2, so admin1 and admin2 end up NULL there
+    #   (the pre-2016 workbook doesn't carry entity-level detail).
     return (silver
             .join(econ_df, on="econ_code", how="left")
             .join(func_df, on="func_code", how="left")
             .withColumn("country_name", lit("Moldova"))
             .withColumn("admin0", _derive_admin0("admin1"))
+            .withColumn("raw_admin2_entity", col("admin2"))
+            .withColumn("admin1",
+                when(col("admin0") == "Regional", col("raw_admin2_entity"))
+                .otherwise(lit(None).cast("string")))
+            .withColumn("admin2",
+                when(col("admin0") == "Central", col("raw_admin2_entity"))
+                .otherwise(lit(None).cast("string")))
             .withColumn("geo0", col("admin0"))
             .withColumn("geo1", col("admin1"))
-            # admin2 only exists in 2016+ bronzes; unionByName gave it NULL in base.
+            .drop("raw_admin2_entity")
             .select("country_name", "year",
                     "admin0", "admin1", "admin2", "geo0", "geo1",
                     "func", "func_sub", "econ", "econ_sub",
