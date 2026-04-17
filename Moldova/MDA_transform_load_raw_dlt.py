@@ -329,10 +329,12 @@ def boost_gold():
             .withColumn("country_name", lit("Moldova"))
             .withColumn("admin0", _admin0())
             # Admin1/2 carry the entity name (district or ministry) from raw
-            # admin2; raw admin1 only held the Central/Local flag.
+            # admin2. Central rows use the literal "Central Scope" for admin1
+            # per the repo convention — cross_country_aggregate_dlt.py relies
+            # on `geo1 == "Central Scope"` (or NULL) to classify geo0.
             .withColumn("_entity", col("admin2"))
             .withColumn("admin1", when(col("admin0") == "Regional",
-                                       col("_entity")).otherwise(lit(None).cast("string")))
+                                       col("_entity")).otherwise(lit("Central Scope")))
             .withColumn("admin2", when(col("admin0") == "Central",
                                        col("_entity")).otherwise(lit(None).cast("string")))
             .withColumn("geo0", col("admin0"))

@@ -225,7 +225,9 @@ def main() -> None:
         return "Central"  # default Central (matches Kenya/Bangladesh/etc.)
     exp_silver["admin0"] = exp_silver["admin1"].map(_admin0)
     raw_admin2 = exp_silver["admin2"] if "admin2" in exp_silver.columns else pd.Series([None]*len(exp_silver))
-    exp_silver["admin1"] = raw_admin2.where(exp_silver["admin0"] == "Regional", None)
+    # Central → "Central Scope" per repo convention (matches cross_country_aggregate_dlt.py
+    # geo0 derivation); Regional → raw admin2 entity (district/council).
+    exp_silver["admin1"] = raw_admin2.where(exp_silver["admin0"] == "Regional", "Central Scope")
     exp_silver["admin2"] = raw_admin2.where(exp_silver["admin0"] == "Central",  None)
     exp_silver["country_name"] = "Moldova"
     exp_silver["geo0"] = exp_silver["admin0"]
