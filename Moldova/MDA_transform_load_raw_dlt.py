@@ -191,8 +191,14 @@ def raw_2020_24_bronze():
 
 # ---------- Tag-rule compilation helpers ----------
 
-def _criterion_to_col_expr(col_name: str, op: str, value: str):
-    """Translate a single SUMIFS criterion into a Spark Column boolean expr."""
+def _criterion_to_col_expr(col_name: str, op: str, value):
+    """Translate a single SUMIFS criterion into a Spark Column boolean expr.
+    Supports an extra `op` — `in` / `not in` — emitted by `_compact_branches`
+    when an array-constant expansion can collapse to a single `isin`."""
+    if op in ("in", "not in"):
+        vals = [str(v).lower() for v in value]
+        expr = lower(col(col_name).cast("string")).isin(vals)
+        return ~expr if op == "not in" else expr
     val_str = str(value)
     if "*" in val_str:
         like = val_str.replace("*", "%").lower()
@@ -210,11 +216,55 @@ def _criterion_to_col_expr(col_name: str, op: str, value: str):
     return {"<": c < v, "<=": c <= v, ">": c > v, ">=": c >= v}[op]
 
 
+def _compact_branches(criteria_groups: list[list[dict]]) -> list[list[dict]]:
+    """Collapse array-constant expansion back into a single branch with an
+    `in`/`not in` op when possible.
+
+    `SUMIFS(..., econ2, {"a","b","c","d"})` enters this file as 4 branches
+    that share all criteria except the value at one position. Keeping them
+    as 4 separate OR'd AND-chains bloats the Spark expression tree and makes
+    codegen slow / memory-hungry; Spark's `isin` is a single SQL predicate
+    regardless of list length. We detect the pattern by checking that every
+    branch has the same (field, op) at every position and that values differ
+    at exactly one position — then rewrite that position to use `in`."""
+    if len(criteria_groups) <= 1:
+        return criteria_groups
+    lengths = {len(b) for b in criteria_groups}
+    if len(lengths) != 1:
+        return criteria_groups
+    n = lengths.pop()
+    if n == 0:
+        return criteria_groups
+    varying: list[tuple[int, list]] = []
+    for i in range(n):
+        fields = {b[i]["field"] for b in criteria_groups}
+        ops = {b[i]["op"] for b in criteria_groups}
+        values = [b[i]["value"] for b in criteria_groups]
+        if len(fields) != 1 or len(ops) != 1:
+            return criteria_groups
+        if len(set(values)) > 1:
+            varying.append((i, values))
+    if len(varying) != 1:
+        return criteria_groups
+    k, values = varying[0]
+    base = criteria_groups[0][k]
+    if base["op"] not in ("=", "<>"):
+        return criteria_groups
+    compacted = list(criteria_groups[0])
+    compacted[k] = {
+        "field": base["field"],
+        "op": "in" if base["op"] == "=" else "not in",
+        "value": list(values),
+    }
+    return [compacted]
+
+
 def _rule_match_expr(criteria_groups: list[list[dict]], mapping: dict[str, str]):
     """OR across SUMIFS blocks; AND within a block. Returns a Column, or None
     if no block is fully evaluable (e.g. all fields reference a sheet not in
     this mapping — happens for rules dispatched to a different range, or the
     hidden `Raw2` sheet)."""
+    criteria_groups = _compact_branches(criteria_groups)
     branch_exprs = []
     for branch in criteria_groups:
         and_parts = []
@@ -239,16 +289,21 @@ def _rule_match_expr(criteria_groups: list[list[dict]], mapping: dict[str, str])
 
 def _apply_cascade(df: DataFrame, rules: list[dict], mapping: dict[str, str],
                    out_col: str) -> DataFrame:
-    """Build a when/otherwise cascade in sheet-row order: the first rule whose
-    criteria match wins. Rows that match no rule get NULL in `out_col`."""
-    cascade = lit(None).cast("string")
-    # Build bottom-up so when(first).otherwise(when(second).otherwise(...)) nests correctly.
-    for r in reversed(rules):
+    """Build a single flat CASE WHEN ... WHEN ... ELSE NULL END for the rule
+    cascade — one `when` per rule, in sheet-row order. A flat chain codegens
+    to one Spark case expression; the equivalent nested `when().otherwise(
+    when())` pattern produces a deep tree that can blow out codegen size on
+    small clusters."""
+    cascade = None
+    for r in rules:
         match = _rule_match_expr(json.loads(r["criteria_json"]), mapping)
         if match is None:
             continue
-        cascade = when(match, lit(r["code"])).otherwise(cascade)
-    return df.withColumn(out_col, cascade)
+        code_lit = lit(r["code"])
+        cascade = when(match, code_lit) if cascade is None else cascade.when(match, code_lit)
+    if cascade is None:
+        return df.withColumn(out_col, lit(None).cast("string"))
+    return df.withColumn(out_col, cascade.otherwise(lit(None).cast("string")))
 
 
 def _load_driver_csv(name: str) -> list[dict]:
@@ -300,7 +355,9 @@ def _tagged_expenditure_per_range(rk: str, all_rules: list[dict],
                                    allowed_codes: set[str]) -> DataFrame:
     cfg = RANGE_CONFIG[rk]
     bronze = dlt.read(cfg["bronze"])
-    df = _uniform_filter(bronze, cfg, econ0_target="Expenditures")
+    # Persist the filtered frame so the two cascades (econ + func) share one
+    # in-memory pass over the bronze rows instead of re-scanning.
+    df = _uniform_filter(bronze, cfg, econ0_target="Expenditures").persist()
     mapping = cfg["mapping"]
     econ_rules = _rules_for_range(all_rules, rk, "EXP_ECON_", allowed_codes)
     func_rules = _rules_for_range(all_rules, rk, "EXP_FUNC_", allowed_codes)
@@ -316,7 +373,7 @@ def _tagged_revenue_per_range(rk: str, all_rules: list[dict],
         # 2006-15 has no econ0 column — workbook carries no revenue rows.
         return None
     bronze = dlt.read(cfg["bronze"])
-    df = _uniform_filter(bronze, cfg, econ0_target="Revenues")
+    df = _uniform_filter(bronze, cfg, econ0_target="Revenues").persist()
     mapping = cfg["mapping"]
     econ_rules = _rules_for_range(all_rules, rk, "REV_ECON_", allowed_codes)
     df = _apply_cascade(df, econ_rules, mapping, "econ_code")
