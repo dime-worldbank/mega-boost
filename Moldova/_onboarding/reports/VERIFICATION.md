@@ -5,7 +5,7 @@ This document lists every item in the Moldova BOOST workbook that needs subject-
 1. **Formula overcounting** — rows double-counted by multiple codes that are meant to be mutually exclusive.
 2. **Hard-coded overrides** — cells where a literal value replaces the formula, so the pipeline can't reproduce it.
 
-Each item shows the current Excel behaviour, the severity, and a proposed fix following the cross-country conventions from previous fixes (more-specific SUMIFS wins; rename or drop duplicates; recover overrides as explicit formulas). The sign-off checklist at the bottom captures accept/reject per item — once signed, we update the workbook and the pipeline reruns clean.
+Each item shows the current Excel behaviour, the severity, and a proposed fix based on previous fixes applied to other countries (category priority for overlapping codes; rename or drop duplicate / rollup codes; recover hard-coded overrides as explicit formulas). The sign-off checklist at the bottom captures accept / reject per item — once signed, we update the workbook and the pipeline reruns clean.
 
 **At a glance**
 
@@ -24,12 +24,24 @@ Rows tagged by multiple codes that are meant to be mutually exclusive. The _Over
 - Intersection: 1 raw rows · Σ approved **12,100** · Σ executed **0**
 - Severity ratio (overcounted ÷ min total): approved 0.0% · executed 0.0%
 
-**Diagnosis.** Social assistance (`func1=10 Social care…`) is broad; Employment contracts (`econ2=113.16 Research and innovation services contracted out…`) is narrower. The narrower code should win.
+**Current Excel formulas.**
+
+- `EXP_ECON_GOO_SER_EMP_CON_EXE`:
+  ```
+  =SUM(SUMIFS(executed,year,C$1,transfer,"Excluding transfers",econ2,"113.16 Research and innovation services contracted out by self-finance facilities"))
+  ```
+- `EXP_ECON_SOC_ASS_EXE`:
+  ```
+  =SUMIFS(executed,year,E$1,func1,"10 Social care and social insurance",transfer,"Excluding transfers")-E19
+  ```
+
+**Priority (based on previous fixes).** `EXP_ECON_GOO_SER_EMP_CON_EXE` **>** `EXP_ECON_SOC_ASS_EXE` — overlapping rows are assigned to the higher-priority code.
+
+**Diagnosis.** `EXP_ECON_GOO_SER_EMP_CON_EXE` is a Goods & services sub-category (employment contracts). Based on the Kenya fix, Goods & services takes precedence over Social assistance. Rows currently counted in both must be assigned only to G&S.
 
 **Proposed fix.**
 
-Exclude employment-contracts rows from Social assistance:
-`=SUMIFS(executed,year,C$1,func1,"10 Social care and social insurance",transfer,"Excluding transfers",econ2,"<>113.16*") - C19`
+Add `econ2,"<>113.16*"` to Social assistance so G&S (employment contracts) rows are excluded.
 
 #### A2. `EXP_ECON_REC_MAI_EXE` × `EXP_ECON_SOC_ASS_EXE` — **Medium** (cross-category)
 
@@ -37,12 +49,24 @@ Exclude employment-contracts rows from Social assistance:
 - Intersection: 74 raw rows · Σ approved **8,837,014** · Σ executed **16,560,658**
 - Severity ratio (overcounted ÷ min total): approved 4.7% · executed 4.6%
 
-**Diagnosis.** Recurrent maintenance (`econ2=113.18 Current repair…`) is narrower than Social assistance (`func1=10`). The narrower code should win.
+**Current Excel formulas.**
+
+- `EXP_ECON_REC_MAI_EXE`:
+  ```
+  =SUMIFS(executed,year,C$1,transfer,"Excluding transfers",econ2,"113.18 Current repair of equipment and inventory")
+  ```
+- `EXP_ECON_SOC_ASS_EXE`:
+  ```
+  =SUMIFS(executed,year,E$1,func1,"10 Social care and social insurance",transfer,"Excluding transfers")-E19
+  ```
+
+**Priority (based on previous fixes).** `EXP_ECON_REC_MAI_EXE` **>** `EXP_ECON_SOC_ASS_EXE` — overlapping rows are assigned to the higher-priority code.
+
+**Diagnosis.** `EXP_ECON_REC_MAI_EXE` is a Goods & services sub-category (recurrent maintenance). Based on the Kenya fix, Goods & services takes precedence over Social assistance.
 
 **Proposed fix.**
 
-Exclude recurrent-maintenance rows from Social assistance:
-`=SUMIFS(executed,year,C$1,func1,"10 Social care and social insurance",transfer,"Excluding transfers",econ2,"<>113.18*") - C19`
+Add `econ2,"<>113.18*"` to Social assistance so recurrent-maintenance rows are excluded.
 
 #### A3. `EXP_ECON_SOC_ASS_EXE` × `EXP_ECON_SUB_PRO_EXE` — **Low** (cross-category)
 
@@ -50,12 +74,24 @@ Exclude recurrent-maintenance rows from Social assistance:
 - Intersection: 6 raw rows · Σ approved **710,000** · Σ executed **267,100**
 - Severity ratio (overcounted ÷ min total): approved 0.0% · executed 0.0%
 
-**Diagnosis.** Subsidies to production (`econ1=132 Transfers for production`) is narrower than Social assistance (`func1=10`). The narrower wins.
+**Current Excel formulas.**
+
+- `EXP_ECON_SOC_ASS_EXE`:
+  ```
+  =SUMIFS(executed,year,E$1,func1,"10 Social care and social insurance",transfer,"Excluding transfers")-E19
+  ```
+- `EXP_ECON_SUB_PRO_EXE`:
+  ```
+  =SUMIFS(executed,year,C$1,transfer,"Excluding transfers",econ1,"132 Transfers for production purposes")
+  ```
+
+**Priority (based on previous fixes).** `EXP_ECON_SUB_PRO_EXE` **>** `EXP_ECON_SOC_ASS_EXE` — overlapping rows are assigned to the higher-priority code.
+
+**Diagnosis.** `EXP_ECON_SUB_PRO_EXE` is a Subsidies sub-category (subsidies to production). Based on the Kenya fix, Subsidies takes precedence over Social assistance.
 
 **Proposed fix.**
 
-Exclude subsidies-to-production rows from Social assistance:
-`=SUMIFS(executed,year,C$1,func1,"10 Social care and social insurance",transfer,"Excluding transfers",econ1,"<>132*") - C19`
+Add `econ1,"<>132*"` to Social assistance so subsidies-to-production rows are excluded.
 
 #### A4. `EXP_FUNC_PRI_EDU_EXE` × `EXP_FUNC_PRI_SEC_EDU_EXE` — **Critical** (cross-category)
 
@@ -63,11 +99,22 @@ Exclude subsidies-to-production rows from Social assistance:
 - Intersection: 984 raw rows · Σ approved **13,879,192,390** · Σ executed **14,566,709,920**
 - Severity ratio (overcounted ÷ min total): approved 100.0% · executed 100.0%
 
-**Diagnosis.** `EXP_FUNC_PRI_SEC_EDU_EXE` is a **rollup** that sums Preschool + Primary + Secondary. `EXP_FUNC_PRI_EDU_EXE` (Preschool + Primary) is wholly inside it, so 100% of PRI lives in PRI_SEC.
+**Current Excel formulas.**
+
+- `EXP_FUNC_PRI_EDU_EXE`:
+  ```
+  =SUMIFS(executed,year,C$1,transfer,"Excluding transfers",func1,"06 Education",func2,"06.01 Preschool education") + SUMIFS(executed,year,C$1,transfer,"Excluding transfers",func1,"06 Education",func2,"06.02 Primary education")
+  ```
+- `EXP_FUNC_PRI_SEC_EDU_EXE`:
+  ```
+  =SUMIFS(executed,year,C$1,transfer,"Excluding transfers",func1,"06 Education",func2,"06.01 Preschool education") + SUMIFS(executed,year,C$1,transfer,"Excluding transfers",func1,"06 Education",func2,"06.02 Primary education") + SUMIFS(executed,year,C$1,transfer,"Excluding transfers",func1,"06 Education",func2,"06.03 Secondary education")
+  ```
+
+**Diagnosis.** `EXP_FUNC_PRI_SEC_EDU_EXE` is a **rollup** (Preschool + Primary + Secondary). `EXP_FUNC_PRI_EDU_EXE` (Preschool + Primary) is wholly inside it, so 100% of PRI is double-counted inside PRI_SEC. This is a taxonomy bug, not a priority call.
 
 **Proposed fix.**
 
-Drop `EXP_FUNC_PRI_SEC_EDU_EXE` from the econ_sub breakdown — it is a derived total, not a leaf sub-category. Keep `EXP_FUNC_PRI_EDU_EXE` and `EXP_FUNC_SEC_EDU_EXE` as the two disjoint leaves.
+Drop `EXP_FUNC_PRI_SEC_EDU_EXE` as a reported func_sub — it is a derived total, not a leaf. Keep `EXP_FUNC_PRI_EDU_EXE` and `EXP_FUNC_SEC_EDU_EXE` as the disjoint leaves.
 
 #### A5. `EXP_FUNC_PRI_SEC_EDU_EXE` × `EXP_FUNC_SEC_EDU_EXE` — **Critical** (cross-category)
 
@@ -75,11 +122,22 @@ Drop `EXP_FUNC_PRI_SEC_EDU_EXE` from the econ_sub breakdown — it is a derived 
 - Intersection: 1,072 raw rows · Σ approved **31,697,013,847** · Σ executed **32,072,715,339**
 - Severity ratio (overcounted ÷ min total): approved 100.0% · executed 100.0%
 
+**Current Excel formulas.**
+
+- `EXP_FUNC_PRI_SEC_EDU_EXE`:
+  ```
+  =SUMIFS(executed,year,C$1,transfer,"Excluding transfers",func1,"06 Education",func2,"06.01 Preschool education") + SUMIFS(executed,year,C$1,transfer,"Excluding transfers",func1,"06 Education",func2,"06.02 Primary education") + SUMIFS(executed,year,C$1,transfer,"Excluding transfers",func1,"06 Education",func2,"06.03 Secondary education")
+  ```
+- `EXP_FUNC_SEC_EDU_EXE`:
+  ```
+  =SUMIFS(executed,year,C$1,transfer,"Excluding transfers",func1,"06 Education",func2,"06.03 Secondary education")
+  ```
+
 **Diagnosis.** Same rollup issue: `EXP_FUNC_PRI_SEC_EDU_EXE` contains `EXP_FUNC_SEC_EDU_EXE` in full (100% overlap).
 
 **Proposed fix.**
 
-Same action: drop `EXP_FUNC_PRI_SEC_EDU_EXE` as a reported sub-category.
+Same action: drop `EXP_FUNC_PRI_SEC_EDU_EXE`.
 
 ### Range 2016-2019
 
@@ -89,12 +147,24 @@ Same action: drop `EXP_FUNC_PRI_SEC_EDU_EXE` as a reported sub-category.
 - Intersection: 124 raw rows · Σ approved **22,013,112,320** · Σ executed **22,401,756,678**
 - Severity ratio (overcounted ÷ min total): approved 100.0% · executed 100.0%
 
-**Diagnosis.** `REV_ECON_CUS_EXC_EXE` and `REV_ECON_EXC_EXE` resolve to the **identical** SUMIFS (both filter `econ4=114200 Accize`). The label *Customs/excise* implies Customs should also be included; the current formula only captures Excises.
+**Current Excel formulas.**
+
+- `REV_ECON_CUS_EXC_EXE`:
+  ```
+  =SUMIFS(executed_16,year_16,M$1,transfer_16,"Cu exceptia transferurilor", econ0_16,"Revenues",econ4_16,"114200 Accize")
+  ```
+- `REV_ECON_EXC_EXE`:
+  ```
+  =SUMIFS(executed_16,year_16,M$1,transfer_16,"Cu exceptia transferurilor", econ0_16,"Revenues",econ4_16,"114200 Accize")
+  ```
+
+**Diagnosis.** `REV_ECON_CUS_EXC_EXE` and `REV_ECON_EXC_EXE` resolve to **identical** SUMIFS (both filter `econ4=114200 Accize`). The label _Customs/excise_ implies Customs should also be included; the current formula only captures Excises.
 
 **Proposed fix.**
 
-Option 1 — fix the Customs/excise formula to actually include customs:
-`=SUMIFS(approved_16,year_16,M$1,transfer_16,"Cu exceptia transferurilor",econ0_16,"Revenues",econ4_16,{"114200 Accize","114100 Taxe vamale"})`
+Option 1 — fix `REV_ECON_CUS_EXC_EXE` to include customs:
+`=SUMIFS(approved_NN,year_NN,X$1,transfer_NN,"Cu exceptia transferurilor",econ0_NN,"Revenues",econ4_NN,{"114200 Accize","114100 Taxe vamale"})`
+
 Option 2 — drop one of the two codes as redundant.
 
 ### Range 2020-2024
@@ -105,12 +175,24 @@ Option 2 — drop one of the two codes as redundant.
 - Intersection: 93 raw rows · Σ approved **41,805,213,800** · Σ executed **43,675,341,750**
 - Severity ratio (overcounted ÷ min total): approved 100.0% · executed 100.0%
 
-**Diagnosis.** `REV_ECON_CUS_EXC_EXE` and `REV_ECON_EXC_EXE` resolve to the **identical** SUMIFS (both filter `econ4=114200 Accize`). The label *Customs/excise* implies Customs should also be included; the current formula only captures Excises.
+**Current Excel formulas.**
+
+- `REV_ECON_CUS_EXC_EXE`:
+  ```
+  =SUMIFS(executed_20,year_20,Q$1,transfer_20,"Cu exceptia transferurilor", econ0_20,"Revenues",econ4_20,"114200 Accize")
+  ```
+- `REV_ECON_EXC_EXE`:
+  ```
+  =SUMIFS(executed_20,year_20,Q$1,transfer_20,"Cu exceptia transferurilor", econ0_20,"Revenues",econ4_20,"114200 Accize")
+  ```
+
+**Diagnosis.** `REV_ECON_CUS_EXC_EXE` and `REV_ECON_EXC_EXE` resolve to **identical** SUMIFS (both filter `econ4=114200 Accize`). The label _Customs/excise_ implies Customs should also be included; the current formula only captures Excises.
 
 **Proposed fix.**
 
-Option 1 — fix the Customs/excise formula to actually include customs:
-`=SUMIFS(approved_16,year_16,M$1,transfer_16,"Cu exceptia transferurilor",econ0_16,"Revenues",econ4_16,{"114200 Accize","114100 Taxe vamale"})`
+Option 1 — fix `REV_ECON_CUS_EXC_EXE` to include customs:
+`=SUMIFS(approved_NN,year_NN,X$1,transfer_NN,"Cu exceptia transferurilor",econ0_NN,"Revenues",econ4_NN,{"114200 Accize","114100 Taxe vamale"})`
+
 Option 2 — drop one of the two codes as redundant.
 
 ## B. Hard-coded overrides

@@ -37,61 +37,109 @@ OUT = REPORTS / "VERIFICATION.md"
 
 
 # ---------------------------------------------------------------------------
-# Proposed-fix copy. Keyed by (code_a, code_b) — symmetric.
-# Each entry: (diagnosis, proposed_fix_formula_or_action).
-# Pattern cues come from the Massimo cross-country conventions:
-#   - more-specific SUMIFS wins over broader ones
-#   - rollup categories that sum their own children should be dropped
-#   - duplicate SUMIFS → rename or drop one
+# Cross-country category-priority precedents from previous fixes applied to
+# other countries. Higher row = higher priority. When two codes overlap, the
+# lower-priority code must exclude rows already claimed by the higher-priority
+# code.
+#
+#   Wage bill  >  Social assistance        (KEN)
+#   Goods & services  >  Social assistance (KEN)
+#   Capital expenditures  >  Social assistance  (KEN)
+#   Capital expenditures  >  Subsidies     (BTN — Massimo explicit)
+#   Wage bill  >  Subsidies                (TUN — Massimo explicit)
+#   Goods & services  >  Subsidies         (TUN — Massimo explicit)
+#   Subsidies  >  Social assistance        (KEN — via `<>25*` exclusion)
+#   Public safety  >  Defence              (TUN)
+#
+# Rollup / duplicate-label cases are NOT priority decisions — they are
+# taxonomy bugs: drop the derived-total code, or correct the mislabelled
+# formula.
 # ---------------------------------------------------------------------------
+
 OVERLAP_FIX = {
-    frozenset({"EXP_ECON_GOO_SER_EMP_CON_EXE", "EXP_ECON_SOC_ASS_EXE"}): (
-        "Social assistance (`func1=10 Social care…`) is broad; Employment "
-        "contracts (`econ2=113.16 Research and innovation services contracted "
-        "out…`) is narrower. The narrower code should win.",
-        "Exclude employment-contracts rows from Social assistance:\n"
-        "`=SUMIFS(executed,year,C$1,func1,\"10 Social care and social insurance\","
-        "transfer,\"Excluding transfers\",econ2,\"<>113.16*\") - C19`",
-    ),
-    frozenset({"EXP_ECON_REC_MAI_EXE", "EXP_ECON_SOC_ASS_EXE"}): (
-        "Recurrent maintenance (`econ2=113.18 Current repair…`) is narrower "
-        "than Social assistance (`func1=10`). The narrower code should win.",
-        "Exclude recurrent-maintenance rows from Social assistance:\n"
-        "`=SUMIFS(executed,year,C$1,func1,\"10 Social care and social insurance\","
-        "transfer,\"Excluding transfers\",econ2,\"<>113.18*\") - C19`",
-    ),
-    frozenset({"EXP_ECON_SOC_ASS_EXE", "EXP_ECON_SUB_PRO_EXE"}): (
-        "Subsidies to production (`econ1=132 Transfers for production`) is "
-        "narrower than Social assistance (`func1=10`). The narrower wins.",
-        "Exclude subsidies-to-production rows from Social assistance:\n"
-        "`=SUMIFS(executed,year,C$1,func1,\"10 Social care and social insurance\","
-        "transfer,\"Excluding transfers\",econ1,\"<>132*\") - C19`",
-    ),
-    frozenset({"EXP_FUNC_PRI_EDU_EXE", "EXP_FUNC_PRI_SEC_EDU_EXE"}): (
-        "`EXP_FUNC_PRI_SEC_EDU_EXE` is a **rollup** that sums Preschool + "
-        "Primary + Secondary. `EXP_FUNC_PRI_EDU_EXE` (Preschool + Primary) "
-        "is wholly inside it, so 100% of PRI lives in PRI_SEC.",
-        "Drop `EXP_FUNC_PRI_SEC_EDU_EXE` from the econ_sub breakdown — it is "
-        "a derived total, not a leaf sub-category. Keep `EXP_FUNC_PRI_EDU_EXE` "
-        "and `EXP_FUNC_SEC_EDU_EXE` as the two disjoint leaves.",
-    ),
-    frozenset({"EXP_FUNC_PRI_SEC_EDU_EXE", "EXP_FUNC_SEC_EDU_EXE"}): (
-        "Same rollup issue: `EXP_FUNC_PRI_SEC_EDU_EXE` contains "
-        "`EXP_FUNC_SEC_EDU_EXE` in full (100% overlap).",
-        "Same action: drop `EXP_FUNC_PRI_SEC_EDU_EXE` as a reported "
-        "sub-category.",
-    ),
-    frozenset({"REV_ECON_CUS_EXC_EXE", "REV_ECON_EXC_EXE"}): (
-        "`REV_ECON_CUS_EXC_EXE` and `REV_ECON_EXC_EXE` resolve to the "
-        "**identical** SUMIFS (both filter `econ4=114200 Accize`). The label "
-        "*Customs/excise* implies Customs should also be included; the "
-        "current formula only captures Excises.",
-        "Option 1 — fix the Customs/excise formula to actually include "
-        "customs:\n"
-        "`=SUMIFS(approved_16,year_16,M$1,transfer_16,\"Cu exceptia transferurilor\","
-        "econ0_16,\"Revenues\",econ4_16,{\"114200 Accize\",\"114100 Taxe vamale\"})`\n"
-        "Option 2 — drop one of the two codes as redundant.",
-    ),
+    frozenset({"EXP_ECON_GOO_SER_EMP_CON_EXE", "EXP_ECON_SOC_ASS_EXE"}): {
+        "kind": "priority",
+        "winner": "EXP_ECON_GOO_SER_EMP_CON_EXE",
+        "loser": "EXP_ECON_SOC_ASS_EXE",
+        "diagnosis": (
+            "`EXP_ECON_GOO_SER_EMP_CON_EXE` is a Goods & services sub-"
+            "category (employment contracts). Based on the Kenya fix, "
+            "Goods & services takes precedence over Social assistance. "
+            "Rows currently counted in both must be assigned only to G&S."
+        ),
+        "fix": (
+            "Add `econ2,\"<>113.16*\"` to Social assistance so G&S "
+            "(employment contracts) rows are excluded."
+        ),
+    },
+    frozenset({"EXP_ECON_REC_MAI_EXE", "EXP_ECON_SOC_ASS_EXE"}): {
+        "kind": "priority",
+        "winner": "EXP_ECON_REC_MAI_EXE",
+        "loser": "EXP_ECON_SOC_ASS_EXE",
+        "diagnosis": (
+            "`EXP_ECON_REC_MAI_EXE` is a Goods & services sub-category "
+            "(recurrent maintenance). Based on the Kenya fix, Goods & "
+            "services takes precedence over Social assistance."
+        ),
+        "fix": (
+            "Add `econ2,\"<>113.18*\"` to Social assistance so recurrent-"
+            "maintenance rows are excluded."
+        ),
+    },
+    frozenset({"EXP_ECON_SOC_ASS_EXE", "EXP_ECON_SUB_PRO_EXE"}): {
+        "kind": "priority",
+        "winner": "EXP_ECON_SUB_PRO_EXE",
+        "loser": "EXP_ECON_SOC_ASS_EXE",
+        "diagnosis": (
+            "`EXP_ECON_SUB_PRO_EXE` is a Subsidies sub-category (subsidies "
+            "to production). Based on the Kenya fix, Subsidies takes "
+            "precedence over Social assistance."
+        ),
+        "fix": (
+            "Add `econ1,\"<>132*\"` to Social assistance so subsidies-to-"
+            "production rows are excluded."
+        ),
+    },
+    frozenset({"EXP_FUNC_PRI_EDU_EXE", "EXP_FUNC_PRI_SEC_EDU_EXE"}): {
+        "kind": "rollup",
+        "diagnosis": (
+            "`EXP_FUNC_PRI_SEC_EDU_EXE` is a **rollup** (Preschool + "
+            "Primary + Secondary). `EXP_FUNC_PRI_EDU_EXE` (Preschool + "
+            "Primary) is wholly inside it, so 100% of PRI is double-counted "
+            "inside PRI_SEC. This is a taxonomy bug, not a priority call."
+        ),
+        "fix": (
+            "Drop `EXP_FUNC_PRI_SEC_EDU_EXE` as a reported func_sub — it is "
+            "a derived total, not a leaf. Keep `EXP_FUNC_PRI_EDU_EXE` and "
+            "`EXP_FUNC_SEC_EDU_EXE` as the disjoint leaves."
+        ),
+    },
+    frozenset({"EXP_FUNC_PRI_SEC_EDU_EXE", "EXP_FUNC_SEC_EDU_EXE"}): {
+        "kind": "rollup",
+        "diagnosis": (
+            "Same rollup issue: `EXP_FUNC_PRI_SEC_EDU_EXE` contains "
+            "`EXP_FUNC_SEC_EDU_EXE` in full (100% overlap)."
+        ),
+        "fix": (
+            "Same action: drop `EXP_FUNC_PRI_SEC_EDU_EXE`."
+        ),
+    },
+    frozenset({"REV_ECON_CUS_EXC_EXE", "REV_ECON_EXC_EXE"}): {
+        "kind": "duplicate",
+        "diagnosis": (
+            "`REV_ECON_CUS_EXC_EXE` and `REV_ECON_EXC_EXE` resolve to "
+            "**identical** SUMIFS (both filter `econ4=114200 Accize`). The "
+            "label _Customs/excise_ implies Customs should also be "
+            "included; the current formula only captures Excises."
+        ),
+        "fix": (
+            "Option 1 — fix `REV_ECON_CUS_EXC_EXE` to include customs:\n"
+            "`=SUMIFS(approved_NN,year_NN,X$1,transfer_NN,"
+            "\"Cu exceptia transferurilor\",econ0_NN,\"Revenues\","
+            "econ4_NN,{\"114200 Accize\",\"114100 Taxe vamale\"})`\n\n"
+            "Option 2 — drop one of the two codes as redundant."
+        ),
+    },
 }
 
 
@@ -173,6 +221,37 @@ def load_code_totals():
 # ---------------------------------------------------------------------------
 # Hardcoded overrides.
 # ---------------------------------------------------------------------------
+RANGE_TO_RULE = {"2006-2015": "base", "2016-2019": "16", "2020-2024": "20"}
+
+
+def load_sample_formulas():
+    """formulas[(code, range_label)] = one representative sample formula.
+
+    A code may have multiple rows per range (one per shape-group). We take the
+    Executed-measure sample when available — it tends to be the fully-expanded
+    form including `-Cn` cell subtractions and Raw2 supplements.
+    """
+    formulas = {}
+    with open(TAG_RULES, newline="") as f:
+        rdr = csv.DictReader(f)
+        for r in rdr:
+            code = r["code"]
+            rng_key = r.get("sample_year_range", "")
+            # Fall back to inferring the range from the measure suffix
+            measure = r.get("measure", "")
+            if measure.endswith("_16"):
+                rng_label = "2016-2019"
+            elif measure.endswith("_20"):
+                rng_label = "2020-2024"
+            else:
+                rng_label = "2006-2015"
+            key = (code, rng_label)
+            # Prefer executed sample; keep first seen if already stored.
+            if key not in formulas or measure.startswith("executed"):
+                formulas[key] = r.get("sample_formula", "").strip()
+    return formulas
+
+
 def load_hardcoded():
     rows = []
     with open(HARDCODED_CSV, newline="") as f:
@@ -182,7 +261,7 @@ def load_hardcoded():
     return rows
 
 
-def build_overlap_section(pairs, totals):
+def build_overlap_section(pairs, totals, formulas):
     lines = []
     lines.append("## A. Formula overcounting")
     lines.append("")
@@ -221,11 +300,13 @@ def build_overlap_section(pairs, totals):
             sev = severity(ratio)
             kind = "cross-category" if d["cross"] else "same-value duplicate"
 
-            diagnosis, fix = OVERLAP_FIX.get(
-                _pair_key(a, b),
-                ("_No canned guidance — SME to propose._",
-                 "_Awaiting SME direction._"),
-            )
+            meta = OVERLAP_FIX.get(_pair_key(a, b))
+            if meta is None:
+                meta = {
+                    "kind": "unknown",
+                    "diagnosis": "_No canned guidance — SME to propose._",
+                    "fix": "_Awaiting SME direction._",
+                }
 
             lines.append(f"#### A{idx}. `{a}` × `{b}` — **{sev}** ({kind})")
             lines.append("")
@@ -235,19 +316,33 @@ def build_overlap_section(pairs, totals):
                 f"Σ approved **{_fmt_money(d['approved_over'])}** · "
                 f"Σ executed **{_fmt_money(d['executed_over'])}**"
             )
-            min_appr = min(ta.get('approved', 0) or 0, tb.get('approved', 0) or 0)
-            min_exec = min(ta.get('executed', 0) or 0, tb.get('executed', 0) or 0)
             lines.append(
                 f"- Severity ratio (overcounted ÷ min total): "
                 f"approved {_ratio('approved') * 100:.1f}% · "
                 f"executed {_ratio('executed') * 100:.1f}%"
             )
             lines.append("")
-            lines.append(f"**Diagnosis.** {diagnosis}")
+            lines.append("**Current Excel formulas.**")
+            lines.append("")
+            for code in (a, b):
+                fml = formulas.get((code, rng), "_(not captured)_")
+                lines.append(f"- `{code}`:")
+                lines.append(f"  ```")
+                lines.append(f"  {fml}")
+                lines.append(f"  ```")
+            lines.append("")
+            if meta["kind"] == "priority":
+                lines.append(
+                    f"**Priority (based on previous fixes).** "
+                    f"`{meta['winner']}` **>** `{meta['loser']}` — overlapping "
+                    f"rows are assigned to the higher-priority code."
+                )
+                lines.append("")
+            lines.append(f"**Diagnosis.** {meta['diagnosis']}")
             lines.append("")
             lines.append("**Proposed fix.**")
             lines.append("")
-            lines.append(fix)
+            lines.append(meta["fix"])
             lines.append("")
     return lines
 
@@ -348,6 +443,7 @@ def build_signoff_section(pairs, rows):
 def main():
     pairs = load_overlaps()
     totals = load_code_totals()
+    formulas = load_sample_formulas()
     hardcoded = load_hardcoded()
 
     out = []
@@ -370,11 +466,12 @@ def main():
     out.append("")
     out.append(
         "Each item shows the current Excel behaviour, the severity, and a "
-        "proposed fix following the cross-country conventions in "
-        "`Questions for Massimo.docx` (more-specific SUMIFS wins; rename or "
-        "drop duplicates; recover overrides as explicit formulas). The "
-        "sign-off checklist at the bottom captures accept/reject per item — "
-        "once signed, we update the workbook and the pipeline reruns clean."
+        "proposed fix based on previous fixes applied to other countries "
+        "(category priority for overlapping codes; rename or drop duplicate / "
+        "rollup codes; recover hard-coded overrides as explicit formulas). "
+        "The sign-off checklist at the bottom captures accept / reject per "
+        "item — once signed, we update the workbook and the pipeline reruns "
+        "clean."
     )
     out.append("")
 
@@ -391,7 +488,7 @@ def main():
                f"{n_override_codes} code(s)")
     out.append("")
 
-    out += build_overlap_section(pairs, totals)
+    out += build_overlap_section(pairs, totals, formulas)
     out += build_hardcoded_section(hardcoded)
     out += build_signoff_section(pairs, hardcoded)
 
