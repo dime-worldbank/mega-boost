@@ -94,6 +94,32 @@ CSV_OPTS = {"header": "true", "multiline": "true", "quote": '"',
             "escape": '"', "inferSchema": "true"}
 TRANSFER_KEEP = {"excluding transfers", "cu exceptia transferurilor"}
 
+# ---------- classification variant (baseline vs. proposed-fix solution) ----------
+# The pipeline is driver-CSV-driven, so a "what-if the SME accepts the fixes"
+# run needs no code change — only a different pair of driver CSVs and a separate
+# set of output tables so it never clobbers the baseline.
+#
+#   baseline  → tag_rules.csv           / code_dictionary.csv           → mda_*            (the literal current workbook; feeds cross_country)
+#   proposed  → tag_rules.proposed.csv  / code_dictionary.proposed.csv  → mda_*_proposed   (VERIFICATION.md "Option 1" double-count fixes applied)
+#
+# Select with `spark.conf` on Databricks (set `mda.variant=proposed` in the DLT
+# pipeline configuration) or the `MDA_VARIANT` env var locally. Bronze (raw CSV
+# load) is variant-independent and shared; only silver/gold are suffixed.
+def _resolve_variant() -> str:
+    try:
+        v = spark.conf.get("mda.variant", "baseline")
+    except Exception:
+        v = "baseline"
+    return os.environ.get("MDA_VARIANT", v) or "baseline"
+
+VARIANT = _resolve_variant()
+if VARIANT not in ("baseline", "proposed"):
+    raise ValueError(f"unknown MDA variant {VARIANT!r} (expected 'baseline' or 'proposed')")
+SUFFIX = "" if VARIANT == "baseline" else f"_{VARIANT}"
+RULES_CSV = "tag_rules.csv" if VARIANT == "baseline" else f"tag_rules.{VARIANT}.csv"
+DICT_CSV = "code_dictionary.csv" if VARIANT == "baseline" else f"code_dictionary.{VARIANT}.csv"
+print(f"[MDA] classification variant = {VARIANT}  (rules={RULES_CSV}, gold=mda_boost_gold{SUFFIX})")
+
 # Named-range → raw-column mapping per year-range sheet. 2016-19 has
 # `revised` + program/activity; 2020-24 has `adjusted` instead.
 _BASE_FIELDS = ["year", "admin1", "func1", "func2", "econ1", "econ2",
@@ -135,11 +161,11 @@ def _load_csv(name: str) -> list[dict]:
 
 
 @lru_cache(maxsize=None)
-def _rules() -> list[dict]:       return _load_csv("tag_rules.csv")
+def _rules() -> list[dict]:       return _load_csv(RULES_CSV)
 
 
 @lru_cache(maxsize=None)
-def _code_dict() -> list[dict]:   return _load_csv("code_dictionary.csv")
+def _code_dict() -> list[dict]:   return _load_csv(DICT_CSV)
 
 
 @lru_cache(maxsize=None)
@@ -305,19 +331,21 @@ def b_20():   return _bronze("20")
 # Split by range so DLT plans each independently; a single combined silver
 # built the whole cascade plan on the driver, which OOM'd modest clusters.
 
-@dlt.table(name="mda_expenditure_silver_base")
+# Silver/gold names carry the variant SUFFIX so a solution run produces a
+# parallel set of tables (…_proposed) without overwriting the baseline.
+@dlt.table(name=f"mda_expenditure_silver_base{SUFFIX}")
 def s_exp_base(): return _silver("base", "EXP")
 
-@dlt.table(name="mda_expenditure_silver_16")
+@dlt.table(name=f"mda_expenditure_silver_16{SUFFIX}")
 def s_exp_16():   return _silver("16", "EXP")
 
-@dlt.table(name="mda_expenditure_silver_20")
+@dlt.table(name=f"mda_expenditure_silver_20{SUFFIX}")
 def s_exp_20():   return _silver("20", "EXP")
 
-@dlt.table(name="mda_revenue_silver_16")
+@dlt.table(name=f"mda_revenue_silver_16{SUFFIX}")
 def s_rev_16():   return _silver("16", "REV")
 
-@dlt.table(name="mda_revenue_silver_20")
+@dlt.table(name=f"mda_revenue_silver_20{SUFFIX}")
 def s_rev_20():   return _silver("20", "REV")
 
 
@@ -336,15 +364,17 @@ def _admin0():
 
 
 @dlt.table(
-    name="mda_boost_gold",
+    name=f"mda_boost_gold{SUFFIX}",
     comment="Moldova BOOST expenditure gold — one row per raw expenditure "
             "record with econ/func labels via code_dictionary join. Schema "
-            "matches cross_country_aggregate_dlt.boost_gold.",
+            "matches cross_country_aggregate_dlt.boost_gold. Only the baseline "
+            "(mda_boost_gold) feeds the cross-country aggregate; mda_boost_gold_proposed "
+            "is the proposed-fix solution for side-by-side comparison.",
 )
 def boost_gold():
-    silver = (dlt.read("mda_expenditure_silver_base")
-              .unionByName(dlt.read("mda_expenditure_silver_16"), allowMissingColumns=True)
-              .unionByName(dlt.read("mda_expenditure_silver_20"), allowMissingColumns=True))
+    silver = (dlt.read(f"mda_expenditure_silver_base{SUFFIX}")
+              .unionByName(dlt.read(f"mda_expenditure_silver_16{SUFFIX}"), allowMissingColumns=True)
+              .unionByName(dlt.read(f"mda_expenditure_silver_20{SUFFIX}"), allowMissingColumns=True))
     rows = _code_dict()
     econ_df = spark.createDataFrame([
         {"econ_code": r["code"], "econ": r["econ"] or None,
@@ -398,14 +428,15 @@ def boost_gold():
 # ---------- local entrypoint ----------
 # On Databricks the DLT runtime invokes each @dlt.table; locally the
 # stub above only registers them. Running this file directly triggers
-# the whole cascade via `dlt.read("mda_boost_gold")` and writes the
-# result to `LOCAL_GOLD_OUT` (default: _onboarding/reports/local_gold.parquet).
+# the whole cascade via `dlt.read("mda_boost_gold{SUFFIX}")` and writes the
+# result to `LOCAL_GOLD_OUT` (default: _onboarding/reports/local_gold{SUFFIX}.parquet).
+# Set MDA_VARIANT=proposed to run the proposed-fix solution instead.
 
 if __name__ == "__main__" and not IS_DATABRICKS:
     out = os.environ.get(
         "LOCAL_GOLD_OUT",
-        str(Path(__file__).resolve().parent / "_onboarding" / "reports" / "local_gold.parquet"),
+        str(Path(__file__).resolve().parent / "_onboarding" / "reports" / f"local_gold{SUFFIX}.parquet"),
     )
-    gold = dlt.read("mda_boost_gold")
+    gold = dlt.read(f"mda_boost_gold{SUFFIX}")
     gold.write.mode("overwrite").parquet(out)
     print(f"Wrote {gold.count():,} rows → {out}")

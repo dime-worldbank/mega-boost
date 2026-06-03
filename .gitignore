@@ -1,1 +1,13 @@
+# Source workbooks and scratch inputs (never commit raw BOOST files)
+temp/
+
 # Onboarding workspace — analysis scripts, intermediates, and review reports.
+# Not required at pipeline run-time; the DLT reads only the driver CSVs at the
+# country-folder root (tag_rules.csv, code_dictionary.csv). Regenerable locally
+# by running the _onboarding/scripts against the source workbook.
+**/_onboarding/
+
+# OS / Python cruft
+.DS_Store
+__pycache__/
+*.pyc
