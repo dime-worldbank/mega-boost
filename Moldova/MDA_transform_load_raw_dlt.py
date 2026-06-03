@@ -5,9 +5,10 @@ Raw microdata splits across three year-range sheets (`2006-15`, `2016-19`,
 `2020-24`) with different schemas and bilingual filter values (English
 pre-2016, Romanian 2016+). Each tag rule in `tag_rules.csv` carries a
 `measure` field (`approved` / `approved_16` / `approved_20` etc.) that
-dispatches the rule to the matching raw sheet. Revenue rows live in the
-same sheets; 2016+ formulas add `econ0_* = "Revenues"` to distinguish
-them. Pre-2016 has no `econ0` → no revenue coverage.
+dispatches the rule to the matching raw sheet. The pipeline is
+expenditure-only: revenue (REV_*) is scoped out entirely — boost_gold has
+no revenue dimension, so revenue rows are dropped (2016+ via the
+`econ0_* = "Expenditures"` filter) and no REV rules exist in tag_rules.csv.
 
 Silver uses per-row if-else tagging (Albania pattern): each raw row gets
 `econ_code` + `func_code` from the first-matching tag rule in workbook
@@ -18,12 +19,19 @@ code (coverage holes). Gold left-joins `code_dictionary.csv`.
 Gold is NOT aggregated — row count equals filtered bronze row count.
 Each input line is preserved with its tags and admin remap.
 
+Note: tag cells entered as CSE *array formulas* (`{=SUM(SUMIFS(...))}`,
+common for 2016+ rows — REC_MAI, CAP_MAI, USE_GOO_SER, IRR, …) ARE modelled:
+the extractor unwraps `ArrayFormula.text` (see 1_/3_*.py). Earlier they were
+silently skipped, which zeroed those codes' 2016+ values.
+
 Not modelled (documented gaps — surfaced by Phase 7 verification):
 - Hidden `Raw2` sheet: ~40 formulas add supplements from a 7-column
   sheet (`admin6` / no `econ0`) whose schema doesn't union cleanly.
   Under-counts EXP_FUNC_WAT_SAN and a few EXP_CROSS codes.
-- Cell-subtraction (`=SUMIFS(…) - C19`): parser drops the `-cell_ref`
-  suffix, over-counts SOC_ASS, PUB_SAF, SOC_PRO.
+- Cell-arithmetic around a SUMIFS (`=SUMIFS(…) - C19` or `… + Q17`): the
+  parser keeps the SUMIFS and drops the `±cell_ref` term. Over-counts
+  SOC_ASS / PUB_SAF (subtraction dropped); under-counts SOC_PRO 2020-24
+  (addition `+Q17` dropped).
 
 Admin hierarchy (applied in gold):
   admin0 = Central / Regional / Other   (from raw admin1 flag)
@@ -175,7 +183,7 @@ def _allowed() -> frozenset:      return frozenset(r["code"] for r in _code_dict
 @lru_cache(maxsize=None)
 def _code_has_sub() -> dict:
     """For each dictionary code, whether its sub label is populated.
-    EXP_ECON / REV_ECON check `econ_sub`; EXP_FUNC checks `func_sub`.
+    EXP_ECON checks `econ_sub`; EXP_FUNC checks `func_sub`.
     Used as the primary sort key in `_rules_for` so sub-level rules win
     priority over rollup rules — otherwise early-sheet rollups (WAG_BIL,
     CAP_EXP, USE_GOO_SER) eat rows before later sub-level codes
@@ -183,7 +191,7 @@ def _code_has_sub() -> dict:
     `func_sub` mostly NULL."""
     out = {}
     for r in _code_dict():
-        if r["tag_kind"] in ("EXP_ECON", "REV_ECON"):
+        if r["tag_kind"] == "EXP_ECON":
             out[r["code"]] = bool(r.get("econ_sub"))
         elif r["tag_kind"] == "EXP_FUNC":
             out[r["code"]] = bool(r.get("func_sub"))
@@ -294,24 +302,19 @@ def _bronze(rk: str) -> DataFrame:
             .load(f"{MICRODATA_DIR}/{cfg['csv']}"))
 
 
-def _silver(rk: str, kind: str) -> DataFrame | None:
-    """kind = 'EXP' or 'REV'. Returns None for ranges without revenue (base)."""
+def _silver(rk: str) -> DataFrame:
+    """Expenditure silver for range `rk`. Revenue is scoped out of the pipeline
+    (boost_gold is expenditure-only), so this only ever tags EXP_ECON/EXP_FUNC."""
     cfg = RANGES[rk]
-    if kind == "REV" and cfg["econ0_key"] is None:
-        return None
     mp = cfg["map"]
     df = dlt.read(cfg["bronze"]).filter(
         lower(col(mp[cfg["transfer_key"]])).isin(list(TRANSFER_KEEP))
     )
     if cfg["econ0_key"]:
-        target = "expenditures" if kind == "EXP" else "revenues"
-        df = df.filter(lower(col(mp[cfg["econ0_key"]])) == target)
+        df = df.filter(lower(col(mp[cfg["econ0_key"]])) == "expenditures")
     df = df.persist()  # econ + func cascades share one filtered pass
-    if kind == "EXP":
-        df = _cascade(df, _rules_for(rk, "EXP_ECON_"), mp, "econ_code")
-        df = _cascade(df, _rules_for(rk, "EXP_FUNC_"), mp, "func_code")
-    else:
-        df = _cascade(df, _rules_for(rk, "REV_ECON_"), mp, "econ_code")
+    df = _cascade(df, _rules_for(rk, "EXP_ECON_"), mp, "econ_code")
+    df = _cascade(df, _rules_for(rk, "EXP_FUNC_"), mp, "func_code")
     return df
 
 
@@ -334,19 +337,13 @@ def b_20():   return _bronze("20")
 # Silver/gold names carry the variant SUFFIX so a solution run produces a
 # parallel set of tables (…_proposed) without overwriting the baseline.
 @dlt.table(name=f"mda_expenditure_silver_base{SUFFIX}")
-def s_exp_base(): return _silver("base", "EXP")
+def s_exp_base(): return _silver("base")
 
 @dlt.table(name=f"mda_expenditure_silver_16{SUFFIX}")
-def s_exp_16():   return _silver("16", "EXP")
+def s_exp_16():   return _silver("16")
 
 @dlt.table(name=f"mda_expenditure_silver_20{SUFFIX}")
-def s_exp_20():   return _silver("20", "EXP")
-
-@dlt.table(name=f"mda_revenue_silver_16{SUFFIX}")
-def s_rev_16():   return _silver("16", "REV")
-
-@dlt.table(name=f"mda_revenue_silver_20{SUFFIX}")
-def s_rev_20():   return _silver("20", "REV")
+def s_exp_20():   return _silver("20")
 
 
 # ---------- gold ----------
@@ -379,7 +376,7 @@ def boost_gold():
     econ_df = spark.createDataFrame([
         {"econ_code": r["code"], "econ": r["econ"] or None,
          "econ_sub": r["econ_sub"] or None}
-        for r in rows if r["tag_kind"] in ("EXP_ECON", "REV_ECON")
+        for r in rows if r["tag_kind"] == "EXP_ECON"
     ])
     func_df = spark.createDataFrame([
         {"func_code": r["code"], "func": r["func"] or None,
