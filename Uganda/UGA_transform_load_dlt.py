@@ -18,7 +18,7 @@
 #      (health/education/security/wss). See verification.md §2.
 import dlt
 import re
-from pyspark.sql.functions import col, lower, trim, when, lit, substring, regexp_replace
+from pyspark.sql.functions import col, lower, trim, when, lit, substring, regexp_replace, coalesce
 from pyspark.sql.types import DoubleType, IntegerType
 from glob import glob
 
@@ -87,18 +87,39 @@ def boost_bronze():
 
 # COMMAND ----------
 
+# NULL-safety: in Spark, `col == x` / `col.startswith(x)` return NULL (not False) when the column is
+# NULL, and `NOT NULL` is still NULL. Since the flag/`add` columns are blank on most rows, an unguarded
+# `~addc` would be NULL and poison every `... & ~addc` predicate (True AND NULL = NULL -> the .when()
+# never fires -> everything falls to the residual). So every atomic boolean below is wrapped to return
+# False on NULL via nz().
+def nz(c):
+    """Coalesce a (possibly NULL) boolean Column to False."""
+    return coalesce(c, lit(False))
+
+
 def is_y(c):
-    """Helper flag truthiness: the column holds 'y' (or '1' for transfers) when set, else blank/null."""
-    return lower(trim(col(c))) == 'y'
+    """Helper flag truthiness: the column holds 'y' when set, else blank/null -> False."""
+    return nz(lower(trim(col(c))) == 'y')
+
+
+def sw(colname, prefix):
+    """Null-safe, case-insensitive startswith."""
+    return nz(lower(trim(col(colname))).startswith(prefix.lower()))
+
+
+def eq(colname, value):
+    """Null-safe, case-insensitive equality."""
+    return nz(lower(trim(col(colname))) == value.lower())
 
 
 def f0(prefix):
-    """func0 (sector) starts with the given prefix, case-insensitive."""
-    return lower(trim(col("func0"))).startswith(prefix.lower())
+    """func0 (sector) starts with the given prefix, case-insensitive (null-safe)."""
+    return sw("func0", prefix)
 
 
 def e2(prefix):
-    return lower(trim(col("econ2"))).startswith(prefix.lower())
+    """econ2 starts with the given prefix, case-insensitive (null-safe)."""
+    return sw("econ2", prefix)
 
 
 @dlt.table(name='uga_boost_silver')
@@ -110,34 +131,34 @@ def boost_silver():
           .filter(col('year').isNotNull()))
 
     # Drop below-the-line debt redemption (matches Excel Total = SUMIFS - debt repayment).
+    # sw() is null-safe so rows with a blank econ5 are kept (debt_cond False -> ~False True), not dropped.
     debt_cond = None
     for p in DEBT_REPAYMENT_PREFIXES:
-        c = lower(trim(col('econ5'))).startswith(p)
+        c = sw('econ5', p)
         debt_cond = c if debt_cond is None else (debt_cond | c)
     df = df.filter(~debt_cond)
 
     new = col('year') >= 2022   # FY2022/23 vote/sector recode cutover
 
     # ---- admin / geo (best available; see verification.md "to confirm") ----
-    is_local = lower(trim(col('malgs'))).isin('districts', 'urban/municipals')
+    is_local = nz(lower(trim(col('malgs'))).isin('districts', 'urban/municipals'))
     df = (df
           .withColumn('admin0', when(is_local, lit('Regional')).otherwise(lit('Central')))
           .withColumn('admin2', col('vote'))
           .withColumn('admin1', when(col('admin0') == 'Central', lit('Central Scope'))
                                 .otherwise(col('vote')))
-          .withColumn('geo0', when(lower(trim(col('geo_src'))).startswith('02'), lit('Regional'))
+          .withColumn('geo0', when(sw('geo_src', '02'), lit('Regional'))
                               .otherwise(lit('Central')))
           .withColumn('geo1', when(col('geo0') == 'Regional', col('admin1'))
                               .otherwise(lit('Central Scope')))
-          .withColumn('is_foreign', lower(trim(col('budget_type'))) == '03 external financing'))
+          .withColumn('is_foreign', eq('budget_type', '03 external financing')))
 
     # ---- cross-cutting flags & add-override (the disjointness discriminators) ----
+    # All atoms are null-safe (is_y/eq/sw), so the `~`/`&` chains never evaluate to NULL.
     SB = is_y('assistance') | is_y('pension')                 # owns -> Social benefits
-    addw, addc, addn = (lower(trim(col('add_ovr'))) == 'wages',
-                        lower(trim(col('add_ovr'))) == 'capital',
-                        lower(trim(col('add_ovr'))) == 'nonwage')
-    allow = e2('21') & (lower(trim(col('econ5'))).startswith('211103')
-                        | lower(trim(col('econ5'))).startswith('211106'))  # year-union
+    addw, addc, addn = eq('add_ovr', 'wages'), eq('add_ovr', 'capital'), eq('add_ovr', 'nonwage')
+    not_transfer = ~eq('transfer', '1')                       # blank transfer -> not a transfer -> True
+    allow = e2('21') & (sw('econ5', '211103') | sw('econ5', '211106'))   # year-union
 
     # ================= econ (8 disjoint categories) =================
     # Each branch carries its full exclusions; order is irrelevant (verified by the expectation).
@@ -145,8 +166,8 @@ def boost_silver():
     capex = (~SB) & (((e2('31')) | (e2('23 consumption of fixed assets'))) & ~addw & ~addn | addc)
     goods = (~SB) & ((e2('22 use of goods and services')) & ~addw & ~addc | addn)
     subs  = (~SB) & (e2('25 subsidies')) & ~addw & ~addc & ~addn
-    grant = ((~SB) & (e2('26 grants')) & (trim(col('transfer')) != '1')
-             & ~(lower(trim(col('func1'))).startswith('710')) & ~addw & ~addc & ~addn)
+    grant = ((~SB) & (e2('26 grants')) & not_transfer
+             & ~sw('func1', '710') & ~addw & ~addc & ~addn)
     intr  = (~SB) & (e2('24'))
 
     df = df.withColumn('econ',
@@ -165,37 +186,37 @@ def boost_silver():
         .when(is_y('pension'), 'Pensions')
         .when(wage & allow, 'Allowances')
         .when(wage, 'Basic wages')
-        .when(capex & lower(trim(col('econ3'))).startswith('228 maintenance'), 'Capital maintenance')
-        .when(goods & lower(trim(col('econ3'))).startswith('223 utility'), 'Goods and services (basic services)')
-        .when(goods & lower(trim(col('econ3'))).startswith('225 professional'), 'Goods and services (employment contracts)')
-        .when(goods & lower(trim(col('econ3'))).startswith('228 maintenance'), 'Recurrent maintenance')
+        .when(capex & sw('econ3', '228 maintenance'), 'Capital maintenance')
+        .when(goods & sw('econ3', '223 utility'), 'Goods and services (basic services)')
+        .when(goods & sw('econ3', '225 professional'), 'Goods and services (employment contracts)')
+        .when(goods & sw('econ3', '228 maintenance'), 'Recurrent maintenance')
         .otherwise(lit(None).cast('string')))
 
     # ================= func (10 COFOG, year-aware, disjoint) =================
-    old_jud_vf = lower(trim(col('vote_function')))
-    is_jud = ((~new) & (old_jud_vf.startswith('1237') | old_jud_vf.startswith('1251 judicial')
-                        | old_jud_vf.startswith('1205 support to the justice')
-                        | old_jud_vf.startswith('1255 public prosecutions')
-                        | old_jud_vf.startswith('1252 legal reform'))) \
-             | (new & lower(trim(col('vote'))).startswith('101 judiciary'))
+    # All atoms null-safe (sw/eq/f0/is_y, and nz() around isin/rlike).
+    is_jud = ((~new) & (sw('vote_function', '1237') | sw('vote_function', '1251 judicial')
+                        | sw('vote_function', '1205 support to the justice')
+                        | sw('vote_function', '1255 public prosecutions')
+                        | sw('vote_function', '1252 legal reform'))) \
+             | (new & sw('vote', '101 judiciary'))
     is_pubsaf = ((~new) & f0('12 justice')
-                 & ~old_jud_vf.startswith('125') & ~old_jud_vf.startswith('1237')
-                 & ~old_jud_vf.startswith('1205 support to the justice')
-                 & ~old_jud_vf.startswith('1225 general administration')) \
+                 & ~sw('vote_function', '125') & ~sw('vote_function', '1237')
+                 & ~sw('vote_function', '1205 support to the justice')
+                 & ~sw('vote_function', '1225 general administration')) \
                 | (new & is_y('security'))
-    is_def = lower(trim(col('vote_function'))).isin(
-        '1101 national defence (updf)', '1601 national defence (updf)')
+    is_def = nz(lower(trim(col('vote_function'))).isin(
+        '1101 national defence (updf)', '1601 national defence (updf)'))
     is_health = ((~new) & f0('08 health')) | (new & is_y('health'))
-    # Health wins the health/education flag tie (verification.md §4a — placeholder pending Massimo).
+    # Health wins the health/education flag tie (verification.md F1 — placeholder pending Massimo).
     is_educ = ((~new) & f0('07 education')) | (new & is_y('education') & ~is_y('health'))
     is_socpro = is_y('sp') | is_y('pension')
-    is_watsan = ((~new) & (lower(trim(col('vote_function'))).startswith('0901 rural water')
-                           | lower(trim(col('vote_function'))).startswith('0902 urban water')
-                           | lower(trim(col('vote_function'))).startswith('0981 rural water')
-                           | lower(trim(col('vote_function'))).startswith('0982 urban water'))) \
+    is_watsan = ((~new) & (sw('vote_function', '0901 rural water')
+                           | sw('vote_function', '0902 urban water')
+                           | sw('vote_function', '0981 rural water')
+                           | sw('vote_function', '0982 urban water'))) \
                 | (new & is_y('wss'))
-    is_env = (((~new) & (lower(trim(col('func1'))).startswith('705')
-                         | lower(trim(col('vote_function'))).rlike('^(0906|0908|0904|0905|0907|0951)')))
+    is_env = (((~new) & (sw('func1', '705')
+                         | nz(lower(trim(col('vote_function'))).rlike('^(0906|0908|0904|0905|0907|0951)'))))
               | (new & f0('06 natural resources'))) & ~is_watsan
     is_hou = (((~new) & f0('02 lands, housing')) | (new & f0('10 sustainable urbanisation'))) | is_watsan
     old_eco = (f0('04 works and transport') | f0('03 energy and mineral') | f0('01 agr')
@@ -232,27 +253,26 @@ def boost_silver():
         .otherwise('General public services'))
 
     # func_sub (most-specific leaf; null where not determinable). Hierarchy resolved to the child.
-    vf = lower(trim(col('vote_function')))
-    is_roads = (vf.startswith('0901 n') | (vf == '0901 c')
-                | vf.startswith('0913 urban road') | vf.startswith('0902 district')
-                | vf.startswith('0404') | vf.startswith('0406') | vf.startswith('0451')
-                | vf.startswith('0452') | vf.startswith('0481'))
+    # All atoms null-safe (sw/eq).
+    is_roads = (sw('vote_function', '0901 n') | eq('vote_function', '0901 c')
+                | sw('vote_function', '0913 urban road') | sw('vote_function', '0902 district')
+                | sw('vote_function', '0404') | sw('vote_function', '0406') | sw('vote_function', '0451')
+                | sw('vote_function', '0452') | sw('vote_function', '0481'))
     is_rail = is_y('rail')
     is_airt = is_y('air')
     is_watt = is_y('water')
-    is_enepow = ((~new) & (vf.startswith('0301') | vf.startswith('0302') | vf.startswith('0351')
-                           | vf.startswith('0349'))) | (new & f0('08'))
-    is_eneoil = ((~new) & (vf.startswith('0303') | vf.startswith('0304') | vf.startswith('0305')
-                           | vf.startswith('0306'))) | (new & f0('03'))
-    f2 = lower(trim(col('func2')))
+    is_enepow = ((~new) & (sw('vote_function', '0301') | sw('vote_function', '0302')
+                           | sw('vote_function', '0351') | sw('vote_function', '0349'))) | (new & f0('08'))
+    is_eneoil = ((~new) & (sw('vote_function', '0303') | sw('vote_function', '0304')
+                           | sw('vote_function', '0305') | sw('vote_function', '0306'))) | (new & f0('03'))
     df = df.withColumn('func_sub',
         # Public order
         when(is_jud, 'Judiciary')
         .when(is_pubsaf, 'Public safety')
         # Education (use func2 COFOG sub when present)
-        .when(is_educ & f2.startswith('7091'), 'Primary education')
-        .when(is_educ & f2.startswith('7092'), 'Secondary education')
-        .when(is_educ & (f2.startswith('7094') | is_y('tertiary')), 'Tertiary education')
+        .when(is_educ & sw('func2', '7091'), 'Primary education')
+        .when(is_educ & sw('func2', '7092'), 'Secondary education')
+        .when(is_educ & (sw('func2', '7094') | is_y('tertiary')), 'Tertiary education')
         .when(is_educ, 'Education (other)')
         # Health
         .when(is_health, 'Health')
@@ -266,7 +286,7 @@ def boost_silver():
         .when(is_eco & (((~new) & f0('04 works')) | (new & f0('09'))), 'Transport')
         .when(is_eco & (f0('03 energy') | (new & (f0('03') | f0('08')))), 'Energy')
         .when(is_eco & f0('01 agr'), 'Agriculture')
-        .when(is_eco & lower(trim(col('vote'))).startswith('020'), 'Telecoms')
+        .when(is_eco & sw('vote', '020'), 'Telecoms')
         # Housing
         .when(is_watsan, 'Water and sanitation')
         .otherwise(lit(None).cast('string')))
