@@ -17,6 +17,7 @@
 #      uses func0 sector names + Vote_Function; from 2022/23 it uses renumbered func0 + per-line flags
 #      (health/education/security/wss). See verification.md §2.
 import dlt
+import re
 from pyspark.sql.functions import col, lower, trim, when, lit, substring, regexp_replace
 from pyspark.sql.types import DoubleType, IntegerType
 from glob import glob
@@ -74,6 +75,13 @@ def boost_bronze():
     for raw, logical in RAW_TO_LOGICAL.items():
         if raw in df.columns:
             df = df.withColumnRenamed(raw, logical)
+    # Delta forbids the characters ' ,;{}()\n\t=' in column names. The logical names above are
+    # already safe; sanitize every remaining (unused) column (e.g. "Budget Categories",
+    # "Output Code") so the bronze table can be written without enabling column mapping.
+    for c in df.columns:
+        safe = re.sub(r'[ ,;{}()\n\t=]+', '_', c).strip('_')
+        if safe != c:
+            df = df.withColumnRenamed(c, safe)
     return df
 
 
