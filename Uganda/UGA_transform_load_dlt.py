@@ -112,6 +112,11 @@ def eq(colname, value):
     return nz(lower(trim(col(colname))) == value.lower())
 
 
+def lt(colname, value):
+    """Null-safe, case-insensitive lexicographic less-than (Excel SUMIFS "<value" semantics)."""
+    return nz(lower(trim(col(colname))) < value.lower())
+
+
 def f0(prefix):
     """func0 (sector) starts with the given prefix, case-insensitive (null-safe)."""
     return sw("func0", prefix)
@@ -166,9 +171,10 @@ def boost_silver():
     capex = (~SB) & (((e2('31')) | (e2('23 consumption of fixed assets'))) & ~addw & ~addn | addc)
     goods = (~SB) & ((e2('22 use of goods and services')) & ~addw & ~addc | addn)
     subs  = (~SB) & (e2('25 subsidies')) & ~addw & ~addc & ~addn
-    grant = ((~SB) & (e2('26 grants')) & not_transfer
-             & ~sw('func1', '710') & ~addw & ~addc & ~addn)
-    intr  = (~SB) & (e2('24'))
+    grant = ((~SB) & (e2('26 grants')) & not_transfer & ~sw('func1', '710')
+             & lt('econ3', '264 To Resident Non-government units')   # original Excel filter (was missing)
+             & ~addw & ~addc & ~addn)
+    intr  = (~SB) & (e2('24')) & ~addw & ~addc & ~addn   # add override owns the line, not Interest
 
     df = df.withColumn('econ',
         when(SB, 'Social benefits')
