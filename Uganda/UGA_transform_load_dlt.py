@@ -131,8 +131,10 @@ def e2(prefix):
 @dlt.expect("exactly_one_econ", "n_econ = 1")
 @dlt.expect("exactly_one_func", "n_func = 1")
 def boost_silver():
+    # BOOST labels a fiscal year by its ENDING calendar year: "2005/06" -> 2006 (matches Kenya et al.).
+    # year_raw is "YYYY/YY"; take the leading year and add 1.
     df = (dlt.read('uga_boost_bronze')
-          .withColumn('year', substring(col('year_raw'), 1, 4).cast(IntegerType()))
+          .withColumn('year', substring(trim(col('year_raw')), 1, 4).cast(IntegerType()) + 1)
           .filter(col('year').isNotNull()))
 
     # Drop below-the-line debt redemption (matches Excel Total = SUMIFS - debt repayment).
@@ -143,7 +145,7 @@ def boost_silver():
         debt_cond = c if debt_cond is None else (debt_cond | c)
     df = df.filter(~debt_cond)
 
-    new = col('year') >= 2022   # FY2022/23 vote/sector recode cutover
+    new = col('year') >= 2023   # FY2022/23 (= ending-year 2023) vote/sector recode cutover
 
     # ---- admin / geo (best available; see verification.md "to confirm") ----
     is_local = nz(lower(trim(col('malgs'))).isin('districts', 'urban/municipals'))
