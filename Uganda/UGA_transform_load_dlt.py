@@ -162,7 +162,10 @@ def boost_silver():
     # All atoms are null-safe (is_y/eq/sw), so the `~`/`&` chains never evaluate to NULL.
     SB = is_y('assistance') | is_y('pension')                 # owns -> Social benefits
     addw, addc, addn = eq('add_ovr', 'wages'), eq('add_ovr', 'capital'), eq('add_ovr', 'nonwage')
-    not_transfer = ~eq('transfer', '1')                       # blank transfer -> not a transfer -> True
+    # transfer is a numeric flag (=1). Compare numerically so "1", "1.0", 1 and 1.0 all match — the
+    # extract writes it as "1.0" (pandas reads the all-numeric column as float), which a string
+    # `=='1'` test would miss, silently leaving subnational transfers in Other grants.
+    not_transfer = ~nz(col('transfer').cast('double') == lit(1.0))   # blank -> null -> not a transfer
     allow = e2('21') & (sw('econ5', '211103') | sw('econ5', '211106'))   # year-union
 
     # ================= econ (8 disjoint categories) =================
