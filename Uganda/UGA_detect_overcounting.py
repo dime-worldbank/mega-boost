@@ -596,6 +596,38 @@ def main():
         sample[k] = m.astype(int)
     sample.head(2000).to_csv(os.path.join(args.out, "onehot_sample.csv"), index=False)
 
+    # ---- 5b2. WITHIN-formula self-double-count ----
+    # A line matched by >1 ADDITIVE term of the SAME code's SUM(SUMIFS)+SUM(SUMIFS) is counted
+    # multiple times inside that one category -- e.g. CapEx's `econ2 "31"/"23"` terms ALSO match its
+    # `add,"capital"` term. This is NOT a cross-category overlap, so neither the dimension overlap
+    # check (5b) nor the Excel-vs-python validation (5a) catches it: Excel and python both SUM the
+    # terms the same (inflated) way, so they agree. `excess` = executed counted beyond the first =
+    # the amount by which the code's own reported total is overstated.
+    self_rows = []
+    for code, info in codes.items():
+        for y in years:
+            terms, ok = parse_terms(info["per_year"].get(y, {}).get("formula"), y, codes, inv)
+            add_terms = [conds for sign, conds in terms if sign > 0] if ok else []
+            if len(add_terms) < 2 or y not in by_year:
+                continue
+            sub = by_year[y]
+            n = None
+            for conds in add_terms:
+                tm = term_mask(sub, conds).astype(int)
+                n = tm if n is None else n + tm
+            dup = n >= 2
+            if not dup.any():
+                continue
+            excess = float((sub.loc[dup, "__exe"] * (n[dup] - 1)).sum())
+            self_rows.append({"code": code, "year": y, "lines": int(dup.sum()), "excess": excess})
+    selfdup = pd.DataFrame(self_rows)
+    selfdup.to_csv(os.path.join(args.out, "self_double.csv"), index=False)
+    self_by_code = (selfdup.groupby("code")["excess"].sum().sort_values(ascending=False)
+                    if len(selfdup) else pd.Series(dtype=float))
+    print(f"Within-formula self-double-counting: {selfdup['code'].nunique()} codes, "
+          f"Σ excess {selfdup['excess'].sum():,.0f}" if len(selfdup)
+          else "Within-formula self-double-counting: none")
+
     # ---- 5c. Markdown report ----
     lines = ["# Uganda overcounting detection report", ""]
     lines.append(f"- Microdata rows (validatable years {years[0]}..{years[-1]}): **{len(df):,}**")
@@ -621,6 +653,15 @@ def main():
             lines += ["", "See verification.md for the corrected SUMIFS of each. Notes:"]
             for code, rec in EXCEL_FORMULA_ERRORS.items():
                 lines.append(f"- **{code}** ({', '.join(sorted(rec['years']))}): {rec['note']}")
+    if len(selfdup):
+        lines += ["", "## Within-formula self-double-counting (a code's own SUMIFS terms overlap)", "",
+                  "_A line matched by >1 additive term of the **same** code is counted twice inside its "
+                  "own `SUM(SUMIFS)+SUM(SUMIFS)`. NOT a cross-category overlap, and invisible to "
+                  "validation (Excel & python sum the terms the same way). `excess` = amount the code's "
+                  "own total is overstated._", "", "| code | Σ excess | years |", "|---|--:|---|"]
+        for code, exc in self_by_code.items():
+            yrs = ",".join(sorted(selfdup[selfdup["code"] == code]["year"].unique()))
+            lines.append(f"| {code} | {exc:,.0f} | {yrs} |")
     for dim in DIMENSIONS:
         sub = overlaps[overlaps["dimension"] == dim]
         lines += ["", f"## Overcounting within `{dim}` (flat, no hierarchy assumed)", ""]

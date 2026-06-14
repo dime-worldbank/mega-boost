@@ -226,10 +226,23 @@ def boost_silver():
                            | sw('vote_function', '0981 rural water')
                            | sw('vote_function', '0982 urban water'))) \
                 | (new & is_y('wss'))
+    # New-era Environmental protection = func0 "06 …" minus water&san (wss), minus the Vote_Functions the
+    # workbook moves OUT of Environment (EXP_FUNC_ENV_PRO_EXE / verification.md F2): Land Administration
+    # (-> Housing, below), and Water Resources Directorate + Unspecified (Excel assigns these to no other
+    # func -> they fall to General public services; see Q6). Without these the transform over-counts
+    # Environmental protection by ~105B/505 lines in FY2023/24 (and analogously FY2022/23).
+    new_env_excl = (sw('vote_function', '0602 directorate of water resources management')
+                    | sw('vote_function', '0602 land, administration and management')
+                    | sw('vote_function', '0600 unspecified'))
     is_env = (((~new) & (sw('func1', '705')
                          | nz(lower(trim(col('vote_function'))).rlike('^(0906|0908|0904|0905|0907|0951)'))))
-              | (new & f0('06 natural resources'))) & ~is_watsan
-    is_hou = (((~new) & f0('02 lands, housing')) | (new & f0('10 sustainable urbanisation'))) | is_watsan
+              | (new & f0('06 natural resources') & ~new_env_excl)) & ~is_watsan
+    # Housing picks up Land Administration: EXP_FUNC_HOU_EXE composes Vote_Function 0602 Land Admin
+    # (its func0 is "06", so f0('10') alone would miss it). 0612 Urban Planning stays in Environment
+    # (the Excel env formula does not exclude it; env wins the .when() tie).
+    is_hou = (((~new) & f0('02 lands, housing'))
+              | (new & (f0('10 sustainable urbanisation')
+                        | sw('vote_function', '0602 land, administration and management')))) | is_watsan
     old_eco = (f0('04 works and transport') | f0('03 energy and mineral') | f0('01 agr')
                | f0('06 tourism') | f0('05 information') | f0('19 tourism'))
     new_eco = (f0('01') | f0('02') | f0('03') | f0('04') | f0('05')
@@ -239,23 +252,27 @@ def boost_silver():
     # Self-contained (mutually-exclusive) COFOG predicates: each carries its full discriminating
     # exclusions, so the .when() order below is irrelevant (proven: 0 rows match >1; see the
     # n_func expectation). The exclusions encode classification decisions documented in
-    # verification.md §4 (e.g. Health/Education take a line out of Social protection; specific
-    # sectors take it out of the broad Economic-affairs set; Water&sanitation -> Housing not Env).
+    # verification.md §5. KEY (F4): Social protection (COFOG 710 = the SP/pension flags, which carry
+    # civil-service, military, teacher and local-government PENSION BENEFITS, ~5.5T) is the
+    # TOP-priority function — EVERY sector excludes `is_socpro`, so a pension stays in 710 rather than
+    # being absorbed by the ministry that pays it (teacher pension->Education, military->Defence, …).
+    # Among the remaining sectors Health/Education still beat the residual set, Water&sanitation ->
+    # Housing not Env, and specific sectors leave the broad Economic-affairs set.
     p_pos = is_jud | is_pubsaf
-    p_def = is_def
-    p_pubord = p_pos & ~is_def
-    p_socpro = is_socpro & ~is_health & ~is_educ & ~is_def & ~p_pos
-    p_health = is_health & ~is_def & ~p_pos
-    p_educ = is_educ & ~is_def & ~p_pos & ~is_health
-    p_env = is_env & ~is_def & ~p_pos & ~p_socpro & ~is_health & ~is_educ
-    p_hou = (is_watsan | is_hou) & ~is_def & ~p_pos & ~p_socpro & ~is_health & ~is_educ & ~is_env
-    p_eco = (is_eco & ~is_def & ~p_pos & ~p_socpro & ~is_health & ~is_educ & ~is_env
+    p_socpro = is_socpro
+    p_def = is_def & ~is_socpro
+    p_pubord = p_pos & ~is_def & ~is_socpro
+    p_health = is_health & ~is_def & ~p_pos & ~is_socpro
+    p_educ = is_educ & ~is_def & ~p_pos & ~is_health & ~is_socpro
+    p_env = is_env & ~is_def & ~p_pos & ~is_socpro & ~is_health & ~is_educ
+    p_hou = (is_watsan | is_hou) & ~is_def & ~p_pos & ~is_socpro & ~is_health & ~is_educ & ~is_env
+    p_eco = (is_eco & ~is_def & ~p_pos & ~is_socpro & ~is_health & ~is_educ & ~is_env
              & ~is_watsan & ~is_hou)
 
     df = df.withColumn('func',
-        when(p_def, 'Defence')
+        when(p_socpro, 'Social protection')
+        .when(p_def, 'Defence')
         .when(p_pubord, 'Public order and safety')
-        .when(p_socpro, 'Social protection')
         .when(p_health, 'Health')
         .when(p_educ, 'Education')
         .when(p_env, 'Environmental protection')
@@ -277,8 +294,10 @@ def boost_silver():
     is_eneoil = ((~new) & (sw('vote_function', '0303') | sw('vote_function', '0304')
                            | sw('vote_function', '0305') | sw('vote_function', '0306'))) | (new & f0('03'))
     df = df.withColumn('func_sub',
+        # Social protection wins the line (no func_sub leaf defined) -> null, so func/func_sub agree.
+        when(is_socpro, lit(None).cast('string'))
         # Public order
-        when(is_jud, 'Judiciary')
+        .when(is_jud, 'Judiciary')
         .when(is_pubsaf, 'Public safety')
         # Education (use func2 COFOG sub when present)
         .when(is_educ & sw('func2', '7091'), 'Primary education')
