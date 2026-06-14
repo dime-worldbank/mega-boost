@@ -23,7 +23,7 @@
 #     (Wage/Capital/Goods/Subsidies/Interest) and the function-defined Social benefits (e1 only,
 #     func1="10 Social care"), the economic-type category WINS and Social benefits keeps only the
 #     residual social-care transfers. (verification.md E1-E3)
-#   * Use of goods & services excludes Personal/Capital exp_type in ALL eras — restores the
+#   * Goods and services excludes Personal/Capital exp_type in ALL eras — restores the
 #     `exp_type<>"Personal"` filter the 2020-24 formula dropped (which double-counts wages/capital
 #     into Goods in 2024). (verification.md E0)
 #   * econ_sub follows its econ parent, so econ2 "132.11" road-maintenance transfers (which are
@@ -149,7 +149,7 @@ def boost_silver():
         .when(p_interest, 'Interest on debt')
         .when(p_subs, 'Subsidies')
         .when(p_grants, 'Other grants/transfers')
-        .when(p_goods, 'Use of goods and services')
+        .when(p_goods, 'Goods and services')
         .when(p_socben, 'Social benefits')
         .otherwise('Other expenses'))
 
@@ -198,11 +198,11 @@ def boost_silver():
     socpro = (e1 & sw('func1', '10 ')) | (e23 & sw('func1', '10'))
 
     df = df.withColumn('func',
-        when(defense, 'Defense')
+        when(defense, 'Defence')
         .when(pubord, 'Public order and safety')
-        .when(ecorel, 'Economic relations')
-        .when(env, 'Environment protection')
-        .when(housing, 'Housing')
+        .when(ecorel, 'Economic affairs')
+        .when(env, 'Environmental protection')
+        .when(housing, 'Housing and community amenities')
         .when(health, 'Health')
         .when(rcr, 'Recreation, culture and religion')
         .when(education, 'Education')
@@ -232,7 +232,7 @@ def boost_silver():
     f_ter_edu = (e1 & (sw('func2', '06.04') | sw('func2', '06.05'))) | (e23 & sw('func2', '0940'))
 
     df = df.withColumn('func_sub',
-        # Economic relations leaves (most specific first)
+        # Economic affairs leaves (most specific first)
         when(ecorel & f_roads, 'Roads')
         .when(ecorel & f_rail, 'Railroads')
         .when(ecorel & f_watt, 'Water transport')
