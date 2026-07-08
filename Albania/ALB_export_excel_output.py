@@ -157,10 +157,13 @@ approved = generate_combined_pivots(pairs, "boost_approved")
 def get_latest_cci_year(cci_df):
     year_columns = [col for col in cci_df.columns if col.split(".")[0].isdigit()]
     year_columns.sort(reverse=True)
+    target_rows = cci_df[cci_df["category_code"] == "EXP_ECON_TOT_EXP_EXE"]
+    if target_rows.empty:
+        return None
     for year in year_columns:
-        #new sheet update
-        if not pd.isnull(cci_df[cci_df["category_code"] == "EXP_ECON_TOT_EXP_EXE"][year].values[0]):
+        if not pd.isnull(target_rows[year].values[0]):
             return int(float(year))
+    return None
 
 # download the executed sheet from cci_csv to obtain the column list. 
 template = pd.read_csv(CCI_FILE_PATH, dtype="str")
@@ -175,7 +178,6 @@ def spark_to_pandas_with_reorder(ws, raw_data, include_boost_col=True):
     raw_data = raw_data.toPandas()
     #new sheet update
     if "counties" in raw_data.columns and "county" not in raw_data.columns:
-        raw_data = raw_data.rename(columns={"counties": "county"})
         raw_data = raw_data.rename(columns={"counties": "county"})
 
     column_names = [cell.value for cell in ws[1] if cell.value is not None]  # Row 1 is typically the header
@@ -274,7 +276,7 @@ def update_excel_with_new_values(target_ws, source_ws, df):
                     target_ws.write_formula(row_index, col_inedx, formula, cell_format)  
                 else:
                     # Expand formula for years not existent on the original Excel but existent on MEGA
-                    if col_name.isdigit() and int(col_name) <= BOOST_LATEST_YEAR and int(col_name) > CCI_LATEST_YEAR:
+                    if CCI_LATEST_YEAR is not None and col_name.isdigit() and int(col_name) <= BOOST_LATEST_YEAR and int(col_name) > CCI_LATEST_YEAR:
                         previous_cell = source_ws.cell(row=row_index+1, column=col_inedx)
                         if previous_cell.data_type == 'f':
                             previous_formula = getattr(previous_cell.value, "text", previous_cell.value)
@@ -405,55 +407,3 @@ with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=True) as tmp:
             project_lab_df.to_excel(writer, sheet_name='project_lab', index=False)
             
     shutil.copy(temp_path, OUTPUT_MISSING_DESC_FILE_PATH)
-
-# COMMAND ----------
-
-print("OUTPUT_FILE_PATH:", OUTPUT_FILE_PATH)
-
-import os
-print("file exists:", os.path.exists(OUTPUT_FILE_PATH))
-print("file size:", os.path.getsize(OUTPUT_FILE_PATH))
-
-# COMMAND ----------
-
-exp_check = pd.read_excel(OUTPUT_FILE_PATH, sheet_name="Data_Expenditures")
-
-print(exp_check.columns.tolist())
-
-print("county in output:", "county" in exp_check.columns)
-print("counties in output:", "counties" in exp_check.columns)
-
-print("county null count:", exp_check["county"].isna().sum())
-print("total rows:", len(exp_check))
-
-display(
-    exp_check[
-        ["year", "admin1", "admin2", "admin2_new", "county", "executed", "boost_executed"]
-    ].head(20)
-)
-
-# COMMAND ----------
-
-rev_check = pd.read_excel(OUTPUT_FILE_PATH, sheet_name="Data_Revenues")
-
-print(rev_check.columns.tolist())
-
-print("admin5 in output:", "admin5" in rev_check.columns)
-print("county in output:", "county" in rev_check.columns)
-
-print("admin5 null count:", rev_check["admin5"].isna().sum())
-print("county null count:", rev_check["county"].isna().sum())
-print("total rows:", len(rev_check))
-
-display(rev_check.head(20))
-
-# COMMAND ----------
-
-executed_check = pd.read_excel(OUTPUT_FILE_PATH, sheet_name="Executed")
-approved_check = pd.read_excel(OUTPUT_FILE_PATH, sheet_name="Approved")
-
-print("Executed columns:")
-print(executed_check.columns.tolist()[:35])
-
-print("Approved columns:")
-print(approved_check.columns.tolist()[:35])
