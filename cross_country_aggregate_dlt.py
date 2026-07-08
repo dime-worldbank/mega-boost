@@ -717,3 +717,11 @@ def health_private_expenditure_by_country_year():
         .join(cpi_factors, on=["country_name", "year"], how="inner")
         .withColumn("real_expenditure", F.col("oop_expenditure_current_lcu") / F.col("cpi_factor"))
     )
+
+@dlt.table(name=f'expenditure_by_country_year_func_func_sub_econ')
+def expenditure_by_country_year_func_func_sub_econ_sub():
+    return (
+        dlt.read('expenditure_by_country_admin_func_sub_econ_sub_year')
+        .groupBy('country_name', 'year', 'func', 'func_sub', 'econ')
+        .agg(F.sum('expenditure').alias('expenditure'), F.sum('real_expenditure').alias('real_expenditure'))
+    )
