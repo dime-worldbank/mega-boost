@@ -258,9 +258,10 @@ def update_excel_with_new_values(target_ws, source_ws, df):
         for col_inedx in range(0, max_col-1):
             col_name = get_col_name(col_inedx)
             source_cell = source_ws.cell(row=row_index+1, column=col_inedx+1)
-
-            default_cell_format = target_wb.add_format(copy_font(source_cell))
         #new sheet update
+            default_cell_format = target_wb.add_format(copy_font(source_cell))
+            cell_format = target_wb.add_format(copy_font(source_cell, blue_text_format=APPLY_BLUE_FONT_IF_MISSING))
+
             if col_name is None:
                 if source_cell.data_type == 'f':
                     formula = getattr(source_cell.value, "text", source_cell.value)
@@ -271,7 +272,6 @@ def update_excel_with_new_values(target_ws, source_ws, df):
             if str(col_name) not in years or code not in df.code.values:
                 # Fall back to formula
                 if source_cell.data_type == 'f':
-                    cell_format = target_wb.add_format(copy_font(source_cell, blue_text_format=APPLY_BLUE_FONT_IF_MISSING))
                     formula = getattr(source_cell.value, "text", source_cell.value)
                     target_ws.write_formula(row_index, col_inedx, formula, cell_format)  
                 else:
