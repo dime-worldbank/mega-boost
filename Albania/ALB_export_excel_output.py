@@ -155,16 +155,20 @@ approved = generate_combined_pivots(pairs, "boost_approved")
 #todo: move to utils for reusability when we have more than one country
 
 def get_latest_cci_year(cci_df):
-    year_columns = [col for col in cci_df.columns if col.split(".")[0].isdigit()]
+    year_columns = [col for col in cci_df.columns if str(col).split(".")[0].isdigit()]
     year_columns.sort(reverse=True)
+    target_rows = cci_df[cci_df["Code"] == "EXP_ECON_TOT_EXP_EXE"]
+    if target_rows.empty:
+        return None
     for year in year_columns:
-        if not pd.isnull(cci_df[cci_df.Code == "EXP_ECON_TOT_EXP_EXE"][year].values[0]):
+        if not pd.isnull(target_rows[year].values[0]):
             return int(float(year))
+    return None
 
 # download the executed sheet from cci_csv to obtain the column list. 
-template = pd.read_csv(CCI_FILE_PATH, dtype="str")
+template = pd.read_excel(SOURCE_FILE_PATH, dtype="str", sheet_name="Executed")
 EXECUTED_TEMP_COL_LIST = [
-   col.split(".")[0] for col in template.columns
+   str(col).split('.')[0] for col in template.columns
 ]
 BOOST_LATEST_YEAR  = int(max(years))
 CCI_LATEST_YEAR = get_latest_cci_year(template)
@@ -172,6 +176,9 @@ CCI_LATEST_YEAR = get_latest_cci_year(template)
 def spark_to_pandas_with_reorder(ws, raw_data, include_boost_col=True):
     # make sure that the data expendture column specific order so that the formula will work
     raw_data = raw_data.toPandas()
+    if "counties" in raw_data.columns and "county" not in raw_data.columns:
+        raw_data = raw_data.rename(columns={"counties": "county"})
+
     column_names = [cell.value for cell in ws[1] if cell.value is not None]  # Row 1 is typically the header
 
     remaining = [col for col in raw_data.columns if col not in column_names] if include_boost_col else []
@@ -227,13 +234,11 @@ def set_width(target_ws,max_col_index):
             width = 12
         target_ws.set_column(i, i, width)  # xlsxwriter uses 0-based index
 
-def get_col_name(col_inedex):
+def get_col_name(col_index):
     # Some year columns in the original file use formulas (e.g., =U1+1),
     # which makes evaluating the actual column names dynamically too costly.
-    # As a workaround, we get the list of col names from the cci_csv file.
-    col_name = EXECUTED_TEMP_COL_LIST[col_inedex]
-    return col_name
-
+    # As a workaround, get the column names from the cci_csv file.
+    return EXECUTED_TEMP_COL_LIST[col_index]
 
 def update_excel_with_new_values(target_ws, source_ws, df):    
     max_row = source_ws.max_row
@@ -247,18 +252,24 @@ def update_excel_with_new_values(target_ws, source_ws, df):
         for col_inedx in range(0, max_col-1):
             col_name = get_col_name(col_inedx)
             source_cell = source_ws.cell(row=row_index+1, column=col_inedx+1)
-
             default_cell_format = target_wb.add_format(copy_font(source_cell))
+            cell_format = target_wb.add_format(copy_font(source_cell, blue_text_format=APPLY_BLUE_FONT_IF_MISSING))
 
+            if col_name is None:
+                if source_cell.data_type == 'f':
+                    formula = getattr(source_cell.value, "text", source_cell.value)
+                    target_ws.write_formula(row_index, col_inedx, formula, default_cell_format)
+                else:
+                    target_ws.write(row_index, col_inedx, source_cell.value, default_cell_format)
+                continue
             if str(col_name) not in years or code not in df.code.values:
                 # Fall back to formula
                 if source_cell.data_type == 'f':
-                    cell_format = target_wb.add_format(copy_font(source_cell, blue_text_format=APPLY_BLUE_FONT_IF_MISSING))
                     formula = getattr(source_cell.value, "text", source_cell.value)
                     target_ws.write_formula(row_index, col_inedx, formula, cell_format)  
                 else:
                     # Expand formula for years not existent on the original Excel but existent on MEGA
-                    if col_name.isdigit() and int(col_name) <= BOOST_LATEST_YEAR and int(col_name) > CCI_LATEST_YEAR:
+                    if CCI_LATEST_YEAR is not None and col_name.isdigit() and int(col_name) <= BOOST_LATEST_YEAR and int(col_name) > CCI_LATEST_YEAR:
                         previous_cell = source_ws.cell(row=row_index+1, column=col_inedx)
                         if previous_cell.data_type == 'f':
                             previous_formula = getattr(previous_cell.value, "text", previous_cell.value)
@@ -306,7 +317,6 @@ with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=True) as tmp:
             if name in ["level", "econ0", "econ_func"]:
                 continue
             target_wb.define_name(name, f"={defn.attr_text}")
-
 
         # Create an 'Executed' sheet
         target_ws = target_wb.add_worksheet('Executed')  
@@ -364,6 +374,10 @@ with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=True) as tmp:
 
     with pd.ExcelWriter(temp_path, engine='xlsxwriter') as writer:
         for col in cols_with_labels:
+            if col not in df.columns:
+                continue
+
+
             digit_entries = df[col].astype(str)
             digit_entries = digit_entries[digit_entries.str.isdigit()]
             
