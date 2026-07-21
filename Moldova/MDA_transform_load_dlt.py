@@ -144,10 +144,11 @@ def boost_silver():
     df = (df
           .withColumn('admin0', when(is_local, lit('Regional')).otherwise(lit('Central')))
           .withColumn('admin2', col('admin2'))
-          # e1 (2006-15) has no admin2 at all, and ~117 e2/e3 local rows have a blank one -> those
-          # stay the unallocated 'Regional' bucket; every other local row resolves to a named raion.
-          .withColumn('admin1', when(is_local, coalesce(raion, lit('Regional')))
-                                .otherwise(lit('Central Scope')))
+          # admin1 is EITHER the 'Central Scope' sentinel OR a true raion name from the map -- never
+          # a placeholder. e1 (2006-15) carries no admin2 column at all and ~117 e2/e3 local rows
+          # have it blank, so those stay NULL (region genuinely unknown) rather than being parked in
+          # a pseudo-region. 1.0% of local rows; every other local row resolves to a named raion.
+          .withColumn('admin1', when(is_local, raion).otherwise(lit('Central Scope')))
           .withColumn('geo0', when(is_local, lit('Regional')).otherwise(lit('Central')))
           .withColumn('geo1', when(is_local, col('admin1')).otherwise(lit('Central Scope')))
           # Foreign funding is not separately identified in the Executed sheet (the *_FOR_EXE codes
