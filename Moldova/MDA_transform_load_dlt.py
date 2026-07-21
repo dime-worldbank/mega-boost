@@ -152,11 +152,14 @@ def boost_silver():
           # NB: admin2 is deliberately left as the RAW agency label and must stay that way -- the e3
           # econ predicates below discriminate on eq('admin2', 'Social Insurance Fund'). Rewriting it
           # here would silently change how those rows are tagged (see the admin_scope note above).
-          # admin1 is EITHER the 'Central Scope' sentinel OR a true raion name from the map -- never
-          # a placeholder. e1 (2006-15) carries no admin2 column at all and ~117 e2/e3 local rows
-          # have it blank, so those stay NULL (region genuinely unknown) rather than being parked in
-          # a pseudo-region. 1.0% of local rows; every other local row resolves to a named raion.
-          .withColumn('admin1', when(is_local, raion).otherwise(lit('Central Scope')))
+          # admin1 = 'Central Scope' sentinel, or the true raion name from the map -- never a
+          # placeholder. Where a local row carries an admin2 label the map cannot resolve, fall back
+          # to that RAW label rather than discarding it, so nothing is silently lost. Today that
+          # fallback fires on no row: every local admin2 in the workbook is code-prefixed and maps.
+          # It only stays NULL when there is no admin2 at all -- i.e. all of e1 (2006-15), whose
+          # sheet has no admin2 column, so its region is genuinely unknown.
+          .withColumn('admin1', when(is_local, coalesce(raion, col('admin2')))
+                                .otherwise(lit('Central Scope')))
           .withColumn('geo0', when(is_local, lit('Regional')).otherwise(lit('Central')))
           # geo1 deliberately reads the REBUILT admin1 (clean raion name, NULL where unknown).
           .withColumn('geo1', when(is_local, col('admin1')).otherwise(lit('Central Scope')))
