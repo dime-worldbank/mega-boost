@@ -188,7 +188,7 @@ def boost_silver():
         .when(capital, 'Capital expenditures')
         .when(interest, 'Interest on debt')
         .when(subsidies, 'Subsidies')
-        .when(grants, 'Other grants/transfers')
+        .when(grants, 'Other grants and transfers')
         .when(goods, 'Goods and services')
         .when(socben, 'Social benefits')
         .otherwise('Other expenses'))
@@ -212,12 +212,12 @@ def boost_silver():
         when(socben & soc_assist, 'Social Assistance')
         .when(socben & pensions, 'Pensions')
         .when(socben, 'Social Assistance')                 # e1 social-care transfers (level not split)
-        .when(wage & pen_con, 'Pension contributions')
-        .when(capital & cap_main, 'Capital maintenance')
-        .when(goods & goo_bas, 'Goods and services (basic services)')
-        .when(goods & goo_emp, 'Goods and services (employment contracts)')
-        .when(goods & rec_main, 'Recurrent maintenance')
-        .when(subsidies_production, 'Subsidies to production')             # S1: 132.11 follows its Subsidies parent
+        .when(wage & pen_con, 'Social Benefits (pension contributions)')
+        .when(capital & cap_main, 'Capital Maintenance')
+        .when(goods & goo_bas, 'Basic Services')
+        .when(goods & goo_emp, 'Employment Contracts')
+        .when(goods & rec_main, 'Recurrent Maintenance')
+        .when(subsidies_production, 'Subsidies to Production')             # S1: 132.11 follows its Subsidies parent
         .otherwise(lit(None).cast('string')))
 
     # ================= func (10 COFOG, year-aware, disjoint by func1) =================
@@ -275,9 +275,9 @@ def boost_silver():
         # Economic affairs leaves (most specific first)
         when(ecorel & f_roads, 'Roads')
         .when(ecorel & f_rail, 'Railroads')
-        .when(ecorel & f_watt, 'Water transport')
-        .when(ecorel & f_airt, 'Air transport')
-        .when(ecorel & f_telecom, 'Telecoms')
+        .when(ecorel & f_watt, 'Water Transport')
+        .when(ecorel & f_airt, 'Air Transport')
+        .when(ecorel & f_telecom, 'Telecom')
         .when(ecorel & f_transport, 'Transport')
         .when(ecorel & f_ene_pow, 'Energy (power)')
         .when(ecorel & f_ene_heat, 'Energy (heating)')
@@ -285,11 +285,11 @@ def boost_silver():
         .when(ecorel & f_energy, 'Energy')
         .when(ecorel & f_agr, 'Agriculture')
         # Housing leaf
-        .when(housing & f_watsan, 'Water and sanitation')
+        .when(housing & f_watsan, 'Water and Sanitation')
         # Education levels
-        .when(education & f_pri_edu, 'Primary education')
-        .when(education & f_sec_edu, 'Secondary education')
-        .when(education & f_ter_edu, 'Tertiary education')
+        .when(education & f_pri_edu, 'Primary Education')
+        .when(education & f_sec_edu, 'Secondary Education')
+        .when(education & f_ter_edu, 'Tertiary Education')
         .otherwise(lit(None).cast('string')))
 
     # ---- exclusivity diagnostics for the @dlt.expect checks (the order-proof guarantee) ----
