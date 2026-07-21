@@ -249,43 +249,40 @@ def boost_silver():
         .when(socpro, 'Social protection')
         .otherwise('General public services'))
 
-    # ---- func_sub (best-effort COFOG leaf from func2; null where not a clear leaf). The func/func_sub
-    #      rollup hierarchy is deferred for sign-off (verification.md Q-FS); these leaf tags come
-    #      straight from the self-describing func2 labels and are conditioned on the func parent. ----
+    # ---- func_sub (COFOG leaf from func2; null where not a clear leaf) ----
+    # The leaf VOCABULARY is constrained to Moldova's CCI reference (quality_functional_sub_gold):
+    # the quality gate quality_boost_func_sub_unknown fails the pipeline on any func_sub Moldova's
+    # CCI does not list. Moldova's CCI carries a coarser transport/energy split than the raw func2
+    # codes, so finer leaves are rolled up to the nearest CCI leaf:
+    #   * rail (14.03) and air (14.04) -> generic 'Transport' (CCI has no Railroads/Air Transport)
+    #   * power/heat/oil (16.01-16.04) -> single 'Energy' leaf
+    #   * water & sanitation (11.04 / 0630) -> CCI's 'Water Supply'
+    # Roads, Water Transport, Telecom and the education levels ARE distinct CCI leaves, so kept.
     f_agr = ((e1 & (sw('func2', '11.01') | sw('func2', '11.02') | sw('func2', '11.03')
                     | sw('func2', '11.05') | sw('func2', '11.10')))
              | (e23 & sw('func2', '0420')))
     f_roads = e1 & sw('func2', '14.07')
-    f_rail = e1 & sw('func2', '14.03')
     f_watt = e1 & sw('func2', '14.02')
-    f_airt = e1 & sw('func2', '14.04')
-    f_transport = (e1 & (sw('func2', '14.01') | sw('func2', '14.09') | sw('func2', '14.10')
-                         | sw('func2', '14.08'))) | (e23 & sw('func2', '0450'))
+    # rail (14.03) + air (14.04) folded in: CCI has no separate Railroads/Air Transport leaf.
+    f_transport = (e1 & (sw('func2', '14.01') | sw('func2', '14.03') | sw('func2', '14.04')
+                         | sw('func2', '14.08') | sw('func2', '14.09') | sw('func2', '14.10'))) | (e23 & sw('func2', '0450'))
     f_telecom = (e1 & sw('func2', '14.08')) | (e23 & sw('func2', '0460'))
-    f_ene_pow = e1 & sw('func2', '16.02')
-    f_ene_heat = e1 & sw('func2', '16.03')
-    f_ene_oil = e1 & (sw('func2', '16.01') | sw('func2', '16.04'))
-    f_energy = (e1 & sw('func2', '16.')) | (e23 & sw('func2', '0430'))
+    f_energy = (e1 & sw('func2', '16.')) | (e23 & sw('func2', '0430'))   # power/heat/oil not split
     f_watsan = (e1 & sw('func2', '11.04')) | (e23 & sw('func2', '0630'))
     f_pri_edu = (e1 & (sw('func2', '06.01') | sw('func2', '06.02'))) | (e23 & sw('func2', '0910'))
     f_sec_edu = (e1 & (sw('func2', '06.03') | sw('func2', '06.08'))) | (e23 & (sw('func2', '0920') | sw('func2', '0930')))
     f_ter_edu = (e1 & (sw('func2', '06.04') | sw('func2', '06.05'))) | (e23 & sw('func2', '0940'))
 
     df = df.withColumn('func_sub',
-        # Economic affairs leaves (most specific first)
+        # Economic affairs leaves (most specific first; Telecom before Transport as 14.08 is in both)
         when(ecorel & f_roads, 'Roads')
-        .when(ecorel & f_rail, 'Railroads')
         .when(ecorel & f_watt, 'Water Transport')
-        .when(ecorel & f_airt, 'Air Transport')
         .when(ecorel & f_telecom, 'Telecom')
-        .when(ecorel & f_transport, 'Transport')
-        .when(ecorel & f_ene_pow, 'Energy (power)')
-        .when(ecorel & f_ene_heat, 'Energy (heating)')
-        .when(ecorel & f_ene_oil, 'Energy (oil & gas)')
-        .when(ecorel & f_energy, 'Energy')
+        .when(ecorel & f_transport, 'Transport')       # incl. rail/air (no finer CCI leaf)
+        .when(ecorel & f_energy, 'Energy')             # incl. power/heat/oil (single CCI leaf)
         .when(ecorel & f_agr, 'Agriculture')
         # Housing leaf
-        .when(housing & f_watsan, 'Water and Sanitation')
+        .when(housing & f_watsan, 'Water Supply')
         # Education levels
         .when(education & f_pri_edu, 'Primary Education')
         .when(education & f_sec_edu, 'Secondary Education')
