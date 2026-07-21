@@ -279,9 +279,6 @@ def boost_silver():
         .when(ecorel & f_airt, 'Air Transport')
         .when(ecorel & f_telecom, 'Telecom')
         .when(ecorel & f_transport, 'Transport')
-        .when(ecorel & f_ene_pow, 'Energy (power)')
-        .when(ecorel & f_ene_heat, 'Energy (heating)')
-        .when(ecorel & f_ene_oil, 'Energy (oil & gas)')
         .when(ecorel & f_energy, 'Energy')
         .when(ecorel & f_agr, 'Agriculture')
         # Housing leaf
