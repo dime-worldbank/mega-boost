@@ -32,7 +32,8 @@
 #     hierarchy is left for sign-off (verification.md Q-FS) so func_sub is null where not clearly a leaf.
 import dlt
 import re
-from pyspark.sql.functions import col, lower, trim, when, lit, substring, regexp_replace, coalesce
+from pyspark.sql.functions import (col, lower, trim, when, lit, substring, regexp_replace,
+                                   regexp_extract, coalesce, create_map)
 from pyspark.sql.types import DoubleType, IntegerType
 from glob import glob
 
@@ -42,6 +43,30 @@ COUNTRY = 'Moldova'
 COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/microdata_csv/{COUNTRY}'
 
 CSV_READ_OPTIONS = {"header": "true", "multiline": "true", "quote": '"', "escape": '"'}
+
+# ---- admin1 ground truth ----------------------------------------------------------------------
+# The 35 first-level units of Moldova (32 raions + mun. Chisinau + mun. Balti + UTA Gagauzia),
+# keyed by the 2-digit CUATM prefix of the locality code. Taken verbatim from the National Bureau
+# of Statistics population file `Populatia_sate_comune_orase_2014-2023.xlsx` (columns
+# "Municipiu/raion" x "Cod Sat/comuna, oras"); the raion<->code pairing is identical in all ten
+# year sheets (2014-2023), so it is treated as the authoritative naming for admin1.
+# The BOOST `admin2` label carries the same code zero-padded to 3 digits ("053 Consiliul Raional
+# Hincesti"), so the silver layer joins on RAION_BY_ADMIN2_CODE. Diacritics are dropped and the
+# statistics office's "R-UL "/"MUN."/"UTA " prefixes stripped, to match the ASCII spelling used
+# throughout the workbook. All 35 units are exercised by the microdata; no local code is unmapped.
+RAION_BY_CODE = {
+    "01": "Chisinau",      "03": "Balti",         "10": "Anenii Noi",   "12": "Basarabeasca",
+    "14": "Briceni",       "17": "Cahul",         "21": "Cantemir",     "25": "Calarasi",
+    "27": "Causeni",       "29": "Cimislia",      "31": "Criuleni",     "34": "Donduseni",
+    "36": "Drochia",       "38": "Dubasari",      "41": "Edinet",       "43": "Falesti",
+    "45": "Floresti",      "48": "Glodeni",       "53": "Hincesti",     "55": "Ialoveni",
+    "57": "Leova",         "60": "Nisporeni",     "62": "Ocnita",       "64": "Orhei",
+    "67": "Rezina",        "71": "Riscani",       "74": "Singerei",     "78": "Soroca",
+    "80": "Straseni",      "83": "Soldanesti",    "85": "Stefan Voda",  "87": "Taraclia",
+    "89": "Telenesti",     "92": "Ungheni",       "96": "Gagauzia",
+}
+# ... keyed the way the BOOST admin2 label writes it: 3 digits, leading zero ("01" -> "001").
+RAION_BY_ADMIN2_CODE = {f"0{code}": name for code, name in RAION_BY_CODE.items()}
 
 # The three era CSVs already carry logical lowercase headers (year, func1, func2, econ1..econ5,
 # exp_type, transfer, econ0, admin1, admin2, approved, revised/adjusted, executed). Nothing to rename;
@@ -105,12 +130,23 @@ def boost_silver():
     e3 = col('year') >= 2020
     e23 = col('year') >= 2016
 
-    # ---- admin / geo (best available; see verification.md "to confirm") ----
+    # ---- admin / geo ----
+    # The microdata's own `admin1` column is only a SCOPE flag (Central/Centrale, Local/Locale,
+    # Other) -> that becomes admin0. The real first-level unit lives in the e2/e3 `admin2` agency
+    # label, which is prefixed with the CUATM raion code ("053 Consiliul Raional Hincesti"). Those
+    # labels are dirty -- casing drift ("Consiliul Raional" vs "Consiliul raional"), typos
+    # ("Basabareasca"), parentheticals ("Dubasari (Cocieri)"), two bodies per municipality
+    # ("Primaria municipiului Chisinau" / "Consiliul municipal Chisinau") and three spellings of
+    # Gagauzia -- so admin1 is rebuilt from the CODE alone via RAION_BY_ADMIN2_CODE above.
     is_local = eq('admin1', 'Local') | eq('admin1', 'Locale')
+    admin2_code = regexp_extract(trim(col('admin2')), r'^(\d{3})\s', 1)  # '' when absent (e1)/unprefixed
+    raion = create_map([lit(x) for kv in RAION_BY_ADMIN2_CODE.items() for x in kv])[admin2_code]
     df = (df
           .withColumn('admin0', when(is_local, lit('Regional')).otherwise(lit('Central')))
           .withColumn('admin2', col('admin2'))
-          .withColumn('admin1', when(is_local, coalesce(col('admin2'), lit('Regional')))
+          # e1 (2006-15) has no admin2 at all, and ~117 e2/e3 local rows have a blank one -> those
+          # stay the unallocated 'Regional' bucket; every other local row resolves to a named raion.
+          .withColumn('admin1', when(is_local, coalesce(raion, lit('Regional')))
                                 .otherwise(lit('Central Scope')))
           .withColumn('geo0', when(is_local, lit('Regional')).otherwise(lit('Central')))
           .withColumn('geo1', when(is_local, col('admin1')).otherwise(lit('Central Scope')))
