@@ -125,32 +125,23 @@ def boost_silver():
                 | (e23 & sw('econ2', '240000')))
     subsidies = (e1 & sw('econ1', '132')) | (e23 & sw('econ2', '250000'))
     grants = e23 & sw('econ2', '260000')                  # Other grants/transfers (no e1 equivalent)
-    goods_raw = ((e1 & sw('econ1', '113'))
+    goods = ((e1 & sw('econ1', '113'))
                  | (e2 & sw('econ2', '220000'))
                  | (e3 & sw('econ2', '220000') & ~eq('admin2', 'Social Insurance Fund')))
     # Social benefits: e1 is FUNCTION-defined (func1 "10 Social care") and overlaps the economic
     # types -> economic types win (exclusions below). e2/e3 are econ3-defined (271/272/273) and clean.
-    socben_raw = ((e1 & sw('func1', '10 Social care'))
+    socben = ((e1 & sw('func1', '10 Social care') & ~sw('econ1', '113') & ~eq('exp_type', 'Personnel') & ~eq('exp_type', 'Capital'))
                   | (e2 & (sw('econ3', '271') | sw('econ3', '272') | sw('econ3', '273')))
                   | (e3 & eq('admin2', 'Social Insurance Fund') & (sw('econ3', '271') | sw('econ3', '272'))))
 
-    # disjoint econ (each branch carries its full exclusions; order is irrelevant)
-    p_wage = wage
-    p_capital = capital & ~wage
-    p_interest = interest & ~wage & ~capital
-    p_subs = subsidies & ~wage & ~capital & ~interest
-    p_grants = grants & ~wage & ~capital & ~interest & ~subsidies
-    p_goods = goods_raw & ~wage & ~capital & ~interest & ~subsidies & ~grants  # E0: drops Personal/Capital
-    p_socben = socben_raw & ~wage & ~capital & ~interest & ~subsidies & ~grants & ~goods_raw
-
     df = df.withColumn('econ',
-        when(p_wage, 'Wage bill')
-        .when(p_capital, 'Capital expenditures')
-        .when(p_interest, 'Interest on debt')
-        .when(p_subs, 'Subsidies')
-        .when(p_grants, 'Other grants/transfers')
-        .when(p_goods, 'Goods and services')
-        .when(p_socben, 'Social benefits')
+        when(wage, 'Wage bill')
+        .when(capital, 'Capital expenditures')
+        .when(interest, 'Interest on debt')
+        .when(subsidies, 'Subsidies')
+        .when(grants, 'Other grants/transfers')
+        .when(goods, 'Goods and services')
+        .when(socben, 'Social benefits')
         .otherwise('Other expenses'))
 
     # ---- econ_sub (within the econ parent; null where the workbook defines no sub) ----
@@ -167,17 +158,17 @@ def boost_silver():
                   | (e3 & eq('admin2', 'Social Insurance Fund') & sw('econ3', '272')))
     pensions = ((e2 & sw('econ3', '271'))
                 | (e3 & eq('admin2', 'Social Insurance Fund') & sw('econ3', '271')))
-
+    subsidies_production = (~cap_main & (e1 & sw('econ1', '132')) | (e23 & sw('econ2', '250000')))
     df = df.withColumn('econ_sub',
-        when(p_socben & soc_assist, 'Social Assistance')
-        .when(p_socben & pensions, 'Pensions')
-        .when(p_socben, 'Social Assistance')                 # e1 social-care transfers (level not split)
-        .when(p_wage & pen_con, 'Pension contributions')
-        .when(p_capital & cap_main, 'Capital maintenance')
-        .when(p_goods & goo_bas, 'Goods and services (basic services)')
-        .when(p_goods & goo_emp, 'Goods and services (employment contracts)')
-        .when(p_goods & rec_main, 'Recurrent maintenance')
-        .when(p_subs, 'Subsidies to production')             # S1: 132.11 follows its Subsidies parent
+        when(socben & soc_assist, 'Social Assistance')
+        .when(socben & pensions, 'Pensions')
+        .when(socben, 'Social Assistance')                 # e1 social-care transfers (level not split)
+        .when(wage & pen_con, 'Pension contributions')
+        .when(capital & cap_main, 'Capital maintenance')
+        .when(goods & goo_bas, 'Goods and services (basic services)')
+        .when(goods & goo_emp, 'Goods and services (employment contracts)')
+        .when(goods & rec_main, 'Recurrent maintenance')
+        .when(subsidies_production, 'Subsidies to production')             # S1: 132.11 follows its Subsidies parent
         .otherwise(lit(None).cast('string')))
 
     # ================= func (10 COFOG, year-aware, disjoint by func1) =================
@@ -253,7 +244,7 @@ def boost_silver():
         .otherwise(lit(None).cast('string')))
 
     # ---- exclusivity diagnostics for the @dlt.expect checks (the order-proof guarantee) ----
-    econ_cats = [p_wage, p_capital, p_interest, p_subs, p_grants, p_goods, p_socben]
+    econ_cats = [wage, capital, interest, subsidies, grants, goods, socben]
     n_econ = sum([c.cast(IntegerType()) for c in econ_cats])
     df = df.withColumn('n_econ', when(n_econ == 0, lit(1)).otherwise(n_econ))   # 0 -> Other expenses
     func_cats = [defense, pubord, ecorel, env, housing, health, rcr, education, socpro]
