@@ -138,18 +138,27 @@ def boost_silver():
     # ("Basabareasca"), parentheticals ("Dubasari (Cocieri)"), two bodies per municipality
     # ("Primaria municipiului Chisinau" / "Consiliul municipal Chisinau") and three spellings of
     # Gagauzia -- so admin1 is rebuilt from the CODE alone via RAION_BY_ADMIN2_CODE above.
-    is_local = eq('admin1', 'Local') | eq('admin1', 'Locale')
+    #
+    # The scope flag MUST be read off a column we do not overwrite: `col('admin1')` is an unresolved
+    # reference that Spark re-binds to the LATEST projection, so once admin1 holds the raion name any
+    # later `admin1 == 'Locale'` test silently evaluates false (which is what made geo0/geo1 collapse
+    # to 'Central' for every local row). Rename it to `admin_scope` first and derive from that.
+    df = df.withColumnRenamed('admin1', 'admin_scope')
+    is_local = eq('admin_scope', 'Local') | eq('admin_scope', 'Locale')
     admin2_code = regexp_extract(trim(col('admin2')), r'^(\d{3})\s', 1)  # '' when absent (e1)/unprefixed
     raion = create_map([lit(x) for kv in RAION_BY_ADMIN2_CODE.items() for x in kv])[admin2_code]
     df = (df
           .withColumn('admin0', when(is_local, lit('Regional')).otherwise(lit('Central')))
-          .withColumn('admin2', col('admin2'))
+          # NB: admin2 is deliberately left as the RAW agency label and must stay that way -- the e3
+          # econ predicates below discriminate on eq('admin2', 'Social Insurance Fund'). Rewriting it
+          # here would silently change how those rows are tagged (see the admin_scope note above).
           # admin1 is EITHER the 'Central Scope' sentinel OR a true raion name from the map -- never
           # a placeholder. e1 (2006-15) carries no admin2 column at all and ~117 e2/e3 local rows
           # have it blank, so those stay NULL (region genuinely unknown) rather than being parked in
           # a pseudo-region. 1.0% of local rows; every other local row resolves to a named raion.
           .withColumn('admin1', when(is_local, raion).otherwise(lit('Central Scope')))
           .withColumn('geo0', when(is_local, lit('Regional')).otherwise(lit('Central')))
+          # geo1 deliberately reads the REBUILT admin1 (clean raion name, NULL where unknown).
           .withColumn('geo1', when(is_local, col('admin1')).otherwise(lit('Central Scope')))
           # Foreign funding is not separately identified in the Executed sheet (the *_FOR_EXE codes
           # are unpopulated); default False pending a fin_source mapping. See verification.md Q-FF.
