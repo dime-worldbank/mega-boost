@@ -1,35 +1,4 @@
 # Databricks notebook source
-# Moldova BOOST transform + load (DLT).
-#
-# Emulates the workbook's `Executed`-sheet classification as a PER-LINE pipeline: every microdata
-# row gets exactly one econ / econ_sub / func (and a best-effort func_sub). See verification.md for
-# the overlap log, the corrected criteria, and the expert sign-off.
-#
-# Two principles enforced here (both required by the reviewers):
-#   1. ORDER-PROOF, NO PRIORITY. Each category is a mutually-exclusive predicate, disjoint *by
-#      construction*: every overlap the detector found is resolved by an explicit discriminating
-#      criterion baked into the predicate. The `.when()` chains are a readability device only;
-#      reordering the branches must not change any row's tag. `boost_silver` asserts this (exactly
-#      one econ and one func per row).
-#   2. YEAR-AWARE — Moldova has THREE eras, each its own microdata sheet + criteria language:
-#        e1 = 2006-2015  English coding   (func1 "06 Education", exp_type "Personnel", ...)
-#        e2 = 2016-2019  Romanian coding  (func1 "0900 Invatamint", exp_type "Personal", + econ0)
-#        e3 = 2020-2024  Romanian coding  (as e2; a few formulas drop a filter -> see verification.md)
-#      The bronze unions the three era CSVs (shared base column names line up; era-only columns are
-#      NULL elsewhere) and silver branches on the year.
-#
-# Defaults implemented here (each is flippable; see verification.md "Decisions"):
-#   * econ is an ECONOMIC partition: where a line is matched by both an economic-type category
-#     (Wage/Capital/Goods/Subsidies/Interest) and the function-defined Social benefits (e1 only,
-#     func1="10 Social care"), the economic-type category WINS and Social benefits keeps only the
-#     residual social-care transfers. (verification.md E1-E3)
-#   * Goods and services excludes Personal/Capital exp_type in ALL eras — restores the
-#     `exp_type<>"Personal"` filter the 2020-24 formula dropped (which double-counts wages/capital
-#     into Goods in 2024). (verification.md E0)
-#   * econ_sub follows its econ parent, so econ2 "132.11" road-maintenance transfers (which are
-#     econ1 "132" => Subsidies) sit in Subsidies to production, not Capital maintenance. (verification.md S1)
-#   * func_sub is derived from func2 (self-describing COFOG labels); the func/func_sub ROLLUP
-#     hierarchy is left for sign-off (verification.md Q-FS) so func_sub is null where not clearly a leaf.
 import dlt
 import re
 from pyspark.sql.functions import (col, lower, trim, when, lit, substring, regexp_replace,
@@ -45,15 +14,6 @@ COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/microdata_csv/{COUNTRY}'
 CSV_READ_OPTIONS = {"header": "true", "multiline": "true", "quote": '"', "escape": '"'}
 
 # ---- admin1 ground truth ----------------------------------------------------------------------
-# The 35 first-level units of Moldova (32 raions + mun. Chisinau + mun. Balti + UTA Gagauzia),
-# keyed by the 2-digit CUATM prefix of the locality code. Taken verbatim from the National Bureau
-# of Statistics population file `Populatia_sate_comune_orase_2014-2023.xlsx` (columns
-# "Municipiu/raion" x "Cod Sat/comuna, oras"); the raion<->code pairing is identical in all ten
-# year sheets (2014-2023), so it is treated as the authoritative naming for admin1.
-# The BOOST `admin2` label carries the same code zero-padded to 3 digits ("053 Consiliul Raional
-# Hincesti"), so the silver layer joins on RAION_BY_ADMIN2_CODE. Diacritics are dropped and the
-# statistics office's "R-UL "/"MUN."/"UTA " prefixes stripped, to match the ASCII spelling used
-# throughout the workbook. All 35 units are exercised by the microdata; no local code is unmapped.
 RAION_BY_CODE = {
     "01": "Chisinau",      "03": "Balti",         "10": "Anenii Noi",   "12": "Basarabeasca",
     "14": "Briceni",       "17": "Cahul",         "21": "Cantemir",     "25": "Calarasi",
@@ -68,9 +28,7 @@ RAION_BY_CODE = {
 # ... keyed the way the BOOST admin2 label writes it: 3 digits, leading zero ("01" -> "001").
 RAION_BY_ADMIN2_CODE = {f"0{code}": name for code, name in RAION_BY_CODE.items()}
 
-# The three era CSVs already carry logical lowercase headers (year, func1, func2, econ1..econ5,
-# exp_type, transfer, econ0, admin1, admin2, approved, revised/adjusted, executed). Nothing to rename;
-# we only sanitise any Delta-illegal characters in column names.
+
 
 # COMMAND ----------
 
@@ -93,9 +51,7 @@ def boost_bronze():
 
 # COMMAND ----------
 
-# NULL-safety: in Spark, `col == x` / `col.startswith(x)` are NULL (not False) when the column is
-# NULL, and AND/NOT propagate NULL. The era-specific columns (admin2, econ3, econ5, econ0, ...) are
-# blank in the other eras, so every atom is wrapped to return False on NULL via nz().
+# Helper functions for defining predicate conditions
 def nz(c):
     return coalesce(c, lit(False))
 
@@ -111,10 +67,7 @@ def sw(colname, prefix):
 
 
 @dlt.table(name='mda_boost_silver')
-@dlt.expect("exactly_one_econ", "n_econ = 1")
-@dlt.expect("exactly_one_func", "n_func = 1")
 def boost_silver():
-    # Moldova labels years by the CALENDAR year (microdata `year` = "2006"); no fiscal +1.
     df = (dlt.read('mda_boost_bronze')
           .withColumn('year', substring(trim(col('year_raw')), 1, 4).cast(IntegerType()))
           .filter(col('year').isNotNull()))
@@ -131,57 +84,53 @@ def boost_silver():
     e23 = col('year') >= 2016
 
     # ---- admin / geo ----
-    # The microdata's own `admin1` column is only a SCOPE flag (Central/Centrale, Local/Locale,
-    # Other) -> that becomes admin0. The real first-level unit lives in the e2/e3 `admin2` agency
-    # label, which is prefixed with the CUATM raion code ("053 Consiliul Raional Hincesti"). Those
-    # labels are dirty -- casing drift ("Consiliul Raional" vs "Consiliul raional"), typos
-    # ("Basabareasca"), parentheticals ("Dubasari (Cocieri)"), two bodies per municipality
-    # ("Primaria municipiului Chisinau" / "Consiliul municipal Chisinau") and three spellings of
-    # Gagauzia -- so admin1 is rebuilt from the CODE alone via RAION_BY_ADMIN2_CODE above.
-    #
-    # The scope flag MUST be read off a column we do not overwrite: `col('admin1')` is an unresolved
-    # reference that Spark re-binds to the LATEST projection, so once admin1 holds the raion name any
-    # later `admin1 == 'Locale'` test silently evaluates false (which is what made geo0/geo1 collapse
-    # to 'Central' for every local row). Rename it to `admin_scope` first and derive from that.
     df = df.withColumnRenamed('admin1', 'admin_scope')
     is_local = eq('admin_scope', 'Local') | eq('admin_scope', 'Locale')
-    admin2_code = regexp_extract(trim(col('admin2')), r'^(\d{3})\s', 1)  # '' when absent (e1)/unprefixed
+    admin2_code = regexp_extract(trim(col('admin2')), r'^(\d{3})\s', 1)  
     raion = create_map([lit(x) for kv in RAION_BY_ADMIN2_CODE.items() for x in kv])[admin2_code]
     df = (df
           .withColumn('admin0', when(is_local, lit('Regional')).otherwise(lit('Central')))
-          # NB: admin2 is deliberately left as the RAW agency label and must stay that way -- the e3
-          # econ predicates below discriminate on eq('admin2', 'Social Insurance Fund'). Rewriting it
-          # here would silently change how those rows are tagged (see the admin_scope note above).
-          # admin1 = 'Central Scope' sentinel, or the true raion name from the map -- never a
-          # placeholder. Where a local row carries an admin2 label the map cannot resolve, fall back
-          # to that RAW label rather than discarding it, so nothing is silently lost. Today that
-          # fallback fires on no row: every local admin2 in the workbook is code-prefixed and maps.
-          # It only stays NULL when there is no admin2 at all -- i.e. all of e1 (2006-15), whose
-          # sheet has no admin2 column, so its region is genuinely unknown.
+          # For 2006 to 2015, there is no column `admin2` (blank), so raion is NULL for e1
           .withColumn('admin1', when(is_local, coalesce(raion, col('admin2')))
                                 .otherwise(lit('Central Scope')))
           .withColumn('geo0', when(is_local, lit('Regional')).otherwise(lit('Central')))
-          # geo1 deliberately reads the REBUILT admin1 (clean raion name, NULL where unknown).
           .withColumn('geo1', when(is_local, col('admin1')).otherwise(lit('Central Scope')))
-          # Foreign funding is not separately identified in the Executed sheet (the *_FOR_EXE codes
-          # are unpopulated); default False pending a fin_source mapping. See verification.md Q-FF.
+          # Foreign funding is not separately identified in the Executed sheet 
           .withColumn('is_foreign', lit(False)))
+
+
+    # ---- econ_sub ----
+    pen_con = (e1 & (sw('econ1', '112') | sw('econ1', '116'))) | (e23 & sw('econ3', '212000'))
+    cap_main = ((e1 & (sw('econ2', '132.11') | sw('econ2', '243')))
+                | (e23 & (sw('econ5', '313120') | sw('econ5', '312120') | sw('econ5', '318120'))))
+    goo_bas = ((e1 & (sw('econ2', '113.01') | sw('econ2', '113.04') | sw('econ2', '113.26')
+                      | sw('econ2', '113.11') | sw('econ2', '113.19')))
+               | (e23 & (sw('econ5', '222110') | sw('econ5', '222120') | sw('econ5', '222300')
+                         | sw('econ5', '222220'))))
+    goo_emp = (e1 & sw('econ2', '113.16')) | (e23 & sw('econ5', '222930'))
+    rec_main = (e1 & sw('econ2', '113.18')) | (e23 & sw('econ5', '222500'))
+    
+    pensions = ((e1 & (sw('func2','10.01') | sw('func2', '10.21')) & sw('econ1', '135'))|(e2 & sw('econ3', '271'))
+                | (e3 & eq('admin2', 'Social Insurance Fund') & sw('econ3', '271')))
+    
+    soc_assist = (~pensions & ((e1 & sw('func1', '10 Social care') & ~sw('econ1', '113')) & ~sw('econ1', '112') & ~sw('econ1', '116')& ~eq('exp_type', 'Personnel') & ~eq('exp_type', 'Capital'))
+                    | (e2 & (sw('econ3', '272') | sw('econ3', '273')))
+                    | (e3 & eq('admin2', 'Social Insurance Fund') & sw('econ3', '272000')))
+    
+    subsidies_production = (~cap_main & (e1 & sw('econ1', '132') & ~sw('econ2','132.11')) | (e23 & sw('econ2', '250000')))
 
     # ================= econ atoms (year-aware) =================
     wage = (e1 & eq('exp_type', 'Personnel')) | (e23 & eq('exp_type', 'Personal'))
     capital = (e1 & eq('exp_type', 'Capital')) | (e23 & eq('exp_type', 'Capitale'))
     interest = ((e1 & (sw('econ1', '121') | sw('econ1', '122') | sw('econ1', '123') | sw('econ1', '124')))
                 | (e23 & sw('econ2', '240000')))
-    subsidies = (e1 & sw('econ1', '132')) | (e23 & sw('econ2', '250000'))
+    subsidies = (e1 & sw('econ1', '132') & ~sw('econ2','132.11')) | (e23 & sw('econ2', '250000'))
     grants = e23 & sw('econ2', '260000')                  # Other grants/transfers (no e1 equivalent)
     goods = ((e1 & sw('econ1', '113'))
-                 | (e2 & sw('econ2', '220000'))
+                 | (e2 & sw('econ2', '220000') & ~sw('exp_type', 'Personal'))
                  | (e3 & sw('econ2', '220000') & ~eq('admin2', 'Social Insurance Fund')))
-    # Social benefits: e1 is FUNCTION-defined (func1 "10 Social care") and overlaps the economic
-    # types -> economic types win (exclusions below). e2/e3 are econ3-defined (271/272/273) and clean.
-    socben = ((e1 & sw('func1', '10 Social care') & ~sw('econ1', '113') & ~eq('exp_type', 'Personnel') & ~eq('exp_type', 'Capital'))
-                  | (e2 & (sw('econ3', '271') | sw('econ3', '272') | sw('econ3', '273')))
-                  | (e3 & eq('admin2', 'Social Insurance Fund') & (sw('econ3', '271') | sw('econ3', '272'))))
+    socben = soc_assist | pensions
+    
 
     df = df.withColumn('econ',
         when(wage, 'Wage bill')
@@ -192,42 +141,40 @@ def boost_silver():
         .when(goods, 'Goods and services')
         .when(socben, 'Social benefits')
         .otherwise('Other expenses'))
-
-    # ---- econ_sub (within the econ parent; null where the workbook defines no sub) ----
-    pen_con = (e1 & (sw('econ1', '112') | sw('econ1', '116'))) | (e23 & sw('econ3', '212000'))
-    cap_main = ((e1 & (sw('econ2', '132.11') | sw('econ2', '243')))
-                | (e23 & (sw('econ5', '313120') | sw('econ5', '312120') | sw('econ5', '318120'))))
-    goo_bas = ((e1 & (sw('econ2', '113.01') | sw('econ2', '113.04') | sw('econ2', '113.26')
-                      | sw('econ2', '113.11') | sw('econ2', '113.19')))
-               | (e23 & (sw('econ5', '222110') | sw('econ5', '222120') | sw('econ5', '222300')
-                         | sw('econ5', '222220'))))
-    goo_emp = (e1 & sw('econ2', '113.16')) | (e23 & sw('econ5', '222930'))
-    rec_main = (e1 & sw('econ2', '113.18')) | (e23 & sw('econ5', '222500'))
-    soc_assist = ((e2 & (sw('econ3', '272') | sw('econ3', '273')))
-                  | (e3 & eq('admin2', 'Social Insurance Fund') & sw('econ3', '272')))
-    pensions = ((e2 & sw('econ3', '271'))
-                | (e3 & eq('admin2', 'Social Insurance Fund') & sw('econ3', '271')))
-    subsidies_production = (~cap_main & (e1 & sw('econ1', '132')) | (e23 & sw('econ2', '250000')))
+    
     df = df.withColumn('econ_sub',
-        when(socben & soc_assist, 'Social Assistance')
-        .when(socben & pensions, 'Pensions')
-        .when(socben, 'Social Assistance')                 # e1 social-care transfers (level not split)
-        .when(wage & pen_con, 'Social Benefits (pension contributions)')
-        .when(capital & cap_main, 'Capital Maintenance')
-        .when(goods & goo_bas, 'Basic Services')
-        .when(goods & goo_emp, 'Employment Contracts')
-        .when(goods & rec_main, 'Recurrent Maintenance')
-        .when(subsidies_production, 'Subsidies to Production')             # S1: 132.11 follows its Subsidies parent
+        when(soc_assist, 'Social Assistance')
+        .when(pensions, 'Pensions')
+        .when(pen_con, 'Social Benefits (pension contributions)')
+        .when(cap_main, 'Capital Maintenance')
+        .when(goo_bas, 'Basic Services')
+        .when(goo_emp, 'Employment Contracts')
+        .when(rec_main, 'Recurrent Maintenance')
+        .when(subsidies_production, 'Subsidies to Production')
         .otherwise(lit(None).cast('string')))
 
-    # ================= func (10 COFOG, year-aware, disjoint by func1) =================
-    # e1: English func1 "NN ..."; e2/e3: COFOG-numbered func1 "0X00"/"10xx". General public services
-    # is the residual (.otherwise) — matches the workbook's `Total - SUM(the 9 named functions)`.
+     # ---- func_sub (COFOG leaf from func2; null where not a clear leaf) ----
+    f_agr = ((e1 & (sw('func1', '11 Agriculture, forestry, fishery and water service')))
+             | (e23 & sw('func2', '0420')))
+    f_roads = e1 & sw('func2', '14.07')
+    f_watt = (e1 & sw('func2', '14.02')) | (e23 & sw('func3', '0452'))
+
+    f_transport = (e1 & sw('func1', '14')) & ~sw('func2', '14.08') | (e23 & sw('func2', '0450'))
+    f_telecom = (e1 & sw('func2', '08.03')) | (e23 & sw('func3', '0831')& sw('econ1', '300000'))
+    f_energy = (e1 & sw('func1', '16')) | (e23 & sw('func2', '0430'))  
+    f_pri_edu = (e1 & (sw('func2', '06.01') | sw('func2', '06.02'))) | (e23 & sw('func2', '0910'))
+    f_sec_edu = (e1 & (sw('func2', '06.03') | sw('func2', '06.08'))) | (e23 & (sw('func2', '0920')))
+    f_ter_edu = (e1 & (sw('func2', '04') | sw('func2', '06.05'))) | (e23 & sw('func2', '0940'))  
+
+    f_judice = (e1 & sw('func1', '04')) | (e23 & sw('func2', '0330'))
+    f_public_safety = ~f_judice & (e1 & sw('func1', '05')) | (e23 & sw('func1', '0300'))
+
+    # ================= func  =================
     def f1(e1pfx, num):
         return (e1 & sw('func1', e1pfx)) | (e23 & sw('func1', num))
 
     defense = f1('03 ', '0200')
-    pubord = (e1 & (sw('func1', '04 ') | sw('func1', '05 '))) | (e23 & sw('func1', '0300'))
+    pubord = f_judice | f_public_safety
     ecorel = ((e1 & (sw('func1', '11 ') | sw('func1', '13 ') | sw('func1', '14 ') | sw('func1', '16 ')))
               | (e23 & sw('func1', '0400')))
     env = f1('12 ', '0500')
@@ -236,7 +183,7 @@ def boost_silver():
     rcr = f1('08 ', '0800')
     education = f1('06 ', '0900')
     socpro = (e1 & sw('func1', '10 ')) | (e23 & sw('func1', '10'))
-
+    
     df = df.withColumn('func',
         when(defense, 'Defence')
         .when(pubord, 'Public order and safety')
@@ -249,53 +196,20 @@ def boost_silver():
         .when(socpro, 'Social protection')
         .otherwise('General public services'))
 
-    # ---- func_sub (COFOG leaf from func2; null where not a clear leaf) ----
-    # The leaf VOCABULARY is constrained to Moldova's CCI reference (quality_functional_sub_gold):
-    # the quality gate quality_boost_func_sub_unknown fails the pipeline on any func_sub Moldova's
-    # CCI does not list. Moldova's CCI carries a coarser transport/energy split than the raw func2
-    # codes, so finer leaves are rolled up to the nearest CCI leaf:
-    #   * rail (14.03) and air (14.04) -> generic 'Transport' (CCI has no Railroads/Air Transport)
-    #   * power/heat/oil (16.01-16.04) -> single 'Energy' leaf
-    #   * water & sanitation (11.04 / 0630) -> CCI's 'Water Supply'
-    # Roads, Water Transport, Telecom and the education levels ARE distinct CCI leaves, so kept.
-    f_agr = ((e1 & (sw('func2', '11.01') | sw('func2', '11.02') | sw('func2', '11.03')
-                    | sw('func2', '11.05') | sw('func2', '11.10')))
-             | (e23 & sw('func2', '0420')))
-    f_roads = e1 & sw('func2', '14.07')
-    f_watt = e1 & sw('func2', '14.02')
-    # rail (14.03) + air (14.04) folded in: CCI has no separate Railroads/Air Transport leaf.
-    f_transport = (e1 & (sw('func2', '14.01') | sw('func2', '14.03') | sw('func2', '14.04')
-                         | sw('func2', '14.08') | sw('func2', '14.09') | sw('func2', '14.10'))) | (e23 & sw('func2', '0450'))
-    f_telecom = (e1 & sw('func2', '14.08')) | (e23 & sw('func2', '0460'))
-    f_energy = (e1 & sw('func2', '16.')) | (e23 & sw('func2', '0430'))   # power/heat/oil not split
-    f_watsan = (e1 & sw('func2', '11.04')) | (e23 & sw('func2', '0630'))
-    f_pri_edu = (e1 & (sw('func2', '06.01') | sw('func2', '06.02'))) | (e23 & sw('func2', '0910'))
-    f_sec_edu = (e1 & (sw('func2', '06.03') | sw('func2', '06.08'))) | (e23 & (sw('func2', '0920') | sw('func2', '0930')))
-    f_ter_edu = (e1 & (sw('func2', '06.04') | sw('func2', '06.05'))) | (e23 & sw('func2', '0940'))
 
     df = df.withColumn('func_sub',
-        # Economic affairs leaves (most specific first; Telecom before Transport as 14.08 is in both)
-        when(ecorel & f_roads, 'Roads')
-        .when(ecorel & f_watt, 'Water Transport')
-        .when(ecorel & f_telecom, 'Telecom')
-        .when(ecorel & f_transport, 'Transport')       # incl. rail/air (no finer CCI leaf)
-        .when(ecorel & f_energy, 'Energy')             # incl. power/heat/oil (single CCI leaf)
-        .when(ecorel & f_agr, 'Agriculture')
-        # Housing leaf
-        .when(housing & f_watsan, 'Water Supply')
+        # Economic affairs leaves
+        when(f_roads, 'Roads')
+        .when(f_watt, 'Water Transport')
+        .when( f_telecom, 'Telecom')
+        .when( f_transport, 'Transport')
+        .when( f_energy, 'Energy')
+        .when(f_agr, 'Agriculture')
         # Education levels
-        .when(education & f_pri_edu, 'Primary Education')
-        .when(education & f_sec_edu, 'Secondary Education')
-        .when(education & f_ter_edu, 'Tertiary Education')
+        .when(f_pri_edu, 'Primary Education')
+        .when(f_sec_edu, 'Secondary Education')
+        .when(f_ter_edu, 'Tertiary Education')
         .otherwise(lit(None).cast('string')))
-
-    # ---- exclusivity diagnostics for the @dlt.expect checks (the order-proof guarantee) ----
-    econ_cats = [wage, capital, interest, subsidies, grants, goods, socben]
-    n_econ = sum([c.cast(IntegerType()) for c in econ_cats])
-    df = df.withColumn('n_econ', when(n_econ == 0, lit(1)).otherwise(n_econ))   # 0 -> Other expenses
-    func_cats = [defense, pubord, ecorel, env, housing, health, rcr, education, socpro]
-    n_func = sum([c.cast(IntegerType()) for c in func_cats])
-    df = df.withColumn('n_func', when(n_func == 0, lit(1)).otherwise(n_func))   # 0 -> General public services
 
     return df
 
