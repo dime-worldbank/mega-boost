@@ -14,13 +14,18 @@ def get_cci_metadata(prune=False):
     
     for filename in tqdm(files):
         xls = pd.ExcelFile(filename)
-        if 'Executed' not in xls.sheet_names and 'Approved' not in xls.sheet_names:
+        sheet_names = {
+            sheet_name.strip().casefold(): sheet_name
+            for sheet_name in xls.sheet_names
+}
+        if 'executed' not in sheet_names and 'approved' not in sheet_names:
             print(f"Neither 'Executed' nor 'Approved' sheet found in {filename}")
             continue
 
-        sheet_name = 'Executed'
-        if sheet_name not in xls.sheet_names:
-            sheet_name = 'Approved'
+        sheet_name = sheet_names.get(
+            'executed',
+            sheet_names.get('approved')
+) 
 
         df = xls.parse(sheet_name=sheet_name, na_values=['..'])
 
@@ -102,14 +107,25 @@ def process_country(meta_row):
     
     csv_dir = f"{WORKSPACE_DIR}/cci_csv/{meta_row.country_code}"
     Path(csv_dir).mkdir(parents=True, exist_ok=True)
+    xls = pd.ExcelFile(filename)
+    sheet_names = {
+        sheet_name.strip().casefold(): sheet_name
+        for sheet_name in xls.sheet_names
+    }
     
     for sheet_name in ['Approved', 'Executed']:
+        source_sheet_name = sheet_names.get(sheet_name.casefold())
+        if source_sheet_name is None:
+            print(f"Error reading {sheet_name} from {filename}")
+            print(f"Sheet '{sheet_name}' not found")
+            continue
         try:
-            df = pd.read_excel(filename, sheet_name=sheet_name, na_values=['..'])
+            df = xls.parse(sheet_name=source_sheet_name, na_values=['..'])
         except ValueError as e:
             print(f"Error reading {sheet_name} from {filename}")
             print(e)
             continue
+        
         
         first_year_col = next(col for col in df.columns if str(col).startswith('2'))
         first_year_col_index = df.columns.get_loc(first_year_col)
