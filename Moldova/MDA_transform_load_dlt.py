@@ -28,6 +28,34 @@ RAION_BY_CODE = {
 # ... keyed the way the BOOST admin2 label writes it: 3 digits, leading zero ("01" -> "001").
 RAION_BY_ADMIN2_CODE = {f"0{code}": name for code, name in RAION_BY_CODE.items()}
 
+# ---- development-region rollup ----------------------------------------------------------------
+# admin1 is emitted at DEVELOPMENT-REGION granularity, not raion: the subnational outcome and
+# population tables (global_data_lab_hd_index / the population table joined in the cross-country
+# aggregate) only carry Moldova at {Chisinau, North, Center, South}, and admin1 is the key used for
+# the later outcome-indicator matching. So the 35 raions/municipalities are rolled up to the four
+# ADR development regions here. mun. Balti -> North and UTA Gagauzia -> South (the outcome table has
+# no separate bucket for either). The full raion name is still recoverable from the raw admin2 label.
+# Region names use the EXACT spelling the outcome table uses (North/South/Center/Chisinau).
+REGION_BY_RAION = {
+    "Chisinau": "Chisinau",
+    # North (mun. Balti + 11 raions)
+    "Balti": "North",       "Briceni": "North",    "Donduseni": "North",  "Drochia": "North",
+    "Edinet": "North",      "Falesti": "North",    "Floresti": "North",   "Glodeni": "North",
+    "Ocnita": "North",      "Riscani": "North",    "Singerei": "North",   "Soroca": "North",
+    # Center (13 raions)
+    "Anenii Noi": "Center", "Calarasi": "Center",  "Criuleni": "Center",  "Dubasari": "Center",
+    "Hincesti": "Center",   "Ialoveni": "Center",  "Nisporeni": "Center", "Orhei": "Center",
+    "Rezina": "Center",     "Straseni": "Center",  "Soldanesti": "Center","Telenesti": "Center",
+    "Ungheni": "Center",
+    # South (8 raions + UTA Gagauzia)
+    "Basarabeasca": "South","Cahul": "South",      "Cantemir": "South",   "Causeni": "South",
+    "Cimislia": "South",    "Leova": "South",      "Stefan Voda": "South","Taraclia": "South",
+    "Gagauzia": "South",
+}
+assert set(REGION_BY_RAION) == set(RAION_BY_CODE.values()), "every raion must map to a region"
+# Compose to the key BOOST joins on: the 3-digit admin2 code -> development region.
+REGION_BY_ADMIN2_CODE = {code: REGION_BY_RAION[name] for code, name in RAION_BY_ADMIN2_CODE.items()}
+
 
 
 # COMMAND ----------
@@ -86,14 +114,16 @@ def boost_silver():
     # ---- admin / geo ----
     df = df.withColumnRenamed('admin1', 'admin_scope')
     is_local = eq('admin_scope', 'Local') | eq('admin_scope', 'Locale')
-    admin2_code = regexp_extract(trim(col('admin2')), r'^(\d{3})\s', 1)  
-    raion = create_map([lit(x) for kv in RAION_BY_ADMIN2_CODE.items() for x in kv])[admin2_code]
+    admin2_code = regexp_extract(trim(col('admin2')), r'^(\d{3})\s', 1)
+    # admin1 = the DEVELOPMENT REGION the raion code rolls up to (Chisinau/North/Center/South) --
+    # the granularity the outcome & population tables harmonize on. See REGION_BY_ADMIN2_CODE above.
+    region = create_map([lit(x) for kv in REGION_BY_ADMIN2_CODE.items() for x in kv])[admin2_code]
     df = (df
           .withColumn('admin0', when(is_local, lit('Regional')).otherwise(lit('Central')))
-          # For 2006 to 2015, there is no column `admin2` (blank), so raion is NULL for e1
-          .withColumn('admin1', when(is_local, coalesce(raion, col('admin2')))
-                                .otherwise(lit('Central Scope')))
+          # For 2006 to 2015, there is no column `admin2` (blank), so region is NULL for e1.
+          .withColumn('admin1', when(is_local, region).otherwise(lit('Central Scope')))
           .withColumn('geo0', when(is_local, lit('Regional')).otherwise(lit('Central')))
+          # geo1 follows admin1 (region); this is the adm1_name the cross-country aggregate joins on.
           .withColumn('geo1', when(is_local, col('admin1')).otherwise(lit('Central Scope')))
           # Foreign funding is not separately identified in the Executed sheet 
           .withColumn('is_foreign', lit(False)))
