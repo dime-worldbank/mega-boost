@@ -2,33 +2,6 @@
 # MAGIC %run ../utils
 
 # COMMAND ----------
-
-# Moldova BOOST microdata extraction.
-#
-# Principle (same as Uganda/Zimbabwe/Kenya): dump the raw microdata sheet(s) to CSV with no
-# transformation. All classification logic (econ/func tagging), the order-proof mutually-exclusive
-# predicates, and the year-aware criteria live in MDA_transform_load_dlt.py — never here.
-#
-# Moldova differs from single-sheet countries in two ways that this script must respect:
-#   1. The microdata is split across THREE era sheets, each its own column layout and (crucially)
-#      its own criteria LANGUAGE/coding, which the workbook's `Executed` SUMIFS reach via three
-#      parallel sets of defined names:
-#         '2006-15'  -> unsuffixed named ranges (year, func1, econ2, exp_type, executed, ...)  English
-#         '2016-19'  -> the *_16 named ranges                                                  Romanian
-#         '2020-24'  -> the *_20 named ranges                                                  Romanian
-#      We write one CSV per era sheet. The transform unions them (bronze) and branches by year.
-#      Shared base column names (year, func1, func2, econ1, econ2, exp_type, transfer, executed,
-#      approved) line up across eras; era-only columns (admin2, func3, econ0, econ3..6, program*,
-#      activity, revised/adjusted) are simply absent in the other eras' CSVs (unionByName fills NULL).
-#   2. The sheets are large (~2.3M rows total; the 2016-19 sheet is ~0.9 GB uncompressed XML), so we
-#      STREAM with openpyxl read_only and write rows incrementally rather than pd.read_excel — same
-#      raw-dump result, bounded memory.
-#
-# NOTE: a few water-&-sanitation / energy-power *leaf* codes in the 2006-15 era also compose extra
-# project rows from a separate `Raw2` sheet (referenced by direct cell range, not a named range).
-# Those are func_sub leaves, out of scope for the top-level econ/func onboarding; `Raw2` is therefore
-# not extracted here. See verification.md.
-
 import csv
 import os
 
