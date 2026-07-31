@@ -18,8 +18,6 @@ def stream_sheet_to_csv(wb, sheet_name, out_csv):
     with open(out_csv, "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
         for i, row in enumerate(ws.iter_rows(values_only=True)):
-            # Excel sheets carry many fully-blank trailing rows (the 2006-15 sheet has ~795k); drop
-            # them so the CSV is just real budget lines + the header. Keep the header row (i == 0).
             if i and all(c is None or c == "" for c in row):
                 continue
             w.writerow(["" if c is None else c for c in row])
@@ -39,20 +37,8 @@ def extract_all(xlsx_path, out_dir):
 
 # COMMAND ----------
 
-# Databricks entry point (paths from utils). Mirrors Uganda's extract, looped over the era sheets.
-try:
-    COUNTRY = "Moldova"
-    microdata_csv_dir = prepare_microdata_csv_dir(COUNTRY)  # noqa: F821 (from %run ../utils)
-    filename = input_excel_filename(COUNTRY)                # noqa: F821
-    extract_all(filename, microdata_csv_dir)
-except NameError:
-    # Not on Databricks (utils helpers absent) -> allow local CLI use:
-    #   python MDA_extract_microdata_excel_to_csv.py --workbook "../temp/Moldova BOOST.xlsx" --out /tmp/mda_microdata
-    if __name__ == "__main__":
-        import argparse
-        here = os.path.dirname(os.path.abspath(__file__))
-        ap = argparse.ArgumentParser()
-        ap.add_argument("--workbook", default=os.path.join(here, "..", "temp", "Moldova BOOST.xlsx"))
-        ap.add_argument("--out", default="/tmp/mda_microdata")
-        a = ap.parse_args()
-        extract_all(a.workbook, a.out)
+COUNTRY = "Moldova"
+microdata_csv_dir = prepare_microdata_csv_dir(COUNTRY)  # noqa: F821 (from %run ../utils)
+filename = input_excel_filename(COUNTRY)                # noqa: F821
+extract_all(filename, microdata_csv_dir)
+    
