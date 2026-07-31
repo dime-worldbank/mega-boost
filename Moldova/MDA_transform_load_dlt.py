@@ -183,7 +183,7 @@ def boost_silver():
         .when(subsidies_production, 'Subsidies to Production')
         .otherwise(lit(None).cast('string')))
 
-     # ---- func_sub (COFOG leaf from func2; null where not a clear leaf) ----
+    # ---- func_sub (COFOG leaf from func2; null where not a clear leaf) ----
     f_agr = ((e1 & (sw('func1', '11 Agriculture, forestry, fishery and water service')))
              | (e23 & sw('func2', '0420')))
     f_roads = e1 & sw('func2', '14.07')
