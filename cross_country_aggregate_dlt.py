@@ -5,7 +5,10 @@ from pyspark.sql.window import Window
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DoubleType, BooleanType
 
 catalog = 'prd_mega'
-indicator_schema = 'indicator'
+indicator_schema = spark.conf.get("INDICATOR_SCHEMA", "indicator")
+subnational_population_schema = spark.conf.get(
+    "SUBNATIONAL_POPULATION_SCHEMA", indicator_schema
+)
 quality_source_schema = spark.conf.get("QUALITY_SOURCE_SCHEMA", 'boost_intermediate')
 country_source_schema = spark.conf.get("COUNTRY_SOURCE_SCHEMA", 'boost_intermediate')
 
@@ -151,7 +154,9 @@ def expenditure_by_country_geo1_func_year():
 
     cpi_factors = dlt.read('cpi_factor')
 
-    subnat_pop = spark.table(f'{catalog}.{indicator_schema}.subnational_population')
+    subnat_pop = spark.table(
+        f'{catalog}.{subnational_population_schema}.subnational_population'
+    )
     pop = (subnat_pop.groupBy("country_name", "year")
         .agg(F.sum("population").alias("population"))
         .withColumn("adm1_name", F.lit("Central Scope")) #TODO: update all adm1_name to geo1 after migration off PowerBI
@@ -379,8 +384,8 @@ excluded_country_year_conditions = (
     (F.col('country_name') == 'Uruguay') & (F.col('year') == 2023) |
     (F.col('country_name') == 'South Africa') & (F.col('year') == 2025) |
     (F.col('country_name') == 'Togo') & (F.col('year').isin(list(range(2009, 2021)))) | # TODO
-    (F.col('country_name') == 'Liberia') & (F.col('year') == 2025) | # 2025 executed is not in CCI data, only approved
-    (F.col('country_name') == 'Burundi') & (F.col('year') == 2018)
+    (F.col('country_name') == 'Burundi') & (F.col('year') == 2018) |
+    (F.col('country_name') == 'Liberia') & (F.col('year') == 2025) # 2025 executed is not in CCI data, only approved
 )
 
 @dlt.table(name='quality_boost_country')

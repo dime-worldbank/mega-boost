@@ -17,15 +17,12 @@ def get_cci_metadata(prune=False):
         sheet_names = {
             sheet_name.strip().casefold(): sheet_name
             for sheet_name in xls.sheet_names
-}
+        }
         if 'executed' not in sheet_names and 'approved' not in sheet_names:
             print(f"Neither 'Executed' nor 'Approved' sheet found in {filename}")
             continue
 
-        sheet_name = sheet_names.get(
-            'executed',
-            sheet_names.get('approved')
-) 
+        sheet_name = sheet_names.get('executed', sheet_names.get('approved'))
 
         df = xls.parse(sheet_name=sheet_name, na_values=['..'])
 
@@ -125,8 +122,7 @@ def process_country(meta_row):
             print(f"Error reading {sheet_name} from {filename}")
             print(e)
             continue
-        
-        
+
         first_year_col = next(col for col in df.columns if str(col).startswith('2'))
         first_year_col_index = df.columns.get_loc(first_year_col)
         

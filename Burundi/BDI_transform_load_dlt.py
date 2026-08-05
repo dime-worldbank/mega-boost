@@ -1,4 +1,5 @@
 # Databricks notebook source
+import re
 
 import dlt
 from pyspark.sql.functions import (
@@ -15,10 +16,10 @@ from pyspark.sql.functions import (
 from pyspark.sql.types import DoubleType
 
 TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
-INPUT_DIR = f"{TOP_DIR}/Documents/input/Countries"
 WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
 COUNTRY = "Burundi"
 COUNTRY_MICRODATA_DIR = f"{WORKSPACE_DIR}/microdata_csv/{COUNTRY}"
+COUNTRY_MICRODATA_FILE = f"{COUNTRY_MICRODATA_DIR}/Expenditure.csv"
 
 CSV_READ_OPTIONS = {
     "header": "true",
@@ -58,6 +59,16 @@ def starts_with_any(column_name, prefixes):
     return predicate
 
 
+def normalized_text(column_name):
+    return lower(
+        regexp_replace(
+            trim(coalesce(col(column_name), lit(""))),
+            "’",
+            "'",
+        )
+    )
+
+
 @dlt.expect_or_drop("year_not_null", "Year IS NOT NULL")
 @dlt.table(name="bdi_boost_bronze")
 def boost_bronze():
@@ -65,10 +76,10 @@ def boost_bronze():
         spark.read.format("csv")
         .options(**CSV_READ_OPTIONS)
         .option("inferSchema", "true")
-        .load(COUNTRY_MICRODATA_DIR)
+        .load(COUNTRY_MICRODATA_FILE)
     )
     for old_col_name in bronze_df.columns:
-        new_col_name = old_col_name.replace(" ", "_")
+        new_col_name = re.sub(r"[ ,;{}()\n\t=]+", "_", old_col_name).strip("_")
         bronze_df = bronze_df.withColumnRenamed(old_col_name, new_col_name)
     return bronze_df
 
@@ -78,6 +89,7 @@ def boost_silver():
         dlt.read("bdi_boost_bronze")
         .withColumn("Year", col("Year").cast("int"))
         .withColumn("Econ_1", coalesce(col("Econ_1"), lit("")))
+        .withColumn("Econ_2", coalesce(col("Econ_2"), lit("")))
         .withColumn("Econ_3", coalesce(col("Econ_3"), lit("")))
         .withColumn("Econ_4", coalesce(col("Econ_4"), lit("")))
         .withColumn("func1", coalesce(col("func1"), lit("")))
@@ -116,7 +128,10 @@ def boost_silver():
     is_2019_24 = year.isin(2019, 2020, 2021, 2022, 2023, 2024)
 
     is_social_benefit_code = starts_with_any("Econ_3", ("616", "672", "673"))
-    is_wage_bill = (col("Econ_1") == "1 Rémunérations des salariés") | (
+    is_wage_bill = normalized_text("Econ_1").isin(
+        "1 rémunérations des salariés",
+        "1 remunerations des salaries",
+    ) | (
         col("Econ_4") == "6212 Stage de premier emploi pour 250 jeunes"
     )
     is_goods_and_services = col("Econ_1").startswith("2 ")
@@ -132,7 +147,10 @@ def boost_silver():
         is_2013_15
         & (
             starts_with_any("Admin_2", WATER_ADMIN2_CODES_2013_15)
-            | (col("Econ_4") == "2132 Réseaux adduction d’eau potable")
+            | normalized_text("Econ_4").isin(
+                "2132 réseaux adduction d'eau potable",
+                "2132 reseaux adduction d'eau potable",
+            )
         )
     ) | ((is_2016_17 | is_2019_24) & col("func2").startswith("7062"))
 
@@ -182,7 +200,10 @@ def boost_silver():
             is_2013_15
             & (
                 col("Admin_1").startswith("33 ")
-                | (col("Econ_4") == "2133 Réseaux d’assainissement")
+                | normalized_text("Econ_4").isin(
+                    "2133 réseaux d'assainissement",
+                    "2133 reseaux d'assainissement",
+                )
             )
         )
         | ((is_2016_17 | is_2019_24) & col("func1").startswith("707"))
@@ -318,7 +339,57 @@ def boost_silver():
                 col("Credit") * lit(719503643911 / 793650121655),
             ).otherwise(col("Ordered_to_pay")),
         )
-        .withColumn("is_foreign", lit(None).cast("boolean"))
+        # Keep func_sub consistent with the final func owner.
+        .withColumn(
+            "func_sub",
+            when(col("func") == "Social protection", lit(None).cast("string"))
+            .when(
+                col("func") == "Housing and community amenities",
+                when(col("_is_water_and_sanitation"), "Water Supply").otherwise(
+                    lit(None).cast("string")
+                ),
+            )
+            .when(
+                col("func") == "Public order and safety",
+                when(
+                    col("func_sub").isin("Judiciary", "Public Safety"),
+                    col("func_sub"),
+                ).otherwise(lit(None).cast("string")),
+            )
+            .when(
+                col("func") == "Economic affairs",
+                when(
+                    col("func_sub").isin(
+                        "Agriculture",
+                        "Roads",
+                        "Railroads",
+                        "Air Transport",
+                        "Transport",
+                        "Energy",
+                        "Telecom",
+                    ),
+                    col("func_sub"),
+                ).otherwise(lit(None).cast("string")),
+            )
+            .when(
+                col("func") == "Education",
+                when(
+                    col("func_sub").isin(
+                        "Primary Education",
+                        "Secondary Education",
+                        "Tertiary Education",
+                        "Primary and Secondary education",
+                    ),
+                    col("func_sub"),
+                ).otherwise(lit(None).cast("string")),
+            )
+            .otherwise(lit(None).cast("string")),
+        )
+        .withColumn(
+            "geo0",
+            when(col("geo1") == "Central Scope", "Central").otherwise("Regional"),
+        )
+        .withColumn("is_foreign", col("Econ_2").startswith("27 "))
         .drop(
             "_is_water_and_sanitation",
             "_is_social_protection",
@@ -353,6 +424,7 @@ def boost_gold():
             "admin0",
             "admin1",
             "admin2",
+            "geo0",
             "geo1",
             "is_foreign",
             "func",
