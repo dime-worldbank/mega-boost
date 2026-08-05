@@ -120,6 +120,12 @@ def boost_silver():
                 initcap(trim(regexp_replace(col("Geo"), "^[0-9\\s]*", "")))
             ),
         )
+        .withColumn(
+            "geo1",
+            when(col("geo1") == "Bujumbura Mairie", "Mairie de Bujumbura")
+            .when(col("geo1") == "Bujumbura Rural", "Bujumbura")
+            .otherwise(col("geo1")),
+        )
     )
 
     year = col("Year")
