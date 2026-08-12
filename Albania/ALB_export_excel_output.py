@@ -155,9 +155,9 @@ approved = generate_combined_pivots(pairs, "boost_approved")
 #todo: move to utils for reusability when we have more than one country
 
 def get_latest_cci_year(cci_df):
-    year_columns = [col for col in cci_df.columns if col.split(".")[0].isdigit()]
+    year_columns = [col for col in cci_df.columns if str(col).split(".")[0].isdigit()]
     year_columns.sort(reverse=True)
-    target_rows = cci_df[cci_df["category_code"] == "EXP_ECON_TOT_EXP_EXE"]
+    target_rows = cci_df[cci_df["Code"] == "EXP_ECON_TOT_EXP_EXE"]
     if target_rows.empty:
         return None
     for year in year_columns:
@@ -166,9 +166,9 @@ def get_latest_cci_year(cci_df):
     return None
 
 # download the executed sheet from cci_csv to obtain the column list. 
-template = pd.read_csv(CCI_FILE_PATH, dtype="str")
+template = pd.read_excel(SOURCE_FILE_PATH, dtype="str", sheet_name="Executed")
 EXECUTED_TEMP_COL_LIST = [
-   col.split(".")[0] for col in template.columns
+   str(col).split('.')[0] for col in template.columns
 ]
 BOOST_LATEST_YEAR  = int(max(years))
 CCI_LATEST_YEAR = get_latest_cci_year(template)
