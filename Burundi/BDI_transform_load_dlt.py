@@ -122,8 +122,12 @@ def boost_silver():
         )
         .withColumn(
             "geo1",
-            when(col("geo1") == "Bujumbura Mairie", "Mairie de Bujumbura")
+            when(
+                col("geo1").isin("Bujumbura Mairie", "Bujumbura - Mairie"),
+                "Mairie de Bujumbura",
+            )
             .when(col("geo1") == "Bujumbura Rural", "Bujumbura")
+            .when(col("geo1") == "Kirundi", "Kirundo")
             .otherwise(col("geo1")),
         )
     )
