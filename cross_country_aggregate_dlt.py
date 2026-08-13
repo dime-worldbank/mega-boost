@@ -5,15 +5,12 @@ from pyspark.sql.window import Window
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DoubleType, BooleanType
 
 catalog = 'prd_mega'
-indicator_schema = spark.conf.get("INDICATOR_SCHEMA", "indicator")
-subnational_population_schema = spark.conf.get(
-    "SUBNATIONAL_POPULATION_SCHEMA", indicator_schema
-)
+indicator_schema = 'indicator'
 quality_source_schema = spark.conf.get("QUALITY_SOURCE_SCHEMA", 'boost_intermediate')
 country_source_schema = spark.conf.get("COUNTRY_SOURCE_SCHEMA", 'boost_intermediate')
 
 # Adding a new country requires adding the country here
-country_codes = ['moz', 'pry', 'ken', 'pak', 'bfa', 'col', 'cod', 'nga', 'tun', 'btn', 'bgd', 'alb', 'ury', "zaf", 'chl', 'gha', 'tgo', 'lbr', 'bdi']
+country_codes = ['moz', 'pry', 'ken', 'pak', 'bfa', 'col', 'cod', 'nga', 'tun', 'btn', 'bgd', 'alb', 'ury', "zaf", 'chl', 'gha', 'tgo', 'lbr']
 
 schema = StructType([
     StructField("country_name", StringType(), True, {'comment': 'The name of the country for which the budget data is recorded (e.g., "Kenya", "Brazil").'}),
@@ -154,9 +151,7 @@ def expenditure_by_country_geo1_func_year():
 
     cpi_factors = dlt.read('cpi_factor')
 
-    subnat_pop = spark.table(
-        f'{catalog}.{subnational_population_schema}.subnational_population'
-    )
+    subnat_pop = spark.table(f'{catalog}.{indicator_schema}.subnational_population')
     pop = (subnat_pop.groupBy("country_name", "year")
         .agg(F.sum("population").alias("population"))
         .withColumn("adm1_name", F.lit("Central Scope")) #TODO: update all adm1_name to geo1 after migration off PowerBI
