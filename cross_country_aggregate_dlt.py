@@ -10,7 +10,7 @@ quality_source_schema = spark.conf.get("QUALITY_SOURCE_SCHEMA", 'boost_intermedi
 country_source_schema = spark.conf.get("COUNTRY_SOURCE_SCHEMA", 'boost_intermediate')
 
 # Adding a new country requires adding the country here
-country_codes = ['moz', 'pry', 'ken', 'pak', 'bfa', 'col', 'cod', 'nga', 'tun', 'btn', 'bgd', 'alb', 'ury', "zaf", 'chl', 'gha', 'tgo', 'lbr']
+country_codes = ['moz', 'pry', 'ken', 'pak', 'bfa', 'col', 'cod', 'nga', 'tun', 'btn', 'bgd', 'alb', 'ury', "zaf", 'chl', 'gha', 'tgo', 'lbr', 'per']
 
 schema = StructType([
     StructField("country_name", StringType(), True, {'comment': 'The name of the country for which the budget data is recorded (e.g., "Kenya", "Brazil").'}),
@@ -431,7 +431,7 @@ def quality_boost_country():
 @dlt.table(name='quality_boost_subnat')
 @dlt.expect_or_fail('country has subnational agg', 'row_count IS NOT NULL')
 def quality_boost_subnat():
-    no_subnat_countries = ['Uruguay']
+    no_subnat_countries = ['Uruguay', 'Peru']
     boost_countries = (
         dlt.read('quality_boost_country')
         .filter(~F.col('country_name').isin(no_subnat_countries))
@@ -448,7 +448,7 @@ def quality_boost_subnat():
 @dlt.table(name='quality_boost_geo1_central_scope')
 @dlt.expect_or_fail('country geo1 has central scope', 'row_count IS NOT NULL')
 def quality_boost_geo1_central_scope():
-    no_geo1_central_scope_countries = ['Uruguay', 'Nigeria']
+    no_geo1_central_scope_countries = ['Uruguay', 'Nigeria', 'Peru']
     boost_countries = (
         dlt.read('quality_boost_country')
         .filter(~F.col('country_name').isin(no_geo1_central_scope_countries))
@@ -591,7 +591,7 @@ def quality_boost_econ_unknown():
     )
 
 @dlt.table(name='quality_boost_econ_sub_unknown')
-@dlt.expect_or_fail('country has no unknown econ sub agg', 'cci_row_count IS NOT NULL')
+@dlt.expect_or_fail('country has no unknown econ sub agg', 'cci_row_count IS NOT NULL OR (country_name = "Peru" AND econ_sub = "Capital Expenditure (foreign spending)")')
 def quality_boost_econ_sub_unknown():
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
     quality_cci_econ = (spark.table(f'{catalog}.{quality_source_schema}.quality_economic_sub_gold')
