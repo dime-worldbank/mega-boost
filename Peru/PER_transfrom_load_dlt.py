@@ -1,5 +1,4 @@
 # Databricks notebook source
-# Databricks notebook source
 import dlt
 from pyspark.sql.functions import col, concat, lit, monotonically_increasing_id, regexp_replace, trim, when
 from pyspark.sql.types import DoubleType, IntegerType
@@ -315,7 +314,7 @@ def boost_silver():
         .withColumn(
             "func_sub",
             when(is_judiciary(), lit("Judiciary"))
-            .when(is_irrigation(), lit("Irrigation"))
+            # .when(is_irrigation(), lit("Irrigation"))
             .when(is_road(), lit("Roads"))
             .when(col("function2").isin("53 TRANSPORTE FERROVIARIO", "034 TRANSPORTE FERROVIARIO"), lit("Railroads"))
             .when(col("function2").isin("035 TRANSPORTE HIDROVIARIO"), lit("Water Transport"))
@@ -331,8 +330,8 @@ def boost_silver():
                 lit("Energy"),
             )
             .when(col("function1").isin("06 COMUNICACIONES", "16 COMUNICACIONES"), lit("Telecom"))
-            .when(is_health(), lit("Health"))
-            .when(is_education(), lit("Education"))
+            # .when(is_health(), lit("Health"))
+            # .when(is_education(), lit("Education"))
         )
         .withColumn(
             "func",
