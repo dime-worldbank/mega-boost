@@ -177,7 +177,11 @@ def _sheet_body(file, sheet):
     header_row = raw.iloc[header_idx]
     body = raw.iloc[header_idx + 1:]
     body = body[body[0].astype(str).str.fullmatch(r'\d+')]
-    keep = [c for c in body.columns if body[c].notna().any()]  # columns carrying data in the body
+    populated = [
+        c for c in body.columns
+        if pd.notna(header_row[c]) or body[c].notna().any()
+    ]
+    keep = list(range(max(populated) + 1))
     header = [str(header_row[c]).strip() for c in keep]
     body = body[keep]
     body.columns = range(body.shape[1])
