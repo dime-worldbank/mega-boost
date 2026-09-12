@@ -15,6 +15,7 @@ COUNTRY = 'Albania'
 COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/microdata_csv/{COUNTRY}'
 RAW_COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/raw_microdata_csv/{COUNTRY}'
 RAW_INPUT_DIR = f"{TOP_DIR}/Documents/input/Data from authorities/"
+INPUT_AUXI_DIR = f"{TOP_DIR}/Documents/input/Auxiliary"  # team-maintained reference/label files (not authority data)
 ADMIN2_PAD_LENGTH = 3
 
 CSV_READ_OPTIONS = {
@@ -24,10 +25,10 @@ CSV_READ_OPTIONS = {
     "escape": '"',
 }
 
-with open(f"{RAW_INPUT_DIR}/{COUNTRY}/labels_en_v01_overall.json", 'r') as json_file:
+with open(f"{INPUT_AUXI_DIR}/{COUNTRY}_labels_en_v01_overall.json", 'r') as json_file:
     labels = json.load(json_file)
 
-with open(f"{RAW_INPUT_DIR}/{COUNTRY}/project_labels.json", 'r') as json_file:
+with open(f"{INPUT_AUXI_DIR}/{COUNTRY}_project_labels.json", 'r') as json_file:
     project_description_map = json.load(json_file)['project']
 project_map = create_map([lit(x) for x in chain(*project_description_map.items())])
 
@@ -42,7 +43,7 @@ def replacement_udf(column_name):
 @dlt.expect_or_drop("year_not_null", "Year IS NOT NULL")
 @dlt.table(name=f'alb_2023_onward_boost_bronze')
 def boost_2023_onward_bronze():
-    file_paths = glob(f"{RAW_COUNTRY_MICRODATA_DIR}/*.csv")
+    file_paths = [x for x in glob(f"{RAW_COUNTRY_MICRODATA_DIR}/*.csv") if 'rev' not in x]  # revenue CSVs have their own bronze/silver/gold chain
     dfs = []
     for f in file_paths:
         df = (spark.read
