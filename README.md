@@ -18,6 +18,15 @@ BOOST data is country-specific — for instance, some ministries of finance have
   - Programmatic quality checks in [cross_country_aggregate_dlt.py](./cross_country_aggregate_dlt.py), and
   - Manual review and resolution of discrepancies along critical dimensions (total, functional, economic, etc.) in the [Quality Dashboard](https://adb-6102124407836814.14.azuredatabricks.net/dashboardsv3/01f046114d601912a5d6b21824bb78e2/published?o=6102124407836814)
 
+## Running tests
+
+Some countries have integration tests under [`tests/`](./tests/) that run the extraction/ETL notebooks end to end against small fixture workbooks and compare the output to committed golden CSVs. They run in a plain Python environment (no Databricks or Spark required):
+
+```
+pip install numpy pandas openpyxl
+cd tests && python -m unittest
+```
+
 ## How to Add a New Country
 ### 0. Clone the repository (if not already done)
 In your Workspace in the top right click `Create`->`Git Folder`. The path to the git repository is `https://github.com/dime-worldbank/mega-boost.git`
