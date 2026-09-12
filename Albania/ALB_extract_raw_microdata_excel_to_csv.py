@@ -3,11 +3,22 @@
 
 # COMMAND ----------
 
+import os
 import re
+from glob import glob
+from pathlib import Path
 import pandas as pd
 import numpy as np
+
+IS_DATABRICKS = "DATABRICKS_RUNTIME_VERSION" in os.environ
 COUNTRY = 'Albania'
-raw_microdata_csv_dir = prepare_raw_microdata_csv_dir(COUNTRY)
+if IS_DATABRICKS:
+    # RAW_INPUT_DIR and prepare_raw_microdata_csv_dir come from %run ../utils
+    raw_microdata_csv_dir = prepare_raw_microdata_csv_dir(COUNTRY)
+else:
+    RAW_INPUT_DIR = os.environ.get('RAW_INPUT_DIR') or input("Enter the raw input directory (containing <country>/<year>/ subfolders): ").strip()
+    raw_microdata_csv_dir = os.environ.get('OUTPUT_DIR') or input("Enter the output directory: ").strip()
+    Path(raw_microdata_csv_dir).mkdir(parents=True, exist_ok=True)
 ADMIN2_PAD_LENGTH = 3
 
 col_format_map_7 = {
@@ -128,7 +139,18 @@ def format_float(x):
 
 # COMMAND ----------
 
-years = [2023, 2024]
+# The raw multi-file format is only used from 2023 onward; earlier years come through the
+# legacy single-workbook path (see ALB_extract_microdata_excel_to_csv).
+RAW_DATA_START_YEAR = 2023
+years = sorted(
+    year for year in (
+        int(os.path.basename(year_dir))
+        for year_dir in glob(f'{RAW_INPUT_DIR}/{COUNTRY}/[0-9][0-9][0-9][0-9]')
+        if os.path.isdir(year_dir)
+    )
+    if year >= RAW_DATA_START_YEAR
+)
+assert years, f"No year subdirectories >= {RAW_DATA_START_YEAR} found under {RAW_INPUT_DIR}/{COUNTRY}"
 
 # COMMAND ----------
 
@@ -136,86 +158,191 @@ col_names_3_digit = [
     'admin2', 'admin3', 'admin4', 'fin_source', 'func3', 'econ3', 'admin5', 'project', 'executed', 'revised', 'approved']
 col_names_7_digit = [
     'admin2', 'admin3', 'admin4', 'fin_source', 'func3', 'econ5', 'admin5', 'project', 'executed']
+rev_col_names_7_digit = ['admin2', 'admin3', 'admin4', 'econ5', 'admin5', 'executed']
+
+# COMMAND ----------
+
+# Two raw formats are supported per year: multiple files (one per category, as in 2023-2024) or
+# a single consolidated workbook with one sheet per category (as in 2025 onward). The read_*
+# helpers turn either into the same canonical columns; the finalize_* steps are then shared.
+
+def _sheet_body(file, sheet):
+    """Locate the 'Gov' header row of a consolidated-workbook sheet and return its data rows
+    (first column all-digit, so title/total rows are dropped) together with the header labels,
+    both trimmed to the columns that carry data."""
+    raw = pd.read_excel(file, sheet_name=sheet, header=None, dtype=str)
+    header_idx = next((i for i in range(len(raw))
+                       if (raw.iloc[i].astype(str).str.strip() == 'Gov').any()), None)
+    assert header_idx is not None, f"no 'Gov' header row in sheet {sheet!r} of {file}"
+    header_row = raw.iloc[header_idx]
+    body = raw.iloc[header_idx + 1:]
+    body = body[body[0].astype(str).str.fullmatch(r'\d+')]
+    keep = [c for c in body.columns if body[c].notna().any()]  # columns carrying data in the body
+    header = [str(header_row[c]).strip() for c in keep]
+    body = body[keep]
+    body.columns = range(body.shape[1])
+    return body.reset_index(drop=True), header
+
+def _account_col(header, file, sheet):
+    """Index of the economic-code ('Account') column that every data sheet carries. Raising here
+    rather than guessing makes a missing/renamed column fail loudly instead of misclassifying."""
+    lowered = [h.lower() for h in header]
+    assert 'account' in lowered, f"sheet {sheet!r} of {file} has no 'Account' column to classify on"
+    return lowered.index('account')
+
+def classify_single_file_sheets(file):
+    """Map each category ('7 digit', '3 digit', 'rev', '46655') to its sheet in the consolidated
+    workbook. Classification is anchored on the economic-code ('Account') column: the 6-column
+    revenue/46655 sheets are told apart by its 46655 prefix, and the 7- vs 3-digit expense sheets
+    by its code width (7 digits vs 3-4)."""
+    categories = {}
+    for sheet in pd.ExcelFile(file).sheet_names:
+        try:
+            body, header = _sheet_body(file, sheet)
+        except AssertionError:
+            continue  # not a data sheet
+        account = body[_account_col(header, file, sheet)].astype(str)
+        if body.shape[1] <= 6:
+            is_46655 = account.str.startswith('46655').mean() > 0.5
+            categories['46655' if is_46655 else 'rev'] = sheet
+        else:
+            is_7_digit = account.str.fullmatch(r'\d{7}').mean() > 0.5
+            categories['7 digit' if is_7_digit else '3 digit'] = sheet
+    missing = {'7 digit', '3 digit', 'rev', '46655'} - set(categories)
+    assert not missing, f"consolidated workbook {file} missing sheets for {sorted(missing)}"
+    return categories
+
+def read_expense_7_multi(f):
+    sheet_name = pd.ExcelFile(f).sheet_names[-1]
+    df_7 = pd.read_excel(f, sheet_name = sheet_name)
+    header_idx = df_7.apply(lambda x: x.notna().sum(), axis=1).gt(5).idxmax()
+    df_7.columns = df_7.iloc[header_idx]
+    df_7 = df_7[header_idx+1:]
+    df_7 = df_7[[col for col in df_7.columns if 'description' not in col.lower()]]
+    assert df_7.shape[1] == 9
+    df_7.columns = col_names_7_digit
+    return df_7
+
+def read_expense_7_single(file, sheet):
+    body, _ = _sheet_body(file, sheet)
+    assert body.shape[1] == 11, f"expected 11 columns in the 7-digit sheet, found {body.shape[1]}"
+    # the consolidated 7-digit layout interleaves two description columns (institution name at
+    # index 3, account description at index 7); drop them by position to leave the 9 canonical
+    # columns, independent of the description text
+    return body.drop(columns=[3, 7]).set_axis(col_names_7_digit, axis=1)
+
+def finalize_expense_7(df_7, year):
+    df_7 = df_7[df_7.admin2.notna()]
+    df_7 = df_7.dropna(how='all')
+    for col, regex in col_format_map_7.items():
+        validate_col_format(regex, col, df_7)
+    df_7 = df_7.astype({col:'str' for col in df_7.columns if col!='executed'})
+    df_7['executed'] = df_7['executed'].map(format_float)
+    df_7['econ3'] = df_7['econ5'].str[:3]
+    df_7['year'] = year
+    df_7['src'] = '7 digit'
+    return df_7
+
+def read_expense_3_multi(f):
+    sheet_names = pd.ExcelFile(f).sheet_names[-2:]
+    return pd.concat([
+        d[d[d.columns[0]].astype(str).str.isdigit()].set_axis(col_names_3_digit, axis=1)
+        for d in pd.read_excel(f, sheet_name=sheet_names, dtype=str).values()
+        ], axis=0, ignore_index=True)
+
+def read_expense_3_single(file, sheet):
+    body, _ = _sheet_body(file, sheet)
+    assert body.shape[1] == 11
+    body.columns = col_names_3_digit
+    return body
+
+def finalize_expense_3(df_3, year):
+    float_cols = ['executed', 'revised', 'approved']
+    df_3[float_cols] = df_3[float_cols].applymap(format_float)
+    df_3.drop_duplicates(inplace=True)
+    df_3['executed'] = np.nan
+    df_3.dropna(how='all', inplace=True)
+
+    for col, regex in col_format_map_3.items():
+        validate_col_format(regex, col, df_3)
+
+    df_3['year'] = year
+    df_3['src'] = '3 digit'
+    df_3 = df_3[df_3.econ3.map(lambda x: len(str(x))==3)]
+    return df_3
+
+def read_rev_multi(f):
+    df = pd.read_excel(f, dtype=str)
+    assert df.shape[1] == 6
+    df.columns = rev_col_names_7_digit
+    return df
+
+def read_rev_single(file, sheet):
+    body, _ = _sheet_body(file, sheet)
+    assert body.shape[1] == 6
+    body.columns = rev_col_names_7_digit
+    return body
+
+def finalize_rev(df, src):
+    df = df[df.admin2.map(lambda x: str(x).isdigit())]
+    df['executed'] = df.executed.astype('float')
+    df['src'] = src
+    return df
+
+# COMMAND ----------
 
 for year in years:
-    expense_data_files = [file for file in glob(f'{RAW_INPUT_DIR}/{COUNTRY}/{year}/*.xlsx') if (('ex' in file.lower()) & ('rev' not in file.lower()))]
+    outfile = f'{raw_microdata_csv_dir}/{year}.csv'
+    if os.path.exists(outfile):  # skip years already extracted; delete the CSV to force a refresh
+        continue
+    year_files = glob(f'{RAW_INPUT_DIR}/{COUNTRY}/{year}/*.xlsx')
 
-    seven_digit_files = [f for f in expense_data_files if '7 digit' in f.lower()]
-    three_digit_files = [f for f in expense_data_files if '3 digit' in f.lower()]
+    if len(year_files) == 1:  # single consolidated workbook (2025 onward)
+        src_file = year_files[0]
+        sheets = classify_single_file_sheets(src_file)
+        df_7 = read_expense_7_single(src_file, sheets['7 digit'])
+        df_3 = read_expense_3_single(src_file, sheets['3 digit'])
+    else:  # one file per category (2023-2024)
+        expense_data_files = [f for f in year_files if 'ex' in os.path.basename(f).lower() and 'rev' not in os.path.basename(f).lower()]
+        seven_digit_files = [f for f in expense_data_files if '7 digit' in os.path.basename(f).lower()]
+        three_digit_files = [f for f in expense_data_files if '3 digit' in os.path.basename(f).lower()]
+        assert len(seven_digit_files) == 1, f"Expected exactly one '7 digit' file, found {len(seven_digit_files)}"
+        assert len(three_digit_files) == 1, f"Expected exactly one '3 digit' file, found {len(three_digit_files)}"
+        df_7 = read_expense_7_multi(seven_digit_files[0])
+        df_3 = read_expense_3_multi(three_digit_files[0])
 
-    assert len(seven_digit_files) == 1, f"Expected exactly one '7 digit' file, found {len(seven_digit_files)}"
-    assert len(three_digit_files) == 1, f"Expected exactly one '3 digit' file, found {len(three_digit_files)}"
-    df_7 = pd.DataFrame()
-    df_3 = pd.DataFrame()
-    for f in expense_data_files:
-
-        if '7 digit' in f:
-            sheet_name = pd.ExcelFile(f).sheet_names[-1]
-            df_7 = pd.read_excel(f, sheet_name = sheet_name)
-            header_idx = df_7.apply(lambda x: x.notna().sum(), axis=1).gt(5).idxmax()
-            df_7.columns = df_7.iloc[header_idx]
-            df_7 = df_7[header_idx+1:]
-            df_7 = df_7[[col for col in df_7.columns if 'description' not in col.lower()]]
-            assert df_7.shape[1] == 9
-            df_7.columns = col_names_7_digit
-            df_7 = df_7[df_7.admin2.notna()]
-            df_7 = df_7.dropna(how='all')
-            for col, regex in col_format_map_7.items():
-                validate_col_format(regex, col, df_7)
-            df_7 = df_7.astype({col:'str' for col in df_7.columns if col!='executed'})
-            df_7['executed'] = df_7['executed'].map(format_float)
-            df_7['econ3'] = df_7['econ5'].str[:3]
-            df_7['year'] = year
-            df_7['src'] = '7 digit'
-
-        if '3 digit' in f:
-            sheet_names = pd.ExcelFile(f).sheet_names[-2:]
-            df_3 = pd.concat([
-                d[d[d.columns[0]].astype(str).str.isdigit()].set_axis(col_names_3_digit, axis=1)
-                for d in pd.read_excel(f, sheet_name=sheet_names, dtype=str).values()
-                ], axis=0, ignore_index=True)
-            float_cols = ['executed', 'revised', 'approved']
-            df_3[float_cols] = df_3[float_cols].applymap(format_float)
-            df_3.drop_duplicates(inplace=True)
-            df_3['executed'] = np.nan
-            df_3.dropna(how='all', inplace=True)
-
-            for col, regex in col_format_map_3.items():
-                validate_col_format(regex, col, df_3)
-
-            df_3['year'] = year
-            df_3['src'] = '3 digit'
-            df_3 = df_3[df_3.econ3.map(lambda x: len(str(x))==3)]
-
+    df_7 = finalize_expense_7(df_7, year)
+    df_3 = finalize_expense_3(df_3, year)
     df = pd.concat([df_7, df_3], ignore_index=True)
     df['counties'] = df.admin2.map(lambda x: map_to_region(pad_left(str(x).split('.')[0], length=ADMIN2_PAD_LENGTH)))
-    outfile = f'{raw_microdata_csv_dir}/{year}.csv'
     df.to_csv(outfile, index=False)
 
 # COMMAND ----------
 
 # Revenue data extraction into CSV
 
-rev_col_names_7_digit = ['admin2', 'admin3', 'admin4', 'econ5', 'admin5', 'executed']
 for year in years:
-    revenue_data_files = [file for file in glob(f'{RAW_INPUT_DIR}/{COUNTRY}/{year}/*.xlsx') if any(y in file.lower() for y in ['rev', '46655'])]
-    for f in revenue_data_files:
-        if 'rev' in f.lower():
-            df_7_rev = pd.read_excel(f, dtype=str)
-            assert df_7_rev.shape[1] == 6
-            df_7_rev.columns = rev_col_names_7_digit
-            df_7_rev = df_7_rev[df_7_rev.admin2.map(lambda x: str(x).isdigit())]
-            df_7_rev['executed'] = df_7_rev.executed.astype('float')
-            df_7_rev['src'] = '7 digit rev'
-        elif '46655' in f:
-            df_46655 = pd.read_excel(f, dtype=str)
-            assert df_46655.shape[1] == 6
-            df_46655.columns = rev_col_names_7_digit
-            df_46655 = df_46655[df_46655.admin2.map(lambda x: str(x).isdigit())]
-            df_46655['executed'] = df_46655.executed.astype('float')
-            df_46655['src'] = '46655'
+    outfile = f'{raw_microdata_csv_dir}/{year}_rev.csv'
+    if os.path.exists(outfile):  # skip years already extracted; delete the CSV to force a refresh
+        continue
+    year_files = glob(f'{RAW_INPUT_DIR}/{COUNTRY}/{year}/*.xlsx')
 
+    if len(year_files) == 1:  # single consolidated workbook (2025 onward)
+        src_file = year_files[0]
+        sheets = classify_single_file_sheets(src_file)
+        df_7_rev = read_rev_single(src_file, sheets['rev'])
+        df_46655 = read_rev_single(src_file, sheets['46655'])
+    else:  # one file per category (2023-2024)
+        revenue_data_files = [f for f in year_files if any(y in os.path.basename(f).lower() for y in ['rev', '46655'])]
+        rev_files = [f for f in revenue_data_files if 'rev' in os.path.basename(f).lower()]
+        acc_files = [f for f in revenue_data_files if '46655' in os.path.basename(f).lower()]
+        assert len(rev_files) == 1 and len(acc_files) == 1, \
+            f"Expected one 'rev' and one '46655' file, found {len(rev_files)} and {len(acc_files)}"
+        df_7_rev = read_rev_multi(rev_files[0])
+        df_46655 = read_rev_multi(acc_files[0])
+
+    df_7_rev = finalize_rev(df_7_rev, '7 digit rev')
+    df_46655 = finalize_rev(df_46655, '46655')
     df = pd.concat([df_7_rev, df_46655], ignore_index=True)
     df['year'] = year
-    outfile = f'{raw_microdata_csv_dir}/{year}_rev.csv'
     df.to_csv(outfile, index=False)
