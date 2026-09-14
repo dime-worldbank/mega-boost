@@ -76,9 +76,10 @@ class TogoEtlTest(unittest.TestCase):
 
     def test_outputs_match_golden(self):
         run_script(NB, env={"INPUT_DIR": self.input_dir, "OUTPUT_DIR": self.out})
-        # per-year bronze split (filenames + content) and the final gold table
+        # per-year bronze split (filenames + content), then the silver and gold tables
         self._assert_golden("2021.csv")
         self._assert_golden("2022.csv")
+        self._assert_golden("tgo_2021_onward_boost_silver.csv")
         self._assert_golden("tgo_boost_gold.csv")
 
 
