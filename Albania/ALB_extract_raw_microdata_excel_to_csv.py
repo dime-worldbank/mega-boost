@@ -360,7 +360,3 @@ for year in years:
     df = df.merge(mapping, on='admin2_tmp', how='left').drop(columns=['admin2_tmp'])
     outfile = f'{raw_microdata_csv_dir}/{year}_rev.csv'
     df.to_csv(outfile, index=False)
-
-# COMMAND ----------
-
-df
