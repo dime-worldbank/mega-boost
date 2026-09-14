@@ -1,0 +1,1009 @@
+variable,code,label
+admin1,1,1 Central
+admin1,2,2 Local
+admin1,3,3 Other
+admin2,11,11 Ministries and agencies
+admin2,22,22 State universities and higher education institutions
+admin2,33,33 Social security institutions and funds
+admin2,44,44 Extrabudgetary accounts and funds
+admin2,51,51 Blagoevgrad region (oblast) municipalities
+admin2,52,52 Bourgas region (oblast) municipalities
+admin2,53,53 Varna region (oblast) municipalities
+admin2,54,54 Veliko Tarnovo region (oblast) municipalities
+admin2,55,55 Vidin region (oblast) municipalities
+admin2,56,56 Vratza region (oblast) municipalities
+admin2,57,57 Gabrovo region (oblast) municipalities
+admin2,58,58 Dorich region (oblast) municipalities
+admin2,59,59 Kardjali region (oblast) municipalities
+admin2,60,60 Kjustendil region (oblast) municipalities
+admin2,61,61 Lovetch region (oblast) municipalities
+admin2,62,62 Montana region (oblast) municipalities
+admin2,63,63 Pazardjik region (oblast) municipalities
+admin2,64,64 Pernik region (oblast) municipalities
+admin2,65,65 Pleven region (oblast) municipalities
+admin2,66,66 Plovdiv region (oblast) municipalities
+admin2,67,67 Razgrad region (oblast) municipalities
+admin2,68,68 Rousse region (oblast) municipalities
+admin2,69,69 Silistra region (oblast) municipalities
+admin2,70,70 Sliven region (oblast) municipalities
+admin2,71,71 Smolian region (oblast) municipalities
+admin2,72,72 Sofia city (capital municipality and districts)
+admin2,73,73 Sofia region (oblast) municipalities
+admin2,74,74 Stara Zagora region (oblast) municipalities
+admin2,75,75 Targovishte region (oblast) municipalities
+admin2,76,76 Haskovo region (oblast) municipalities
+admin2,77,77 Shoumen region (oblast) municipalities
+admin2,78,78 Yambol region (oblast) municipalities
+admin2,79,79 Ministry for the Bulgarian Presidency in the Council of the European Union 2018
+admin2,99,99 Special spending units (defense-related)
+admin3,100,0100 National Assembly
+admin3,200,0200 President's Administration
+admin3,300,0300 Council of Ministers
+admin3,400,0400 Constitutional Court
+admin3,500,0500 National Audit Office
+admin3,600,0600 Supreme Judicial Council
+admin3,1000,1000 Ministry of Finance
+admin3,1060,1060 Account to the Minister of Finance for funds from sale of AAUs
+admin3,1100,1100 Ministry of Foreign Affairs
+admin3,1280,1280 Ministry of Defence - Military Academies
+admin3,1322,1322 Ministry of Interior
+admin3,1400,1400 Ministry of Justice
+admin3,1500,1500 Ministry of Labour and Social Policy
+admin3,1600,1600 Ministry of Health
+admin3,1700,1700 Ministry of Education and Science
+admin3,1780,"1780 Ministry of Education and Science - State Universities, Academies and Colleges"
+admin3,1790,1790 Bulgarian Academy of Science - Sofia
+admin3,1800,1800 Ministry of Culture
+admin3,1900,1900 Ministry of Environment and Water
+admin3,1950,1950 Management of Environmental Activities Enterprise
+admin3,2000,2000 Ministry of Economy
+admin3,2028,2028 Budget unit 2028 under the Ministry of Economy (state reserve management; name to confirm)
+admin3,2029,2029 Budget unit 2029 under the Ministry of Economy (name to confirm)
+admin3,2100,2100 Ministry of Regional Development and Public Works
+admin3,2170,2170 State company Strategic Infrastructure Projects
+admin3,2200,2200 Ministry of Agriculture and Forests
+admin3,2220,2220 State Agricultural Fund
+admin3,2233,2233 Agricultural Academy (name to confirm)
+admin3,2234,2234 Budget unit 2234 under the Ministry of Agriculture (science; name to confirm)
+admin3,2300,2300 Ministry of Transport
+admin3,2400,2400 Ministry of Energy
+admin3,2480,2480 Security of Electricity System Fund
+admin3,2500,2500 Ministry of Youth and Sport
+admin3,2600,2600 Ministry of Government Administration and Administrative Reform
+admin3,2700,2700 Ministry of Government Policy in Cases of Natural Disasters and Emergencies
+admin3,2800,2800 Ministry of Investment Planning
+admin3,3100,3100 State Forestry Agency
+admin3,3300,3300 Commission for the Protection from Discrimination
+admin3,3400,3400 Commission for the Protection of Personal Data
+admin3,3500,3500 Government Agency for Information Technologies and Communication
+admin3,3600,3600 Government Agency for Youth and Sport
+admin3,4000,4000 Ombudsman
+admin3,4100,4100 National Statistical Institute
+admin3,4200,4200 Committee for Protection of Competition
+admin3,4300,4300 Commission for Regulation of Communications
+admin3,4400,4400 Electronic Media Council
+admin3,4500,4500 State Commission of Energy Regulation
+admin3,4600,4600 Nuclear Regulation Agency
+admin3,4700,4700 Commission of Financial Control
+admin3,5100,5100 State Tourism Agency
+admin3,5101,5101 Municipality of Bansko
+admin3,5102,5102 Municipality of Belitza
+admin3,5103,5103 Municipality of Blagoevgrad
+admin3,5104,5104 Municipality of Goce Delchev
+admin3,5105,5105 Municipality of Gurmen
+admin3,5106,5106 Municipality of Kresna
+admin3,5107,5107 Municipality of Petrich
+admin3,5108,5108 Municipality of Razlog
+admin3,5109,5109 Municipality of Sandanski
+admin3,5110,5110 Municipality of Satovcha
+admin3,5111,5111 Municipality of Simitli
+admin3,5112,5112 Municipality of Strumyani
+admin3,5113,5113 Municipality of Hadjidimovo
+admin3,5114,5114 Municipality of Yakoruda
+admin3,5200,5200 National Road Infrastructure Agency
+admin3,5201,5201 Municipality of Ajtos
+admin3,5202,5202 Municipality of Bourgas
+admin3,5203,5203 Municipality of Kamenovo
+admin3,5204,5204 Municipality of Karnobat
+admin3,5205,5205 Municipality of Malko Tarnovo
+admin3,5206,5206 Municipality of Nassebar
+admin3,5207,5207 Municipality of Pomorie
+admin3,5208,5208 Municipality of Primorsko
+admin3,5209,5209 Municipality of Ruen
+admin3,5210,5210 Municipality of Sozopol
+admin3,5211,5211 Municipality of Sredec
+admin3,5212,5212 Municipality of Sungulare
+admin3,5213,5213 Municipality of Tzarevo
+admin3,5300,5300 State Wartime Reserves Agency
+admin3,5301,5301 Municipality of Avren
+admin3,5302,5302 Municipality of Aksakov
+admin3,5303,5303 Municipality of Beloslav
+admin3,5304,5304 Municipality of Byala
+admin3,5305,5305 Municipality of Varna
+admin3,5306,5306 Municipality of Vetrino
+admin3,5307,5307 Municipality of Valcidol
+admin3,5308,5308 Municipality of Devnia
+admin3,5309,5309 Municipality of Dolni Chiflik
+admin3,5310,5310 Municipality of Dulgopol
+admin3,5311,5311 Municipality of Provadia
+admin3,5312,5312 Municipality of Suvorovo
+admin3,5400,5400 28th Air Detachment (VIP Transport)
+admin3,5401,5401 Municipality of Veliko Tarnovo
+admin3,5402,5402 Municipality of Gorna Oryahovica
+admin3,5403,5403 Municipality of Elena
+admin3,5404,5404 Municipality of Zlatarica
+admin3,5405,5405 Municipality of Lyaskovitza
+admin3,5406,5406 Municipality of Pavlikeni
+admin3,5407,5407 Municipality of Polski Trambej
+admin3,5408,5408 Municipality of Svishtov
+admin3,5409,5409 Municipality of Strajica
+admin3,5410,5410 Municipality of Suhindol
+admin3,5500,5500 National Social Insurance Institute
+admin3,5501,5501 Municipality of Belogradchik
+admin3,5502,5502 Municipality of Bojnica
+admin3,5503,5503 Municipality of Bregovo
+admin3,5504,5504 Municipality of Vidin
+admin3,5505,5505 Municipality of Gramada
+admin3,5506,5506 Municipality of Dimovo
+admin3,5507,5507 Municipality of Kula
+admin3,5508,5508 Municipality of Makresh
+admin3,5509,5509 Municipality of Novo Selo
+admin3,5510,5510 Municipality of Rujinci
+admin3,5511,5511 Municipality of Chuprene
+admin3,5591,5591 National Insurance Institute - Teacher's Pension Fund
+admin3,5592,5592 Fund for Guaranteed Employee Claims
+admin3,5600,5600 National Health Insurance Fund
+admin3,5601,5601 Municipality of Borovan
+admin3,5602,5602 Municipality of Byala Slatina
+admin3,5603,5603 Municipality of Vratza
+admin3,5605,5605 Municipality of Kozloduj
+admin3,5606,5606 Municipality of Krivodol
+admin3,5607,5607 Municipality of Mezdra
+admin3,5608,5608 Municipality of Mizia
+admin3,5609,5609 Municipality of Oryahovitsa
+admin3,5610,5610 Municipality of Roman
+admin3,5611,5611 Municipality of Hajredin
+admin3,5701,5701 Municipality of Gabrovo
+admin3,5702,5702 Municipality of Dryanovo
+admin3,5703,5703 Municipality of Sevlieva
+admin3,5704,5704 Municipality of Triavna
+admin3,5801,5801 Municipality of Balchik
+admin3,5802,5802 Municipality of General Toshevo
+admin3,5803,5803 Municipality of Dobrich
+admin3,5804,5804 Municipality of Dobrich - village
+admin3,5805,5805 Municipality of Kavarna
+admin3,5806,5806 Municipality of Krushari
+admin3,5807,5807 Municipality of Tervel
+admin3,5808,5808 Municipality of Shabla
+admin3,5901,5901 Municipality of Ardino
+admin3,5902,5902 Municipality of Djebel
+admin3,5903,5903 Municipality of Kirkovo
+admin3,5904,5904 Municipality of Krumovgrad
+admin3,5905,5905 Municipality of Kardjali
+admin3,5906,5906 Municipality of Momchilovgrad
+admin3,5907,5907 Municipality of Chernoochene
+admin3,6001,6001 Municipality of Bobovdol
+admin3,6002,6002 Municipality of Boboshevo
+admin3,6003,6003 Municipality of Dupnitza
+admin3,6004,6004 Municipality of Kocherinovo
+admin3,6005,6005 Municipality of Kjustendil
+admin3,6006,6006 Municipality of Nevestino
+admin3,6007,6007 Municipality of Rila
+admin3,6008,6008 Municipality of Sapareva Bania
+admin3,6009,6009 Municipality of Trekliano
+admin3,6100,6100 Bulgarian National Television
+admin3,6101,6101 Municipality of Apriltzi
+admin3,6102,6102 Municipality of Letnitza
+admin3,6103,6103 Municipality of Lovetch
+admin3,6104,6104 Municipality of Lukovit
+admin3,6105,6105 Municipality of Teteven
+admin3,6106,6106 Municipality of Troyan
+admin3,6107,6107 Municipality of Ugarchin
+admin3,6108,6108 Municipality of Yablanitza
+admin3,6200,6200 Bulgarian National Radio
+admin3,6201,6201 Municipality of Berkovitza
+admin3,6202,6202 Municipality of Bojchinovtzi
+admin3,6203,6203 Municipality of Brusartzi
+admin3,6204,6204 Municipality of Valchedrum
+admin3,6205,6205 Municipality of Varshetz
+admin3,6206,6206 Municipality of Georgi Damianovo
+admin3,6207,6207 Municipality of Lom
+admin3,6208,6208 Municipality of Medkovetz
+admin3,6209,6209 Municipality of Montana
+admin3,6210,6210 Municipality of Chiprovtzi
+admin3,6211,6211 Municipality of Yakimovo
+admin3,6300,6300 Bulgarian Telegraph Agency
+admin3,6301,6301 Municipality of Batak
+admin3,6302,6302 Municipality of Belovo
+admin3,6303,6303 Municipality of Brazigovo
+admin3,6304,6304 Municipality of Velingrad
+admin3,6305,6305 Municipality of Lesichevo
+admin3,6306,6306 Municipality of Pazardjik
+admin3,6307,6307 Municipality of Panagurishte
+admin3,6308,6308 Municipality of Peshtera
+admin3,6309,6309 Municipality of Rakitovo
+admin3,6310,6310 Municipality of Septemvri
+admin3,6311,6311 Municipality of Srelcha
+admin3,6312,6312 Municipality of Sarnitsa
+admin3,6401,6401 Municipality of Breznik
+admin3,6402,6402 Municipality of Zemen
+admin3,6403,6403 Municipality of Kovachevtzi
+admin3,6404,6404 Municipality of Pernik
+admin3,6405,6405 Municipality of Radomir
+admin3,6406,6406 Municipality of Trun
+admin3,6501,6501 Municipality of Belene
+admin3,6502,6502 Municipality of Gulianitzi
+admin3,6503,6503 Municipality of Dolna Mitropolia
+admin3,6504,6504 Municipality of Dolni Dubnik
+admin3,6505,6505 Municipality of Iskar
+admin3,6506,6506 Municipality of Levski
+admin3,6507,6507 Municipality of Nikopol
+admin3,6508,6508 Municipality of Pleven
+admin3,6509,6509 Municipality of Pordim
+admin3,6510,6510 Municipality of Cherven Briag
+admin3,6511,6511 Municipality of Kneja
+admin3,6601,6601 Municipality of Asenovgrad
+admin3,6602,6602 Municipality of Brezovo
+admin3,6603,6603 Municipality of Kaloyanovo
+admin3,6604,6604 Municipality of Karlovo
+admin3,6605,6605 Municipality of Krichim
+admin3,6606,6606 Municipality of Luki
+admin3,6607,6607 Municipality of Maritza
+admin3,6608,6608 Municipality of Perushtitza
+admin3,6609,6609 Municipality of Plovdiv
+admin3,6610,6610 Municipality of Parvomai
+admin3,6611,6611 Municipality of Rakovski
+admin3,6612,6612 Municipality of Rodopi
+admin3,6613,6613 Municipality of Sadovo
+admin3,6614,6614 Municipality of Stambolijski
+admin3,6615,6615 Municipality of Suedinenie
+admin3,6616,6616 Municipality of Hisaria
+admin3,6617,6617 Municipality of Kuklen
+admin3,6618,6618 Municipality of Sopot
+admin3,6701,6701 Municipality of Zavet
+admin3,6702,6702 Municipality of Isperich
+admin3,6703,6703 Municipality of Kubrat
+admin3,6704,6704 Municipality of Loznica
+admin3,6705,6705 Municipality of Razgrad
+admin3,6706,6706 Municipality of Samuil
+admin3,6707,6707 Municipality of Tzar Kaloyan
+admin3,6801,6801 Municipality of Borovo
+admin3,6802,6802 Municipality of Byala
+admin3,6803,6803 Municipality of Betovo
+admin3,6804,6804 Municipality of Dve mogoli
+admin3,6805,6805 Municipality of Ivanovo
+admin3,6806,6806 Municipality of Rousse
+admin3,6807,6807 Municipality of Slivo Pole
+admin3,6808,6808 Municipality of Tzenovo
+admin3,6901,6901 Municipality of Alfatar
+admin3,6902,6902 Municipality of Glavnitza
+admin3,6903,6903 Municipality of Dulovo
+admin3,6904,6904 Municipality of Kajnardja
+admin3,6905,6905 Municipality of Silistra
+admin3,6906,6906 Municipality of Sitovo
+admin3,6907,6907 Municipality of Tutrakan
+admin3,7001,7001 Municipality of Kotel
+admin3,7002,7002 Municipality of Nova Zagora
+admin3,7003,7003 Municipality of Sliven
+admin3,7004,7004 Municipality of Tvarditza
+admin3,7100,7100 Ministry of Tourism
+admin3,7101,7101 Municipality of Banite
+admin3,7102,7102 Municipality of Borino
+admin3,7103,7103 Municipality of Devin
+admin3,7104,7104 Municipality of Dospat
+admin3,7105,7105 Municipality of Zlatograd
+admin3,7106,7106 Municipality of Madan
+admin3,7107,7107 Municipality of Nedelino
+admin3,7108,7108 Municipality of Rudozem
+admin3,7109,7109 Municipality of Smolian
+admin3,7110,7110 Municipality of Chepelare
+admin3,7225,7225 Municipality of Sofia (capital)
+admin3,7301,7301 Municipality of Anton
+admin3,7302,7302 Municipality of Bojurishte
+admin3,7303,7303 Municipality of Botevgrad
+admin3,7304,7304 Municipality of Godetch
+admin3,7305,7305 Municipality of Gorna Malina
+admin3,7306,7306 Municipality of Dolna Bania
+admin3,7307,7307 Municipality of Dragoman
+admin3,7308,7308 Municipality of Elin Pelin
+admin3,7309,7309 Municipality of Etropole
+admin3,7310,7310 Municipality of Zlatitza
+admin3,7311,7311 Municipality of Ichtiman
+admin3,7312,7312 Municipality of Koprivshtitza
+admin3,7313,7313 Municipality of Kostenetz
+admin3,7314,7314 Municipality of Kostinbrod
+admin3,7315,7315 Municipality of Mirkovo
+admin3,7316,7316 Municipality of Pirdop
+admin3,7317,7317 Municipality of Pravetz
+admin3,7318,7318 Municipality of Samokov
+admin3,7319,7319 Municipality of Svoge
+admin3,7320,7320 Municipality of Slivnitza
+admin3,7321,7321 Municipality of Chavdar
+admin3,7322,7322 Municipality of Chelopech
+admin3,7400,7400 Ministry of Innovation and Growth (name to confirm)
+admin3,7401,7401 Municipality of Bratia Daskalovi
+admin3,7402,7402 Municipality of Gourkovo
+admin3,7403,7403 Municipality of Gulubovo
+admin3,7404,7404 Municipality of Kazanlak
+admin3,7405,7405 Municipality of Maglij
+admin3,7406,7406 Municipality of Nikolaevo
+admin3,7407,7407 Municipality of Opan
+admin3,7408,7408 Municipality of Pavel Bania
+admin3,7409,7409 Municipality of Radnevo
+admin3,7410,7410 Municipality of Stara Zagora
+admin3,7411,7411 Municipality of Chirpan
+admin3,7500,7500 Ministry of Electronic Governance (name to confirm)
+admin3,7501,7501 Municipality of Antonovo
+admin3,7502,7502 Municipality of Omurtag
+admin3,7503,7503 Municipality of Opaka
+admin3,7504,7504 Municipality of Popovo
+admin3,7505,7505 Municipality of Targovishte
+admin3,7601,7601 Municipality of Dimitrovgrad
+admin3,7602,7602 Municipality of Ivajlovgrad
+admin3,7603,7603 Municipality of Ljubimetz
+admin3,7604,7604 Municipality of Madjarovo
+admin3,7605,7605 Municipality of Mineralni Bani
+admin3,7606,7606 Municipality of Svilengrad
+admin3,7607,7607 Municipality of Simeonovgrad
+admin3,7608,7608 Municipality of Stambolovo
+admin3,7609,7609 Municipality of Topolovgrad
+admin3,7610,7610 Municipality of Harmanli
+admin3,7611,7611 Municipality of Haskovo
+admin3,7701,7701 Municipality of Veliki Preslav
+admin3,7702,7702 Municipality of Venetz
+admin3,7703,7703 Municipality of Varbitza
+admin3,7704,7704 Municipality of Kaolinovo
+admin3,7705,7705 Municipality of Kaspichan
+admin3,7706,7706 Municipality of Nikola Kozlevo
+admin3,7707,7707 Municipality of Novi Pazar
+admin3,7708,7708 Municipality of Smiadovo
+admin3,7709,7709 Municipality of Hitrino
+admin3,7710,7710 Municipality of Shoumen
+admin3,7801,7801 Municipality of Boliarovo
+admin3,7802,7802 Municipality of Elhovo
+admin3,7803,7803 Municipality of Straldja
+admin3,7804,7804 Municipality of Tundja
+admin3,7805,7805 Municipality of Yambol
+admin3,7900,7900 Ministry for the Bulgarian Presidency in the Council of the European Union 2018
+admin3,8100,8100 Commission for the Prevention and Detection of Conflicts of Interest
+admin3,8199,8199 Budget unit 8199 (controlling body; name to confirm)
+admin3,8200,8200 Central Election Commission
+admin3,8300,8300 Commission for public oversight of statutory auditors
+admin3,8400,8400 State Fund Agriculture
+admin3,9817,9817 National Fund of the Ministry of Finance
+admin3,9900,9900 Central Budget
+admin3,9999,9999 Special Spending Units
+func1,1,1 General public services
+func1,2,2 Defence and security
+func1,3,3 Education
+func1,4,4 Healthcare
+func1,5,5 Social protection
+func1,6,"6 Housing, public works, utilities and environmental protection"
+func1,7,"7 Recreation, resorts, culture and religious activities"
+func1,8,8 Economic activities and services
+func1,9,9 Expenditures not elsewhere classified
+func2,11,1.1 Executive and legislative bodies
+func2,12,1.2 Common services
+func2,13,1.3 Science
+func2,21,2.1 Defence
+func2,22,"2.2 Police, internal order and security"
+func2,23,2.3 Juridical authority
+func2,24,2.4 Administration of prisons
+func2,25,"2.5 Civil protection services, crisis management, and natural disasters and industrial damages"
+func2,31,3.1 Education
+func2,41,4.1 Healthcare
+func2,51,5.1 Pensions
+func2,52,5.2 Social assistance benefits and indemnities
+func2,53,"5.3 Social security, social assistance and employment programs, activities and services"
+func2,61,"6.1 Housing, public works and utilities"
+func2,62,6.2 Environment
+func2,71,7.1 Recreation and resorts
+func2,72,7.2 Physical activity and sport
+func2,73,7.3 Culture
+func2,74,7.4 Religious activities
+func2,81,"8.1 Mining, fuel and energy"
+func2,82,"8.2 Agriculture, forestry, fishery and hunting"
+func2,83,8.3 Transport and communications
+func2,84,8.4 Industry and construction
+func2,85,8.5 Tourism
+func2,86,8.6 Other economic activities
+func2,91,9.1 Expenditures not elsewhere classified
+func3,11,011 Executive and legislative bodies (unclassified)
+func3,12,012 Common services (unclassified)
+func3,13,013 Science (unclassified)
+func3,21,021 Defence (unclassified)
+func3,22,"022 Police, internal order and security (unclassified)"
+func3,23,023 Juridical authority (unclassified)
+func3,24,024 Administration of prisons (unclassified)
+func3,25,"025 Civil protection services, crisis management, and natural disasters and industrial damages (unclassified)"
+func3,31,031 Education (unclassified)
+func3,41,041 Healthcare (unclassified)
+func3,51,051 Pensions (unclassified)
+func3,52,052 Social assistance benefits and indemnities (unclassified)
+func3,53,"053 Social security, social assistance and employment programs, activities and services (unclassified)"
+func3,61,"061 Housing, public works and utilities (unclassified)"
+func3,62,062 Environment (unclassified)
+func3,71,071 Recreation and resorts (unclassified)
+func3,72,072 Physical activity and sport (unclassified)
+func3,73,073 Culture (unclassified)
+func3,74,074 Religious activities (unclassified)
+func3,81,"081 Mining, fuel and energy (unclassified)"
+func3,82,"082 Agriculture, forestry, fishery and hunting (unclassified)"
+func3,83,083 Transport and communications (unclassified)
+func3,84,084 Industry and construction (unclassified)
+func3,85,085 Tourism (unclassified)
+func3,86,086 Other economic activities (unclassified)
+func3,91,091 Expenditures not elsewhere classified (unclassified)
+func3,101,101 Central government bodies
+func3,103,103 Central government bodies responsible for education
+func3,104,104 Central government bodies responsible for healthcare
+func3,105,105 Central government bodies responsible for social security
+func3,106,106 Central government bodies responsible for regional development and public works
+func3,107,"107 Central government bodies responsible for culture, sport and tourism"
+func3,108,108 Central government bodies responsible for economic activities and services
+func3,111,111 Controlling general government and municipal bodies
+func3,115,"115 Administration, control and regulation of foreign affairs"
+func3,116,"116 Embassies, consulates, diplomatic missions and delegations, stationed abroad."
+func3,117,117 Government and municipal public services and activities related to elections
+func3,121,121 Regional administrations
+func3,122,122 Municipal administrations
+func3,123,123 Municipal councils
+func3,125,125 Members of the European Parliament from Bulgaria
+func3,128,"128 International programs and agreements, grants and donations from abroad"
+func3,139,139 Other executive and legislative bodies
+func3,141,"141 Statistical institute, services and activities, sociological researches and inquiries"
+func3,142,142 General economic and social programming and forecasting
+func3,143,143 Registration and control of foreign investments
+func3,144,144 Services and activities aimed at sustaining connections with nonresidents of Bulgarian nationality
+func3,145,145 Services and activities aimed at aiding the refugees
+func3,146,146 Management and administration of grants received from abroad
+func3,147,147 Management of state reserve and wartime reserves
+func3,148,148 Management of civil administration and administrative services of the population
+func3,149,149 Other common services
+func3,151,151 Liquidating committee for closed budget organizations
+func3,158,"158 International programs and agreements, grants and donations from abroad"
+func3,161,161 Organization and management of scientific researches and activities
+func3,162,162 Scientific research
+func3,163,163 Research institutes and centres
+func3,168,"168 International programs and agreements, grants and donations from abroad"
+func3,179,179 Other activities related to science
+func3,201,201 Activities related to defence
+func3,205,205 Activities on preparation and NATO accession
+func3,206,206 Peace-keeping missions abroad
+func3,207,207 Defense mobilization preparation
+func3,219,219 Other activities on defence
+func3,221,"221 Police, fire protection and public order"
+func3,222,222 Activity 222 (name to confirm)
+func3,224,224 Fire security
+func3,225,225 Applied research in the area of policing and security
+func3,228,"228 International programs and agreements, grants and donations from abroad"
+func3,239,239 Other activities related to public security
+func3,241,241 Supreme judicial council
+func3,242,242 Supreme administrative court
+func3,243,243 Supreme court of cassation
+func3,244,244 Prosecution office
+func3,245,245 National investigation service
+func3,246,246 Law courts
+func3,247,247 Regional investigation services
+func3,248,248 Inspectorate with the Supreme Judicial Council
+func3,249,249 National Institute of Justice
+func3,258,"258 International programs and agreements, grants and donations from abroad"
+func3,259,259 Other activities of the juridical authority
+func3,261,261 Places for imprisonment
+func3,279,279 Activity 279 (name to confirm)
+func3,281,281 Civil protection
+func3,282,"282 Defence mobilization preparation, war-time inventory and capacity"
+func3,283,"283 Preventive activity for reduction of harmful consequences of crises, natural disasters and industrial damages"
+func3,284,"284 Liquidation of harmful consequences of crises, natural disasters and industrial damages"
+func3,285,285 Voluntary units for disaster protection
+func3,288,"288 International programs and agreements, donations and grants from abroad"
+func3,289,289 Other activities related to the crises' management
+func3,301,"301 Management, control, regulation and licensing of the activities on education"
+func3,311,311 Full-day kindergartens and combined children's establishments
+func3,312,312 Special kindergartens
+func3,314,314 Half-day kindergartens
+func3,315,315 Seasonal kindergartens
+func3,318,318 Pre-school half-day training for 6-years-old children.
+func3,321,321 Special schools
+func3,322,322 Comprehensive schools
+func3,323,323 Cultural and art schools
+func3,324,324 Sporting schools
+func3,325,325 Schools abroad
+func3,326,326 Vocational schools and professional courses in secondary comprehensive education schools
+func3,327,327 Schools in prison
+func3,331,331 Social homes for raising and breeding children deprived of parental care
+func3,332,332 Hostels
+func3,333,333 Students recreation camps
+func3,334,334 Qualification raising
+func3,336,336 Canteens
+func3,337,337 Out of school activities
+func3,338,338 Resource assistance
+func3,341,"341 Academies, universities and tertiary schools"
+func3,349,349 Applied scientific research in the area of education
+func3,359,359 Other activities for children
+func3,369,369 Other activities related to youth
+func3,388,"388 International programs and agreements, grants and donations from abroad"
+func3,389,389 Other activities on education
+func3,401,"401 Management, control and regulation of the activities related to healthcare"
+func3,412,412 Multiprofile hospitals for active treatment
+func3,413,413 Municipal hospitals
+func3,415,415 Centers for medical and social care
+func3,416,416 Hospitals for lung diseases treatment
+func3,417,417 Obstetrical-gynecological hospitals
+func3,418,418 Psychiatric hospitals
+func3,419,419 Psychic health centers
+func3,420,420 Ophthalmological centers
+func3,423,423 Post-treatment and rehabilitation hospitals
+func3,424,424 Pneumophtiziatric dispensaries
+func3,425,425 Dispensaries for mental diseases
+func3,426,426 Dermato-venereological dispensaries
+func3,427,427 Dispensaries for oncological diseases
+func3,429,429 Emergency medical aid centers
+func3,430,430 Regional inspectorates for health protection and control of public health
+func3,431,431 Nurseries
+func3,432,432 Nurseries for orphaned children
+func3,433,433 Rehabilitation
+func3,436,436 National centers
+func3,437,437 Health office in kindergartens and schools
+func3,438,438 Daily psychological rehabilitation programs
+func3,442,442 Center for drugs and drug-addiction
+func3,447,447 Substitution and maintenance programs
+func3,448,448 Activity 448 (name to confirm)
+func3,450,450 Transformed healthcare establishments
+func3,451,451 Payments for primary outpatient medical care
+func3,452,452 Payments for specialized outpatient medical care
+func3,453,453 Payments for dental care
+func3,454,454 Payments for medical diagnostic activities
+func3,455,455 Payments for medicines for home medical care and medical appliances
+func3,456,456 Payments for hospital care
+func3,457,457 Payment for medical devices
+func3,458,458 Payments for drug therapy in malignancies
+func3,459,459 Other health-insurance payments
+func3,467,467 National programs
+func3,468,"468 International programs and agreements, grants and donations from abroad"
+func3,469,469 Other activities related to healthcare
+func3,501,501 Pensions
+func3,511,511 Benefits under the Law on Family Benefits for Children
+func3,512,512 Benefits under Social Assistance Law
+func3,513,513 Benefits under the Law on Integration of Persons with Disabilities
+func3,514,514 Benefits for the diagnosis and treatment of socially disadvantaged persons
+func3,515,515 Benefits under the Law on Child Protection
+func3,516,516 Benefits under the Law on War Veterans
+func3,517,517 Benefits under the Law on War Disabled and War Victims
+func3,518,"518 Social assistance and benefits under international programs, grants and donations"
+func3,519,519 Other social assistance benefits and indemnities
+func3,521,521 Social security services (Social Security Fund etc.)
+func3,522,522 Social assistance directorates
+func3,524,"524 Home social patronage, public canteens and other social services"
+func3,525,"525 Clubs for pensioners, disabled etc."
+func3,526,526 Public support centers
+func3,527,527 Mother and child units
+func3,528,528 Center for work with street children
+func3,529,529 Crisis center
+func3,530,530 Center for family-type accommodation
+func3,531,531 Activities on labour injuries and professional diseases prevention
+func3,532,532 Temporary employment programs
+func3,533,533 Other employment activities and programs
+func3,534,534 Observed housing
+func3,535,535 Transitional housing
+func3,536,"536 Homes for raising and educating children from 3 to 6 years of age, including orphanages"
+func3,537,"537 Homes for raising and educating children from 1st to 13th grade, including orphanages"
+func3,538,538 Child protection programs and measures
+func3,540,540 Homes for elderly people
+func3,541,541 Homes for adults with mental disabilities
+func3,542,542 Homes for adults with psychiatric disorders
+func3,543,543 Homes for adults with physical damages
+func3,544,544 Homes for adults with sensitive damages
+func3,545,545 Social professional education establishments
+func3,546,546 Homes for children and youths with mental disabilities
+func3,547,547 Homes for temporary accommodation
+func3,548,548 Day centers for elderly people
+func3,549,549 Day centers for children and youths with damages
+func3,550,550 Centers for social rehabilitation of disabled
+func3,551,551 Day centers for adults with damages
+func3,552,552 Homes for adults with dementia
+func3,553,553 Asylums
+func3,554,554 Protected homes
+func3,558,"558 International programs and agreements, grants and donations from abroad"
+func3,559,"559 Other social security, social assistance and employment activities and services"
+func3,561,561 Social Assistant program
+func3,562,562 Personal Assistant program
+func3,588,"588 International programs and agreements, donations and grants from abroad"
+func3,589,"589 Other services and activities for social insurance, assistance and employment"
+func3,601,601 Management and control of housing and territorial development activities
+func3,602,602 Cadastre and geodesical services and registration of real estates
+func3,603,603 Sewerage
+func3,604,604 Public street lights
+func3,605,605 Public laundries and bathing places
+func3,606,"606 Construction, repair and maintenance of the street network"
+func3,618,"618 International programs and agreements, donations and grants from abroad"
+func3,619,619 Other activities related to housing and regional development
+func3,621,"621 Management, control and regulation of environmental protection activities"
+func3,622,622 Planting
+func3,623,623 Cleaning
+func3,624,624 Geoprotection
+func3,625,625 Activity 625 (name to confirm)
+func3,626,626 Purification of wastewater from settlements
+func3,627,627 Waste management
+func3,628,"628 International programs and agreements, donations and grants from abroad"
+func3,629,629 Other activities related to environmental protection
+func3,701,701 Activities on recreation and resorts
+func3,708,"708 International programs and agreements, grants and donations from abroad"
+func3,711,"711 Management, control and regulation of the activities related to sport"
+func3,712,712 Children's and specialized sport schools
+func3,713,713 Sport for everyone
+func3,714,714 Sporting bases related to sport for everyone
+func3,718,"718 International programs and agreements, grants and donations from abroad"
+func3,719,719 Other activities on sport and physical culture
+func3,722,722 Tourist bases
+func3,723,723 Specialized sport-tourist schools
+func3,728,"728 International programs and agreements, donations and grants from abroad"
+func3,729,729 Other activities in the area of tourism
+func3,731,"731 Management, control and regulation of the activities on culture"
+func3,732,732 National art centers and cultural activities
+func3,733,733 Bulgarian cultural institutes abroad
+func3,735,735 Theatres
+func3,736,736 Opera and philharmonic societies and operas
+func3,737,737 Orchestras and ensembles
+func3,738,738 Local cultural centers
+func3,739,"739 Museums, art galleries, monuments and ethnographic museums with national and regional importance"
+func3,740,"740 Museums, art galleries, monuments and ethnographic museums with local importance"
+func3,741,741 Radiolink hubs
+func3,742,742 Radio
+func3,743,743 Television
+func3,744,744 Film and audio archives
+func3,745,745 Houses and halls for carrying out rituals
+func3,746,746 Zoological parks
+func3,747,747 State archive and territorial archives
+func3,748,748 Culture development assistance
+func3,751,751 Libraries with national and regional importance
+func3,752,752 Public libraries
+func3,755,755 Applied scientific research in the cultural area
+func3,758,"758 International programs and agreements, grants and donations from abroad"
+func3,759,759 Other cultural activities
+func3,761,761 Activity 761 (name to confirm)
+func3,762,762 Subsidies and other religious activities expenses
+func3,768,"768 International programs and agreements, grants and aid from abroad"
+func3,801,"801 Management, control and regulation of mining and energy activities"
+func3,802,"802 Research, measurements and analyses of fuels and energy"
+func3,803,803 Security and safe-storage of radioactive waste
+func3,804,804 Decommissioning of nuclear power equipment
+func3,807,"807 International programs and agreements, grants and donations from abroad"
+func3,808,808 Other mining activities
+func3,809,809 Other activities on fuel and energy
+func3,811,"811 Management, control and regulation of plant-growing activities"
+func3,813,813 Regional agricultural services
+func3,814,"814 Management, control and regulation of forestry activities"
+func3,815,"815 Management, control and regulation of fishery and hunting activities"
+func3,816,816 Machine-testing centers and technical control inspectorates
+func3,817,817 Veterinary medical services
+func3,824,824 National supplements and co-financing of direct payments to farmers
+func3,826,826 Fisheries
+func3,827,827 Rural development
+func3,828,"828 International programs and agreements, grants and donations from abroad"
+func3,829,"829 Other activities on agriculture, forestry, fishery and hunting"
+func3,831,"831 Management, control and regulation of transport and roads activities"
+func3,832,"832 Services and activities concerning roads' maintenance, repair and construction"
+func3,833,"833 Researches, measurements and analyses of road transport systems"
+func3,834,834 Activities related to road transport
+func3,835,835 Activities related to railway transport
+func3,836,836 Activities related to air transport
+func3,837,837 Activities related to water transport
+func3,838,"838 Management, control and regulation of communications activities"
+func3,839,839 Post and communications
+func3,845,845 Activity 845 (name to confirm)
+func3,848,"848 International programs and agreements, grants and donations from abroad"
+func3,849,"849 Other activities on transport, roads, post and communications"
+func3,851,"851 Management, control and regulation of activities related to industry"
+func3,853,"853 International programs and agreements, grants and donations from abroad"
+func3,858,858 Other activities concerning industry
+func3,861,861 Management control and regulation of the tourism activities
+func3,862,862 Tourist bases
+func3,863,863 Specialized sport-tourist schools
+func3,864,"864 International programs and agreements, donations and grants from abroad"
+func3,865,865 Other activities in the area of tourism
+func3,866,866 Municipal markets and fairs
+func3,867,867 Activity 867 (name to confirm)
+func3,868,868 Information and data centres
+func3,869,869 Publishing activities and printing houses
+func3,871,"871 Subsidiary farms, canteens and other auxiliary activities"
+func3,872,"872 Palaces, residences and farms"
+func3,874,874 Removal of consequences of natural disasters and industrial accidents
+func3,875,875 Bodies and activities related to the privatization process
+func3,876,876 Official bodies in the standardization and metrology area
+func3,877,877 Patent bodies
+func3,878,878 Shelters for stray animals
+func3,888,888 Structural reforms
+func3,897,"897 International programs and agreements, grants and donations from abroad"
+func3,898,898 Other economic activities (n.e.c.)
+func3,910,910 Expenses for interests
+func3,997,997 Other expenses not elsewhere classified
+func3,998,998 Reserve
+econ1,0,00 Contingencies reserve
+econ1,1,01 Wages and salaries expenses for civil servants and non-civil servants (on the staff)
+econ1,2,02 Other wages and salaries expenses
+econ1,3,03 Employer contributions to State Social Insurance Fund
+econ1,4,04 Employer contributions to the Teachers' Pension Fund
+econ1,5,05 Compulsory employer social security contributions
+econ1,6,"06 Other health-insurance contributions - for pensioners, unemployed etc."
+econ1,7,07 Contributions for additional compulsory insurance
+econ1,8,08 Voluntary social security contributions
+econ1,10,10 Maintenance
+econ1,11,"11 Defense and security - Total current expenditures (Â§Â§ 01,02,03,04,05,07,08,10)"
+econ1,19,"19 Paid taxes, charges and adminstrative sanctions"
+econ1,21,21 Interest expenses on Government and Municipal securities
+econ1,22,22 Expenses for interest on domestic loans
+econ1,25,25 Expenses for interests on loans from other governments
+econ1,26,26 Expenses for interest on loans from international organizations and institutions
+econ1,27,27 Expenses for interest on loans from banks and other financial institutions abroad
+econ1,28,28 Expenses for interest on securities issued and traded on the international capital exchange markets
+econ1,29,29 Other expenses for interest
+econ1,33,33 Contribution to the EU general budget
+econ1,39,39 Health-insurance contributions
+econ1,40,40 Scholarships
+econ1,41,41 Pensions
+econ1,42,"42 Current transfers, compensations and grants to households"
+econ1,43,43 Subsidies for non-financial enterprises
+econ1,44,44 Subsidies for financial enterprises
+econ1,45,45 Subsidies for non-profit institutions
+econ1,46,46 Expenses for membership dues and participation in non-profit organizations and activities
+econ1,49,49 Grants for foreign governments
+econ1,51,51 Capital repair of fixed tangible assets
+econ1,52,52 Acquisition of fixed tangible assets
+econ1,53,53 Acquisition of intangible assets
+econ1,54,54 Acquisition of land
+econ1,55,55 Capital transfers
+econ1,57,57 Gain in the state reserve and purchase of agricultural production
+econ1,97,97 Reserve
+econ1,99,99 Reserve
+econ2,98,00.98 Contingencies reserve
+econ2,100,01.00 Wages and salaries expenses for civil servants and non-civil servants (on the staff)
+econ2,101,01.01 Wages and salaries expenses for non-civil servant staff - full time jobs
+econ2,102,01.02 Wages and salaries expenses for civil servants
+econ2,103,01.03 Wages and salaries expenses for other full time staff
+econ2,108,01.08 Wages and salaries expenses for the political cabinet
+econ2,109,01.09 Incentives and other perquisites
+econ2,200,02.00 Other wages and salaries expenses
+econ2,201,02.01 Wages and salaries expenses for full time employees apart from the staff
+econ2,202,02.02 Wages and salaries expenses for part time employees apart from the staff
+econ2,205,02.05 Perquisite benefits and utilities expenses paid to the employees as a remuneration
+econ2,208,02.08 Compensations paid to the employees as a remuneration
+econ2,209,02.09 Other remuneration expenses
+econ2,300,03.00 Employer contributions to State Social Insurance Fund
+econ2,400,04.00 Employer contributions to the Teachers' Pension Fund
+econ2,500,05.00 Compulsory social security contributions from the employers
+econ2,551,05.51 Contributions from the employers for the government social contribution
+econ2,552,05.52 Contributions from the employers for the Teachers' Pension Fund
+econ2,558,05.58 Contributions under art. 4b and 4c of the Social Security Code on the account of the employer
+econ2,560,05.60 Health-insurance contributions from employers
+econ2,580,05.80 Contributions for the additional compulsory social security from employers
+econ2,588,05.88 Adjustment for contributions to the additional compulsory pension insurance under art. 4b and 4c of the SSC (employer)
+econ2,590,05.90 Compulsory contributions for foreign pension funds and schemes on the account of the insurer/employer
+econ2,600,"06.00 Other health-insurance contributions - for pensioners, unemployed etc."
+econ2,700,07.00 Contributions for additional compulsory insurance
+econ2,800,08.00 Voluntary social security contributions
+econ2,1000,10.00 Maintenance
+econ2,1011,10.11 Food
+econ2,1012,10.12 Medicines
+econ2,1013,10.13 Bedding and clothes
+econ2,1014,10.14 R&D and educational expenses and books for libraries
+econ2,1015,10.15 Materials
+econ2,1016,"10.16 Water, fuels and energy"
+econ2,1020,10.20 Expenses for external services
+econ2,1030,10.30 Current repairs expenses
+econ2,1040,"10.40 Paid taxes, duties and fees (without the contributions for NSSI and NHIF)"
+econ2,1051,10.51 Expenses for business missions
+econ2,1052,10.52 Short-term business missions abroad
+econ2,1053,10.53 Long-term business missions abroad (to be used by spending units with offices abroad)
+econ2,1062,10.62 Insurance expenses
+econ2,1063,10.63 Commitment fee on loans
+econ2,1069,10.69 Other financial services (expenses for other utilities)
+econ2,1091,10.91 Perquisite benefits and utilities expenses (without Â§ 02-05)
+econ2,1092,"10.92 Fees, forfeits, punitive interests and court compensations"
+econ2,1098,"10.98 Other expenses, not classified in other maintenance paragraphs and sub-paragraphs"
+econ2,1100,"11.00 Defense and security - Total current expenditures (Â§Â§ 01,02,03,04,05,07,08,10)"
+econ2,1900,"19.00 Paid taxes, charges and adminstrative sanctions"
+econ2,1901,"19.01 Payment of state taxes, penalties and administrative sanctions"
+econ2,1981,"19.81 Payment of municipal taxes, penalties and administrative sanctions"
+econ2,1991,"19.91 Payment of taxes, penalties and administrative sanctions abroad"
+econ2,2100,21.00 Interest expenses on Government and Municipal securities
+econ2,2110,21.10 Expenses for interest on emissions of government (municipal) securities
+econ2,2120,21.20 Discounts on government (municipal) securities
+econ2,2125,21.25 Interest and discounts on emissions of government securities earmarked for individuals
+econ2,2140,21.40 Interests on government securities issued for the structural reform
+econ2,2190,21.90 Premiums above the nominal value from issued government (municipal) securities (-)
+econ2,2200,22.00 Expenses for interest on domestic loans
+econ2,2220,22.20 Expenses for interest on loans from BNB
+econ2,2221,22.21 Expenses for interest on loans from domestic banks
+econ2,2224,22.24 Expenses for interest on other domestic loans
+econ2,2500,25.00 Expenses for interests on loans from other governments
+econ2,2510,25.10 Interest on loans to creditor countries of the Paris Club
+econ2,2520,25.20 Interest on loans to the G-24
+econ2,2590,25.90 Interest on other loans and debts to other countries
+econ2,2600,26.00 Expenses for interest on loans from international organizations and institutions
+econ2,2610,26.10 Interest on loans from the World Bank
+econ2,2620,26.20 Interest on loans from the EU
+econ2,2630,26.30 Interest on loans from the EBRD
+econ2,2640,26.40 Interest on loans from the EIB
+econ2,2690,26.90 Interest on loans from other international organizations and institutions
+econ2,2700,27.00 Expenses for interest on loans from banks and other financial institutions abroad
+econ2,2800,28.00 Expenses for interest on securities issued and traded on the international capital exchange markets
+econ2,2810,28.10 Interest on bonds issued in international capital markets
+econ2,2820,28.20 Sub-paragraph 28-20 (name to confirm)
+econ2,2880,28.80 Interest on Brady bonds
+econ2,2890,28.90 Sub-paragraph 28-90 (name to confirm)
+econ2,2900,29.00 Other expenses for interest
+econ2,2910,29.10 Interest paid on financial leases and commercial credit
+econ2,2920,29.20 Interest paid on activated guarantees on loans from domestic banks
+econ2,2961,29.61 Interest paid on active loan guarantees from the World Bank
+econ2,2964,29.64 Interest paid on active loan guarantees from the EIB
+econ2,2969,29.69 Interest paid on activated guarantees on loans from other international institutions
+econ2,2989,29.89 Refund of paid interest on activated guarantees (-)
+econ2,2990,29.90 Interest paid on loans provided by the central budget and budget organizations
+econ2,2991,29.91 Other expenses for interest paid to residents
+econ2,2992,29.92 Other expenses for interest paid to nonresidents
+econ2,3300,33.00 Contribution to the EU general budget
+econ2,3301,33.01 Contribution based on gross national income
+econ2,3302,33.02 Contribution based on value added tax
+econ2,3303,33.03 Contribution for the UK correction
+econ2,3304,33.04 Contribution for custom duties
+econ2,3305,33.05 Contribution for levies on sugar production
+econ2,3306,33.06 Participation in financing the gross reduction in the Netherlands and Sweden
+econ2,3307,"33.07 Participation in the gross reduction for the Netherlands, Sweden, Denmark and Austria"
+econ2,3319,33.19 Additional payments to the EU general budget
+econ2,3900,39.00 Health-insurance contributions
+econ2,3901,39.01 Health insurance payments for primary outpatient care
+econ2,3902,39.02 Health insurance payments for specialized outpatient care
+econ2,3903,39.03 Health insurance payments for dental care
+econ2,3904,39.04 Health insurance payments for diagnostic medical activities
+econ2,3905,39.05 Health insurance payments for medicines for home care and medical devices
+econ2,3906,39.06 Health insurance payments for hospital care
+econ2,3909,39.09 Other health insurance payments
+econ2,4000,40.00 Scholarships
+econ2,4100,41.00 Pensions
+econ2,4111,41.11 Old-age pensions
+econ2,4112,41.12 Pensions for military personnel
+econ2,4121,"41.21 Social pensions, pensions for special merits and others"
+econ2,4122,41.22 Supplements to the pensions of participants and victims of wars and their heirs
+econ2,4130,41.30 Pensions under international agreements
+econ2,4140,41.40 Pensions from the Teachers' Pension Fund
+econ2,4200,"42.00 Current transfers, compensations and grants to households"
+econ2,4201,42.01 Compensations and grants as social security
+econ2,4202,42.02 Compensations and grants as social assistance
+econ2,4203,42.03 Benefits for temporary disability due to non-work-related accidents
+econ2,4204,42.04 Benefits for temporary disability due to work-related accidents and occupational illness
+econ2,4205,42.05 Benefits for vocational rehabilitation of temporarily disabled workers
+econ2,4206,42.06 Benefits for pregnancy and childbirth
+econ2,4207,42.07 Benefits for vocational rehabilitation due to pregnancy and nursing
+econ2,4208,42.08 Benefits for childrearing
+econ2,4209,42.09 Lump-sum death grant
+econ2,4211,42.11 Cash grant for preventative and rehabilitative care
+econ2,4214,42.14 Compensations and grants at the discretion of the municipal council
+econ2,4217,42.17 Current transfers to households from EU funds
+econ2,4218,42.18 Current transfers to households under other international programs and agreements
+econ2,4219,42.19 Other current transfers to households
+econ2,4221,42.21 Lump-sum birth grant
+econ2,4222,42.22 Monthly benefits for childrearing until one year of age
+econ2,4223,"42.23 Monthly benefits for children until completion of secondary education, but not more than 20 years of age"
+econ2,4224,42.24 Lump-sum pregnancy grant
+econ2,4225,42.25 Targeted pupil benefits
+econ2,4241,42.41 Monthly supplements for children under the Law for the Integration of Persons with Disabilities
+econ2,4248,42.48 Targeted benefits for the disabled under the Law for the Integration of Persons with Disabilities
+econ2,4261,42.61 Monthly benefits under the Social Assistance Law
+econ2,4262,42.62 Lump-sum benefits under the Social Assistance Law
+econ2,4263,42.63 Targeted rent benefits under the Social Assistance Law
+econ2,4264,42.64 Targeted heating benefits under the Social Assistance Law
+econ2,4265,42.65 Disability benefits under the Social Assistance Law
+econ2,4269,42.69 Other benefits under the Social Assistance Law
+econ2,4271,42.71 Unemployment benefits
+econ2,4272,42.72 Benefits upon the termination of employment contract
+econ2,4281,42.81 Payments from the Fund for Guaranteed Employee Claims for employees of bankrupt enterprises
+econ2,4294,42.94 Other benefits at the discretion of the municipal council
+econ2,4298,42.98 Other benefits
+econ2,4300,43.00 Subsidies for non-financial enterprises
+econ2,4301,43.01 Subsidies for current activity
+econ2,4302,43.02 Subsidies for health care
+econ2,4309,43.09 Other subsidies and payments
+econ2,4400,44.00 Subsidies for financial enterprises
+econ2,4500,45.00 Subsidies for non-profit institutions
+econ2,4600,46.00 Expenses for membership dues and participation in non-profit organizations and activities
+econ2,4900,49.00 Provision of foreign aid
+econ2,4901,49.01 Provision of foreign aid - recurrent
+econ2,4902,49.02 Provision of foreign aid - capital
+econ2,5100,51.00 Capital repair of fixed tangible assets
+econ2,5200,52.00 Acquisition of fixed tangible assets
+econ2,5201,52.01 Acquisition of computers and hardware
+econ2,5202,52.02 Acquisition of buildings
+econ2,5203,52.03 Acquisition of machinery and equipment
+econ2,5204,52.04 Acquisition of vehicles
+econ2,5205,52.05 Acquisition of furniture and fixtures
+econ2,5206,52.06 Construction of infrastructure
+econ2,5219,52.19 Acquisition of other fixed tangible assets
+econ2,5300,53.00 Acquisition of intangible assets
+econ2,5301,53.01 Acquisition of software
+econ2,5309,53.09 Acquisition of other intangible assets
+econ2,5400,54.00 Acquisition of land
+econ2,5500,55.00 Capital transfers
+econ2,5501,55.01 Capital transfers for non-financial entities
+econ2,5502,55.02 Capital transfers for financial institutions
+econ2,5503,55.03 Capital transfers for non-profit organizations (NGOs)
+econ2,5504,55.04 Capital transfers for households
+econ2,5509,55.09 Capital expenditures in cases of natural disasters and emergencies
+econ2,5589,55.89 Other capital transfers
+econ2,5700,57.00 Gain in the state reserve and purchase of agricultural production
+econ2,5701,57.01 Expenditures to increase the state reserve
+econ2,5702,57.02 Expenditures for the purchase of agricultural production
+econ2,9700,97.00 Reserve
+econ2,9998,99.98 Reserve
+fin_source1,0,0 State budget
+fin_source1,1,1 Municipal budget (State-financed activity)
+fin_source1,2,2 Municipal budget (Municipality-financed activity)
+fin_source1,3,3 Municipal budget (Co-financed activity)
+fin_source1,4,4 Extrabudgetary accounts (Budget law funds)
+fin_source1,5,5 Other International Programmes
+fin_source1,6,6 Extrabudgetary accounts (Special funds)
+fin_source1,7,7 Other European Funds
+fin_source1,8,8 EU Agricultural Fund
+fin_source1,9,9 EU Cohesion and Structural Funds
+fin_source1,10,10 Other (Temporary Accounts)
+fin_source2,0,00 State or municipal budget
+fin_source2,10,10 Special Account for Privatization Receipts of Municipalities
+fin_source2,11,11 Fund for the Privatization Expenses of Municipalities
+fin_source2,12,12 Special Fund for Investments and Fixed Assets of Municipalities
+fin_source2,17,17 National Fund of the Ministry of Finance
+fin_source2,19,19 Fund for the Privatization Expenses in State-Owned Enterprises
+fin_source2,20,20 State Agricultural Fund
+fin_source2,22,22 Teachers' Pension Fund
+fin_source2,30,30 State Budget Law extrabudgetary accounts
+fin_source2,32,32 Other extrabudgetary accounts
+fin_source2,33,33 Other extrabudgetary accounts
+fin_source2,34,34 Other extrabudgetary accounts
+fin_source2,35,35 Other extrabudgetary accounts
+fin_source2,40,40 Municipal Budgets Law extrabudgetary accounts
+fin_source2,42,42 EU Agricultural Fund
+fin_source2,50,50 Management of Environmental Activities Enterprise
+fin_source2,60,60 Extra-budgetary account to the Minister of Finance for the funds from sale of Assigned Amount Units
+fin_source2,70,70 State company Strategic Infrastructure Projects
+fin_source2,96,96 Other European Funds
+fin_source2,97,97 Other International Programmes
+fin_source2,98,98 EU Operational Program Funds
+fin_source2,98101,98.101 EU Funds Operational Program 101
+fin_source2,98102,98.102 EU Funds Operational Program 102
+fin_source2,98111,98.111 EU Funds Operational Program 111
+fin_source2,98112,98.112 EU Funds Operational Program 112
+fin_source2,98121,98.121 EU Funds Operational Program 121
+fin_source2,98122,98.122 EU Funds Operational Program 122
+fin_source2,98201,98.201 EU Funds Operational Program 201
+fin_source2,98202,98.202 EU Funds Operational Program 202
+fin_source2,98204,98.204 EU Funds Operational Program 204
+fin_source2,98205,98.205 EU Funds Operational Program 205
+fin_source2,98210,98.210 EU Funds Operational Program 210
+fin_source2,98211,98.211 EU Funds Operational Program 211
+fin_source2,98212,98.212 EU Funds Operational Program 212
+fin_source2,98213,98.213 EU Funds Operational Program 213
+fin_source2,98214,98.214 EU Funds Operational Program 214
+fin_source2,98215,98.215 EU Funds Operational Program 215
+fin_source2,98221,98.221 EU Funds Operational Program 221
+fin_source2,98222,98.222 EU Funds Operational Program 222
+fin_source2,98223,98.223 EU Funds Operational Program 223
+fin_source2,98224,98.224 EU Funds Operational Program 224
+fin_source2,98225,98.225 EU Funds Operational Program 225
+fin_source2,98226,98.226 EU Funds Operational Program 226
+fin_source2,98227,98.227 EU Funds Operational Program 227
+fin_source2,98301,98.301 EU Funds Operational Program 301
+fin_source2,98302,98.302 EU Funds Operational Program 302
+fin_source2,98311,98.311 EU Funds Operational Program 311
+fin_source2,98312,98.312 EU Funds Operational Program 312
+fin_source2,98313,98.313 EU Funds Operational Program 313
+fin_source2,98315,98.315 EU Funds Operational Program 315
+fin_source2,98321,98.321 EU Funds Operational Program 321
+fin_source2,98322,98.322 EU Funds Operational Program 322
+fin_source2,98323,98.323 EU Funds Operational Program 323
+fin_source2,98324,98.324 EU Funds Operational Program 324
+exp_type,1,1 Personnel
+exp_type,2,2 Non-personnel recurrent
+exp_type,3,3 Capital
+exp_type,4,4 Other
+transfer,0,Excluding transfers
+transfer,1,Intrabudgetary transfers
+fin_source2,99001,99.001 Programme 99001 (Recovery and Resilience Plan; name to confirm)
