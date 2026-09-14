@@ -87,7 +87,9 @@ class AlbaniaExtractTest(unittest.TestCase):
         shutil.rmtree(TMP, ignore_errors=True)
 
     def test_extraction_matches_golden(self):
-        run_script(NB, env={"RAW_INPUT_DIR": INPUT_ROOT, "OUTPUT_DIR": OUT_DIR})
+        # run from Albania/ so the notebook's ./mapping.csv (admin2_new map) resolves
+        run_script(NB, env={"RAW_INPUT_DIR": INPUT_ROOT, "OUTPUT_DIR": OUT_DIR},
+                   cwd=os.path.join(REPO_ROOT, "Albania"))
 
         for name in ["2024.csv", "2024_rev.csv", "2025.csv", "2025_rev.csv"]:
             with open(os.path.join(OUT_DIR, name)) as fh:
