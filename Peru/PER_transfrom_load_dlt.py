@@ -423,7 +423,12 @@ def is_social_assistance():
     # Row 18: 2006-08 function1 "05 ASISTENCIA Y PREVISION SOCIAL", econ4 <> "14 PENSIONES";
     #         2009+   econ3 "22 PRESTACIONES Y ASISTENCIA SOCIAL".
     return (
-        (is_pre_2009() & (col("function1") == "05 ASISTENCIA Y PREVISION SOCIAL") & (col("econ4") != "14 PENSIONES"))
+        (is_pre_2009() & 
+         (col("function1") == "05 ASISTENCIA Y PREVISION SOCIAL") & 
+         (col("econ4") != "14 PENSIONES") & 
+         (col("econ2") != "1 PERSONAL Y OBLIGACIONES SOCIALES") &
+         (col("econ2") != "3 BIENES Y SERVICIOS") &
+         (col("econ1") != "6 GASTOS DE CAPITAL"))
         | (is_from_2009() & (col("econ3") == "22 PRESTACIONES Y ASISTENCIA SOCIAL"))
     )
 
