@@ -590,7 +590,7 @@ def quality_boost_econ_unknown():
     )
 
 @dlt.table(name='quality_boost_econ_sub_unknown')
-@dlt.expect_or_fail('country has no unknown econ sub agg', 'cci_row_count IS NOT NULL OR (country_name = "Peru" AND econ_sub = "Capital Expenditure (foreign spending)")')
+@dlt.expect_or_fail('country has no unknown econ sub agg', 'cci_row_count IS NOT NULL')
 def quality_boost_econ_sub_unknown():
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
     quality_cci_econ = (spark.table(f'{catalog}.{quality_source_schema}.quality_economic_sub_gold')
