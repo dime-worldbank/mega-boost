@@ -104,10 +104,8 @@ def is_public_order_and_safety():
     return is_judiciary() | is_public_safety()
 
 
-# Row 41 function1 lists, quoted as the sheet has them. In the 2006-08 list,
-# "11 PESCA" and "16 COMUNICACIONES" are 2009+ labels (the 2006-08 data uses
-# "12 PESCA" and "06 COMUNICACIONES"), so they match nothing in those years and
-# fisheries and telecoms stay in General public services there, as in the sheet.
+#TODO This is merely following the formula in the workbook, seems to be misclassification
+#From 2006-2008, TRABAJO in the Raw Tab has the code 15 not 07. We will come back when doing end to end 
 ECONOMIC_AFFAIRS_FUNCTION1_2006_2008 = [
     "07 TRABAJO",
     "08 COMERCIO",
@@ -140,7 +138,7 @@ def is_economic_affairs():
     return (
         (is_pre_2009() & col("function1").isin(ECONOMIC_AFFAIRS_FUNCTION1_2006_2008))
         | (is_from_2009() & col("function1").isin(ECONOMIC_AFFAIRS_FUNCTION1_FROM_2009))
-        | ((col("year") <= 2016) & (col("function3") == "0074 VIAS URBANAS"))
+        | ((col("year") <= 2016) & (col("function3") == "0074 VIAS URBANAS") & (col("function1") != "15 TRANSPORTE"))
     )
 
 
