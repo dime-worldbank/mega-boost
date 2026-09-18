@@ -51,6 +51,16 @@ def boost_silver():
     from_2009 = col('year') >= 2009
     from_2009_to_2016 = (col('year') >= 2009) & (col('year') <= 2016)
     from_2017 = col('year') >= 2017
+    # social assistance (row 18), used by both econ_sub and econ.
+    # Expert's comment: in 2006-2008 keep it exclusive of wage bill, goods and services and capital expenditures
+    social_assistance = (
+        (pre_2009 &
+         (col('function1') == '05 ASISTENCIA Y PREVISION SOCIAL') &
+         (col('econ4') != '14 PENSIONES') &
+         (col('econ2') != '1 PERSONAL Y OBLIGACIONES SOCIALES') &
+         (col('econ2') != '3 BIENES Y SERVICIOS') &
+         (col('econ1') != '6 GASTOS DE CAPITAL')) |
+        (from_2009 & (col('econ3') == '22 PRESTACIONES Y ASISTENCIA SOCIAL')))
     return (dlt.read(f'per_boost_bronze')
         # total expenditures (row 2)
         .filter(~((col('econ3') == '81 AMORTIZACION DE LA DEUDA') | col('econ3').startswith('71')))
@@ -118,14 +128,16 @@ def boost_silver():
                   (from_2009_to_2016 & (col('function1') == '17 MEDIO AMBIENTE')) |
                   ((col('year') >= 2017) & (col('year') <= 2021) & (col('function1') == '17 AMBIENTE')) |
                   ((col('year') >= 2022) & (col('function1') == '17 MEDIO AMBIENTE')), 'Environmental protection')
-            # economic affairs (row 41). In the 2006-2008 list only 04, 10 and 16 TRANSPORTE exist in those years
+            # economic affairs (row 41)
+            #TODO This is merely following the formula in the workbook, seems to be misclassification
+            #From 2006-2008, TRABAJO in the Raw Tab has the code 15 not 07. We will come back when doing end to end
             .when((pre_2009 & col('function1').isin(
                         '07 TRABAJO', '08 COMERCIO', '09 TURISMO', '04 AGRARIA', '11 PESCA', '10 ENERGIA Y RECURSOS MINERALES',
                         '13 MINERIA', '14 INDUSTRIA', '16 TRANSPORTE', '16 COMUNICACIONES')) |
                   (from_2009 & col('function1').isin(
                         '07 TRABAJO', '08 COMERCIO', '09 TURISMO', '10 AGROPECUARIA', '11 PESCA', '12 ENERGIA',
                         '13 MINERIA', '14 INDUSTRIA', '15 TRANSPORTE', '16 COMUNICACIONES')) |
-                  ((col('year') <= 2016) & (col('function3') == '0074 VIAS URBANAS')), 'Economic affairs')
+                  ((col('year') <= 2016) & (col('function3') == '0074 VIAS URBANAS') & (col('function1') != '15 TRANSPORTE')), 'Economic affairs')
             # housing (row 203)
             .when((pre_2009 & (col('function1') == '17 VIVIENDA Y DESARROLLO URBANO') & (col('function3') != '0074 VIAS URBANAS')) |
                   (from_2009_to_2016 & (col('function1') == '19 VIVIENDA Y DESARROLLO URBANO') & (col('function3') != '0074 VIAS URBANAS')) |
@@ -152,8 +164,7 @@ def boost_silver():
             .when((pre_2009 & (col('econ4') == '14 PENSIONES')) |
                   (from_2009 & (col('econ3') == '21 PENSIONES')), 'Pensions')
             # social assistance (row 18)
-            .when((pre_2009 & (col('function1') == '05 ASISTENCIA Y PREVISION SOCIAL') & (col('econ4') != '14 PENSIONES')) |
-                  (from_2009 & (col('econ3') == '22 PRESTACIONES Y ASISTENCIA SOCIAL')), 'Social Assistance')
+            .when(social_assistance, 'Social Assistance')
             # basic services (row 12), no formula before 2009
             .when(from_2009 & (col('econ4') == '3202 SERVICIOS BASICOS, COMUNICACIONES, PUBLICIDAD Y DIFUSION'), 'Basic Services')
             # employment contracts (row 13)
@@ -177,10 +188,9 @@ def boost_silver():
             .when(col('econ1') == '6 GASTOS DE CAPITAL', 'Capital expenditures')
             # social benefits (row 17 = social assistance + pensions). Spelled out instead of using econ_sub because
             # in 2006-2008 some social assistance lines are tagged as pension contributions in econ_sub
-            .when((pre_2009 & (
-                        (col('econ4') == '14 PENSIONES') |
-                        ((col('function1') == '05 ASISTENCIA Y PREVISION SOCIAL') & (col('econ4') != '14 PENSIONES')))) |
-                  (from_2009 & col('econ3').isin('21 PENSIONES', '22 PRESTACIONES Y ASISTENCIA SOCIAL')), 'Social benefits')
+            .when((pre_2009 & (col('econ4') == '14 PENSIONES')) |
+                  (from_2009 & (col('econ3') == '21 PENSIONES')) |
+                  social_assistance, 'Social benefits')
             # interest on debt (row 26)
             .when((pre_2009 & (col('econ2') == '78 INTERESES Y CARGOS DE LA DEUDA')) |
                   (from_2009 & (col('econ3') == '82 INTERESES DE LA DEUDA')), 'Interest on debt')
