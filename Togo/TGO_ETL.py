@@ -1,6 +1,7 @@
 # Databricks notebook source
 import csv
 import os
+from glob import glob
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -10,54 +11,79 @@ IS_DATABRICKS = "DATABRICKS_RUNTIME_VERSION" in os.environ
 
 # COMMAND ----------
 
+def largest_sheet(path):
+    """Name of the workbook's sheet with the most non-empty rows."""
+    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    try:
+        return max(
+            wb.sheetnames,
+            key=lambda name: sum(
+                any(cell is not None for cell in row)
+                for row in wb[name].iter_rows(values_only=True)
+            ),
+        )
+    finally:
+        wb.close()
+
+
+def read_clean_sheet(path, sheet):
+    # Read header rows to extract CODE_* columns for type enforcement
+    header = pd.read_excel(path, sheet_name=sheet, nrows=0)
+    dtype_dict = {col: str for col in header.columns if col.startswith("CODE_")}
+
+    # Add numeric columns to enforce as float64
+    for col in ["ORDONNANCER", "DOTATION_INITIALE", "DOTATION_FINALE"]:
+        dtype_dict[col] = "float64"
+
+    # Read full sheet with specified dtypes
+    df = pd.read_excel(path, sheet_name=sheet, dtype=dtype_dict)
+
+    df = df[[col for col in df.columns if col and not str(col).startswith("Unnamed")]]
+    df.columns = [col.strip() for col in df.columns]
+    df.dropna(how='all', inplace=True)
+    return df
+
+# COMMAND ----------
+
 if IS_DATABRICKS:
     TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
-    INPUT_DIR = f"{TOP_DIR}/Documents/input/Countries"
+    RAW_INPUT_DIR = f"{TOP_DIR}/Documents/input/Data from authorities"
     COUNTRY = 'Togo'
-    filename = f"{INPUT_DIR}/{COUNTRY} BOOST.xlsx"
-    sheet_name = "2021_A_2025"
-else: 
-    filename = os.environ.get('INPUT_FILE_NAME') or input("Enter the path to the input Excel file (e.g. /path/to/input.xlsx): ").strip()
-    sheet_name = os.environ.get('INPUT_SHEET_NAME') or input("Enter the name of the sheet in the Excel file (e.g. data): ").strip()
-
-# Read header rows to extract CODE_* columns for type enforcement
-preview_df = pd.read_excel(filename, sheet_name=sheet_name, nrows=0)
-code_cols = [col for col in preview_df.columns if col.startswith("CODE_")]
-dtype_dict = {col: str for col in code_cols}
-
-# Add numeric columns to enforce as float64
-for col in ["ORDONNANCER", "DOTATION_INITIALE", "DOTATION_FINALE"]:
-    dtype_dict[col] = "float64"
-
-# Read full sheet with specified dtypes
-df = pd.read_excel(filename, sheet_name=sheet_name, dtype=dtype_dict)
-df
-
-# COMMAND ----------
-
-df = df[[col for col in df.columns if col and not str(col).startswith("Unnamed")]]
-df.columns = [col.strip() for col in df.columns]
-df.dropna(how='all', inplace=True)
-df
-
-# COMMAND ----------
-
-if IS_DATABRICKS:
+    input_dir = f"{RAW_INPUT_DIR}/{COUNTRY}"
     WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
-    microdata_csv_dir = f'{WORKSPACE_DIR}/microdata_csv/{COUNTRY}'
-    Path(microdata_csv_dir).mkdir(parents=True, exist_ok=True)
-    csv_file_path = f'{microdata_csv_dir}/{sheet_name}.csv'
+    bronze_dir = f'{WORKSPACE_DIR}/microdata_csv/{COUNTRY}'
 else:
-    output_dir = os.environ.get('OUTPUT_DIR') or input("Enter the output directory (e.g. /path/to/output/): ").strip()
-    csv_file_path = f'{output_dir}{sheet_name}.csv'
+    input_dir = os.environ.get('INPUT_DIR') or input("Enter the directory containing the input Excel file(s) (e.g. /path/to/dir): ").strip()
+    bronze_dir = os.environ.get('OUTPUT_DIR') or input("Enter the output directory (e.g. /path/to/output/): ").strip()
+    output_dir = bronze_dir  # reused by the silver/gold CSV exports below
 
-# Save bronze data to CSV
-df.to_csv(
-    csv_file_path,
-    index=False,
-    encoding='utf-8',
-    quoting=csv.QUOTE_NONNUMERIC
+# Ingest every workbook in the folder, taking each file's sheet with the most data. Only the
+# consolidated new-format .xlsx export(s) are picked up; legacy per-year files are the old .xls
+# format (BUDGET 2009.xls ... BUDGET 2021.xls), use a different column structure, and are not
+# yet harmonized.
+input_files = sorted(glob(f"{input_dir}/*.xlsx"))
+assert input_files, f"No xlsx files found under {input_dir}"
+sheets = {path: largest_sheet(path) for path in input_files}
+
+Path(bronze_dir).mkdir(parents=True, exist_ok=True)
+
+# COMMAND ----------
+
+# Read every source sheet (largest per file) and combine for the silver/gold steps
+df = pd.concat(
+    [read_clean_sheet(path, sheet) for path, sheet in sheets.items()],
+    ignore_index=True,
 )
+
+# Save bronze data as one CSV per year
+for year, year_df in df.groupby("YEAR"):
+    year_df.to_csv(
+        os.path.join(bronze_dir, f'{int(year)}.csv'),
+        index=False,
+        encoding='utf-8',
+        quoting=csv.QUOTE_NONNUMERIC,
+    )
+df
 
 # COMMAND ----------
 
@@ -277,7 +303,7 @@ if IS_DATABRICKS:
 else:
     # TODO: directly write to relational database when credentials are available
     df_silver.to_csv(
-        f"{output_dir}tgo_2021_onward_boost_silver.csv",
+        os.path.join(output_dir, "tgo_2021_onward_boost_silver.csv"),
         index=False,
         encoding='utf-8',
         quoting=csv.QUOTE_NONNUMERIC
@@ -316,7 +342,7 @@ if IS_DATABRICKS:
 else:
     # TODO: directly write to relational database when credentials are available
     df_gold.to_csv(
-        f"{output_dir}tgo_boost_gold.csv",
+        os.path.join(output_dir, "tgo_boost_gold.csv"),
         index=False,
         encoding='utf-8',
         quoting=csv.QUOTE_NONNUMERIC
