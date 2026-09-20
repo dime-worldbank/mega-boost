@@ -380,6 +380,7 @@ excluded_country_year_conditions = (
     (F.col('country_name') == 'South Africa') & (F.col('year') == 2025) |
     (F.col('country_name') == 'Togo') & (F.col('year').isin(list(range(2009, 2021)))) | # TODO
     (F.col('country_name') == 'Burundi') & (F.col('year') == 2018) |
+    (F.col('country_name') == 'Burundi') & (F.col('year') == 2024) | # 2024 executed is not in CCI data, only approved
     (F.col('country_name') == 'Liberia') & (F.col('year') == 2025) # 2025 executed is not in CCI data, only approved
 )
 
