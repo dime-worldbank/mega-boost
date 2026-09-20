@@ -50,6 +50,15 @@ HOUSING_ADMIN2_CODES_2013_15 = (
     "11019",
 )
 
+# econ4 labels of the 2013-15 Air transport leaf, lower-cased with and without
+# accents.
+AIR_TRANSPORT_ECON4_2013_15 = (
+    "2136 protection de l'aeroport international de bujumbura par la dragage de la riviere mutimbuzi",
+    "2128 construction cloture securisee aeroport de bujumbura",
+    "2136 aéroports",
+    "2136 aeroports",
+)
+
 
 def starts_with_any(column_name, prefixes):
     """Build one Spark predicate from a unique collection of code prefixes."""
@@ -136,6 +145,9 @@ def boost_silver():
     is_2013_15 = year.isin(2013, 2014, 2015)
     is_2016_17 = year.isin(2016, 2017)
     is_2019_24 = year.isin(2019, 2020, 2021, 2022, 2023, 2024)
+    is_2016_24 = is_2016_17 | is_2019_24
+    # Years whose Judiciary, Public safety and Agriculture leaves use admin1.
+    is_admin1_year = is_2013_15 | (year == 2017) | is_2019_24
 
     is_social_benefit_code = starts_with_any("Econ_3", ("616", "672", "673"))
     is_wage_bill = normalized_text("Econ_1").isin(
@@ -240,53 +252,86 @@ def boost_silver():
         .withColumn("_is_education", is_education)
         .withColumn(
             "func_sub",
-            when(col("func2").startswith("7033"), "Judiciary")
-            .when(col("func1").startswith("703"), "Public Safety")
-            .when(col("func2").startswith("7042"), "Agriculture")
-            .when(col("func3").startswith("70451") | (lower(col("road")) == "y"), "Roads")
+            # Every branch is the workbook formula of its leaf, with the same
+            # year switch between ministry codes and COFOG codes.
+            when(
+                (is_admin1_year & starts_with_any("Admin_1", ("74", "75", "76", "16 ")))
+                | ((year == 2016) & col("func2").startswith("7033")),
+                "Judiciary",
+            )
             .when(
-                col("func3").startswith("70453")
-                | starts_with_any("Admin_2", ("45513", "45523", "41515", "41523")),
+                (is_admin1_year & col("Admin_1").startswith("11 "))
+                | (
+                    (year == 2016)
+                    & col("func1").startswith("703")
+                    & ~col("func2").startswith("7033")
+                ),
+                "Public Safety",
+            )
+            .when(
+                (is_admin1_year & col("Admin_1").startswith("40 "))
+                | ((year == 2016) & col("func2").startswith("7042")),
+                "Agriculture",
+            )
+            .when(
+                (
+                    is_2013_15
+                    & (lower(col("road")) == "y")
+                    & ~starts_with_any("Admin_2", ("45513", "45523"))
+                )
+                | (is_2016_24 & col("func3").startswith("70451")),
+                "Roads",
+            )
+            .when(
+                (
+                    is_2013_15
+                    & starts_with_any("Admin_2", ("45513", "45523", "41515", "41523"))
+                )
+                | (is_2016_24 & col("func3").startswith("70453")),
                 "Railroads",
             )
+            .when(is_2016_24 & col("func3").startswith("70452"), "Water Transport")
             .when(
-                col("func3").startswith("70454") | col("Econ_4").startswith("2136"),
+                (
+                    is_2013_15
+                    & (
+                        normalized_text("Econ_4").isin(*AIR_TRANSPORT_ECON4_2013_15)
+                        | col("Admin_2").startswith("45528")
+                    )
+                )
+                | (is_2016_24 & col("func3").startswith("70454")),
                 "Air Transport",
             )
-            .when(col("func2").startswith("7043"), "Energy")
-            .when(col("func2").startswith("7046"), "Telecom")
+            # Transport is the rest of the workbook's transport total once the
+            # four modes above are taken out.
+            .when(
+                (is_2013_15 & col("Admin_1").startswith("45 "))
+                | (is_2016_24 & col("func2").startswith("7045")),
+                "Transport",
+            )
+            .when(
+                (is_2013_15 & col("Admin_1").startswith("42 "))
+                | (is_2016_24 & col("func2").startswith("7043")),
+                "Energy",
+            )
+            .when(
+                (is_2013_15 & col("Admin_1").startswith("18 "))
+                | (is_2016_24 & col("func2").startswith("7046")),
+                "Telecom",
+            )
             # One reusable predicate implements the complete Water rule. The
             # admin2 42503 criterion appears exactly once.
             .when(col("_is_water_and_sanitation"), "Water Supply")
-            .when(col("func2").startswith("7091"), "Primary Education")
-            .when(col("func2").startswith("7092"), "Secondary Education")
-            .when(col("func2").startswith("7094"), "Tertiary Education")
-            # Fallbacks for years without complete COFOG subfunctions.
+            .when(is_2016_24 & col("func2").startswith("7091"), "Primary Education")
+            .when(is_2016_24 & col("func2").startswith("7092"), "Secondary Education")
             .when(
-                starts_with_any("Admin_1", ("74", "75", "76"))
-                | lower(col("Admin_1")).contains("justice"),
-                "Judiciary",
-            )
-            .when(lower(col("Admin_1")).contains("securite publique"), "Public Safety")
-            .when(lower(col("Admin_1")).contains("agriculture"), "Agriculture")
-            .when(
-                lower(col("Admin_1")).contains("transport")
-                | lower(col("Admin_1")).contains("travaux publics"),
-                "Transport",
-            )
-            .when(lower(col("Admin_1")).contains("energie"), "Energy")
-            .when(
-                lower(col("Admin_1")).contains("postes")
-                | lower(col("Admin_1")).contains("communication"),
-                "Telecom",
-            )
-            .when(
-                lower(col("Admin_1")).contains("enseignement superieur"),
+                (is_2013_15 & col("Admin_1").startswith("31 "))
+                | (is_2016_24 & col("func2").startswith("7094")),
                 "Tertiary Education",
             )
+            # 2013-15 only: Education minus Tertiary, i.e. ministry 32.
             .when(
-                lower(col("Admin_1")).contains("education")
-                | lower(col("Admin_1")).contains("enseignement"),
+                is_2013_15 & col("Admin_1").startswith("32 "),
                 "Primary and Secondary education",
             ),
         )
@@ -332,22 +377,20 @@ def boost_silver():
             .when(col("Econ_1").startswith("4 "), "Capital expenditures")
             .when(is_goods_and_services, "Goods and services")
             .when(col("Econ_1").startswith("5 "), "Subsidies")
-            .when(
-                col("Econ_3").startswith("664") | col("Econ_3").startswith("666"),
-                "Other grants and transfers",
-            )
+            .when(col("Econ_3").startswith("664"), "Other grants and transfers")
             .when(col("Econ_1").startswith("3 "), "Interest on debt")
             .otherwise("Other expenses"),
         )
         # FY2015 has no direct execution column in the workbook. Preserve its
-        # approved-times-execution-scale method. Every other year, including
-        # FY2024, uses Ordered_to_pay directly.
+        # approved-times-execution-scale method. The Executed sheet has no
+        # FY2024 values, so FY2024 stays empty. Every other year uses
+        # Ordered_to_pay directly.
         .withColumn(
             "executed",
             when(
                 col("Year") == 2015,
                 col("Credit") * lit(719503643911 / 793650121655),
-            ).otherwise(col("Ordered_to_pay")),
+            ).when(col("Year") != 2024, col("Ordered_to_pay")),
         )
         # Keep func_sub consistent with the final func owner.
         .withColumn(
@@ -373,6 +416,7 @@ def boost_silver():
                         "Agriculture",
                         "Roads",
                         "Railroads",
+                        "Water Transport",
                         "Air Transport",
                         "Transport",
                         "Energy",
@@ -399,7 +443,8 @@ def boost_silver():
             "geo0",
             when(col("geo1") == "Central Scope", "Central").otherwise("Regional"),
         )
-        .withColumn("is_foreign", col("Econ_2").startswith("27 "))
+        # The workbook has no formula for any foreign-funded row.
+        .withColumn("is_foreign", lit(None).cast("boolean"))
         .drop(
             "_is_water_and_sanitation",
             "_is_social_protection",
@@ -416,9 +461,7 @@ def boost_silver():
     return df
 
 # The DLT output is line-level, so it does not need 26 separate Excel aggregate
-# formulas. The same classification rules run for all rows, and this expectation
-# confirms that FY2024 Executed coverage is present in the published output.
-@dlt.expect("fy2024_executed_available", "year <> 2024 OR executed IS NOT NULL")
+# formulas. The same classification rules run for all rows.
 @dlt.expect("classifications_available", "func IS NOT NULL AND econ IS NOT NULL")
 @dlt.table(name="bdi_boost_gold")
 def boost_gold():
