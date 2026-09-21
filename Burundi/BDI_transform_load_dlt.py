@@ -150,6 +150,7 @@ def boost_silver():
     is_admin1_year = is_2013_15 | (year == 2017) | is_2019_24
 
     is_social_benefit_code = starts_with_any("Econ_3", ("616", "672", "673"))
+    is_social_assistance_code = col("Econ_3").startswith("672")
     is_wage_bill = normalized_text("Econ_1").isin(
         "1 rémunérations des salariés",
         "1 remunerations des salaries",
@@ -158,11 +159,15 @@ def boost_silver():
     )
     is_goods_and_services = col("Econ_1").startswith("2 ")
 
-    # Social protection owns all intersections driven by 616/672/673. For
-    # 2016-17, the workbook uses COFOG 710 instead of the economic codes.
+    # Expert decision: for 2013-15 Social protection is Social assistance (672)
+    # only, not the workbook's full Social benefits row, and 672 is left out of
+    # every other 2013-15 functional category. For 2016-17, the workbook uses
+    # COFOG 710 instead of the economic codes. For 2019-24 Social protection
+    # owns all intersections driven by 616/672/673.
     is_social_protection = (
-        (is_2016_17 & col("func1").startswith("710"))
-        | ((is_2013_15 | is_2019_24) & is_social_benefit_code)
+        (is_2013_15 & is_social_assistance_code)
+        | (is_2016_17 & col("func1").startswith("710"))
+        | (is_2019_24 & is_social_benefit_code)
     )
 
     is_water_and_sanitation = (
@@ -178,23 +183,28 @@ def boost_silver():
 
     is_housing = (
         is_2013_15
+        & ~is_social_assistance_code
         & (
             is_water_and_sanitation
             | starts_with_any("Admin_2", HOUSING_ADMIN2_CODES_2013_15)
         )
     ) | ((is_2016_17 | is_2019_24) & col("func1").startswith("706"))
 
-    is_defence = col("Admin_1").startswith("13 ")
+    is_defence = col("Admin_1").startswith("13 ") & ~(
+        is_2013_15 & is_social_assistance_code
+    )
     is_public_order = (
         ((year == 2016) & col("func1").startswith("703"))
         | (
             (is_2013_15 | (year == 2017) | is_2019_24)
             & starts_with_any("Admin_1", ("74", "75", "76", "16 ", "11 "))
+            & ~(is_2013_15 & is_social_assistance_code)
         )
     )
     is_economic_affairs = (
         (
             is_2013_15
+            & ~is_social_assistance_code
             & starts_with_any("Admin_1", ("40 ", "45 ", "42 ", "18 ", "41"))
         )
         | (
@@ -214,12 +224,17 @@ def boost_silver():
         )
     )
     is_environment = (
-        (is_2013_15 & (lower(col("environment")) == "y"))
+        (
+            is_2013_15
+            & ~is_social_assistance_code
+            & (lower(col("environment")) == "y")
+        )
         | ((is_2016_17 | is_2019_24) & col("func1").startswith("705"))
     )
     is_health = (
         (
             is_2013_15
+            & ~is_social_assistance_code
             & (
                 col("Admin_1").startswith("33 ")
                 | normalized_text("Econ_4").isin(
@@ -231,11 +246,19 @@ def boost_silver():
         | ((is_2016_17 | is_2019_24) & col("func1").startswith("707"))
     )
     is_recreation = (
-        (is_2013_15 & col("Admin_1").startswith("37 "))
+        (
+            is_2013_15
+            & ~is_social_assistance_code
+            & col("Admin_1").startswith("37 ")
+        )
         | ((is_2016_17 | is_2019_24) & col("func1").startswith("708"))
     )
     is_education = (
-        (is_2013_15 & starts_with_any("Admin_1", ("31 ", "32 ")))
+        (
+            is_2013_15
+            & ~is_social_assistance_code
+            & starts_with_any("Admin_1", ("31 ", "32 "))
+        )
         | ((is_2016_17 | is_2019_24) & col("func1").startswith("709"))
     )
 
@@ -353,7 +376,6 @@ def boost_silver():
         .withColumn(
             "econ_sub",
             when(col("Econ_3").startswith("672"), "Social Assistance")
-            .when(col("Econ_3").startswith("616"), "Pensions")
             .when(col("Econ_3").startswith("673"), "Other Social Benefits")
             .when(
                 col("Econ_3").startswith("614") | col("Econ_3").startswith("615"),
