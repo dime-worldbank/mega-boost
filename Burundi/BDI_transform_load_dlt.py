@@ -149,7 +149,7 @@ def boost_silver():
     # Years whose Judiciary, Public safety and Agriculture leaves use admin1.
     is_admin1_year = is_2013_15 | (year == 2017) | is_2019_24
 
-    is_social_benefit_code = starts_with_any("Econ_3", ("616", "672", "673"))
+    is_social_benefit_code = starts_with_any("Econ_3", ("616", "673"))
     is_social_assistance_code = col("Econ_3").startswith("672")
     is_wage_bill = normalized_text("Econ_1").isin(
         "1 rémunérations des salariés",
@@ -159,15 +159,10 @@ def boost_silver():
     )
     is_goods_and_services = col("Econ_1").startswith("2 ")
 
-    # Expert decision: for 2013-15 Social protection is Social assistance (672)
-    # only, not the workbook's full Social benefits row, and 672 is left out of
-    # every other 2013-15 functional category. For 2016-17, the workbook uses
-    # COFOG 710 instead of the economic codes. For 2019-24 Social protection
-    # owns all intersections driven by 616/672/673.
     is_social_protection = (
         (is_2013_15 & is_social_assistance_code)
         | (is_2016_17 & col("func1").startswith("710"))
-        | (is_2019_24 & is_social_benefit_code)
+        | (is_2019_24 & is_social_assistance_code)
     )
 
     is_water_and_sanitation = (
