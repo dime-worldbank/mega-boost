@@ -149,7 +149,7 @@ def boost_silver():
     # Years whose Judiciary, Public safety and Agriculture leaves use admin1.
     is_admin1_year = is_2013_15 | (year == 2017) | is_2019_24
 
-    is_social_benefit_code = starts_with_any("Econ_3", ("616", "673"))
+    is_social_benefit_code = starts_with_any("Econ_3", ("672", "673"))
     is_social_assistance_code = col("Econ_3").startswith("672")
     is_wage_bill = normalized_text("Econ_1").isin(
         "1 rémunérations des salariés",
@@ -394,8 +394,8 @@ def boost_silver():
             "econ",
             # Social benefits owns the 616/672/673 intersection with Wage bill;
             # Wage bill owns the 6212 intersection with Goods and services.
-            when(is_social_benefit_code, "Social benefits")
-            .when(is_wage_bill, "Wage bill")
+            when(is_wage_bill, "Wage bill")
+            .when(is_social_benefit_code, "Social benefits")
             .when(col("Econ_1").startswith("4 "), "Capital expenditures")
             .when(is_goods_and_services, "Goods and services")
             .when(col("Econ_1").startswith("5 "), "Subsidies")
