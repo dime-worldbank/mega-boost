@@ -201,6 +201,7 @@ def boost_silver():
             is_2013_15
             & ~is_social_assistance_code
             & starts_with_any("Admin_1", ("40 ", "45 ", "42 ", "18 ", "41"))
+            & ~starts_with_any("Admin_2", ("42009", "42011", "42503"))
         )
         | (
             (year == 2016)
@@ -328,7 +329,11 @@ def boost_silver():
                 "Transport",
             )
             .when(
-                (is_2013_15 & col("Admin_1").startswith("42 "))
+                (
+                    is_2013_15
+                    & col("Admin_1").startswith("42 ")
+                    & ~starts_with_any("Admin_2", ("42009", "42011", "42503"))
+                )
                 | (is_2016_24 & col("func2").startswith("7043")),
                 "Energy",
             )
