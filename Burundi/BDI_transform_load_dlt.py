@@ -85,6 +85,11 @@ def boost_silver():
             .when(col('geo1') == 'Bujumbura Rural', 'Bujumbura')
             .when(col('geo1') == 'Kirundi', 'Kirundo')
             .otherwise(col('geo1'))
+        # Burundi is a special case where geo has more information than admin: all spending is by the
+        # central government (admin0 = Central), but Geo tells which province it was spent in
+        ).withColumn('geo0',
+            when(col('geo1') == 'Central Scope', 'Central')
+            .otherwise('Regional')
         ).withColumn('func',
             # social protection (row 257). Expert decision: social assistance (672) only in 2013-2015 and 2019-2024,
             # and no other function keeps those lines in 2013-2015
@@ -238,6 +243,7 @@ def boost_gold():
                 'admin0',
                 'admin1',
                 'admin2',
+                'geo0',
                 'geo1',
                 # the workbook has no foreign funding formula
                 lit(None).cast('boolean').alias('is_foreign'),
