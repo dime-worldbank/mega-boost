@@ -1,25 +1,13 @@
 # Databricks notebook source
-import re
-
 import dlt
-from pyspark.sql.functions import (
-    coalesce,
-    col,
-    expr,
-    initcap,
-    lit,
-    lower,
-    regexp_replace,
-    trim,
-    when,
-)
+from pyspark.sql.functions import coalesce, col, initcap, lit, lower, regexp_replace, substring, trim, when
 from pyspark.sql.types import DoubleType
 
 TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
+INPUT_DIR = f"{TOP_DIR}/Documents/input/Countries"
 WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
-COUNTRY = "Burundi"
-COUNTRY_MICRODATA_DIR = f"{WORKSPACE_DIR}/microdata_csv/{COUNTRY}"
-COUNTRY_MICRODATA_FILE = f"{COUNTRY_MICRODATA_DIR}/Expenditure.csv"
+COUNTRY = 'Burundi'
+COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/microdata_csv/{COUNTRY}'
 
 CSV_READ_OPTIONS = {
     "header": "true",
@@ -28,483 +16,234 @@ CSV_READ_OPTIONS = {
     "escape": '"',
 }
 
-# These codes occur in the 2013-15 Water & sanitation leaf. Keeping them in one
-# unique list prevents admin2 = 42503 from being added twice.
-WATER_ADMIN2_CODES_2013_15 = (
-    "44012",
-    "44013",
-    "44014",
-    "42011",
-    "44503",
-    "44510",
-    "42503",
-)
-
-HOUSING_ADMIN2_CODES_2013_15 = (
-    "45017",
-    "09018",
-    "45016",
-    "44011",
-    "44008",
-    "45013",
-    "11019",
-)
-
-# econ4 labels of the 2013-15 Air transport leaf, lower-cased with and without
-# accents.
-AIR_TRANSPORT_ECON4_2013_15 = (
-    "2136 protection de l'aeroport international de bujumbura par la dragage de la riviere mutimbuzi",
-    "2128 construction cloture securisee aeroport de bujumbura",
-    "2136 aéroports",
-    "2136 aeroports",
-)
-
-
-def starts_with_any(column_name, prefixes):
-    """Build one Spark predicate from a unique collection of code prefixes."""
-    predicate = lit(False)
-    for prefix in dict.fromkeys(prefixes):
-        predicate = predicate | col(column_name).startswith(prefix)
-    return predicate
-
-
-def normalized_text(column_name):
-    return lower(
-        regexp_replace(
-            trim(coalesce(col(column_name), lit(""))),
-            "’",
-            "'",
-        )
-    )
-
-
 @dlt.expect_or_drop("year_not_null", "Year IS NOT NULL")
-@dlt.table(name="bdi_boost_bronze")
+@dlt.table(name=f'bdi_boost_bronze')
 def boost_bronze():
-    bronze_df = (
-        spark.read.format("csv")
+    bronze_df = (spark.read
+        .format("csv")
         .options(**CSV_READ_OPTIONS)
         .option("inferSchema", "true")
-        .load(COUNTRY_MICRODATA_FILE)
+        .load(f'{COUNTRY_MICRODATA_DIR}/Expenditure.csv')
     )
     for old_col_name in bronze_df.columns:
-        new_col_name = re.sub(r"[ ,;{}()\n\t=]+", "_", old_col_name).strip("_")
+        new_col_name = old_col_name.replace(" ", "_")
         bronze_df = bronze_df.withColumnRenamed(old_col_name, new_col_name)
     return bronze_df
 
-@dlt.table(name="bdi_boost_silver")
+@dlt.table(name=f'bdi_boost_silver')
 def boost_silver():
-    df = (
-        dlt.read("bdi_boost_bronze")
-        .withColumn("Year", col("Year").cast("int"))
-        .withColumn("Econ_1", coalesce(col("Econ_1"), lit("")))
-        .withColumn("Econ_2", coalesce(col("Econ_2"), lit("")))
-        .withColumn("Econ_3", coalesce(col("Econ_3"), lit("")))
-        .withColumn("Econ_4", coalesce(col("Econ_4"), lit("")))
-        .withColumn("func1", coalesce(col("func1"), lit("")))
-        .withColumn("func2", coalesce(col("func2"), lit("")))
-        .withColumn("func3", coalesce(col("func3"), lit("")))
-        .withColumn("Admin_1", coalesce(col("Admin_1"), lit("")))
-        .withColumn("Admin_2", coalesce(col("Admin_2"), lit("")))
-        .withColumn("Geo", coalesce(col("Geo"), lit("")))
-        .withColumn("road", coalesce(col("road"), lit("")))
-        .withColumn("environment", coalesce(col("environment"), lit("")))
-        # The BOOST workbook excludes debt-principal repayment from the audit
-        # categories. Apply that rule once, before any classification.
-        .filter(~col("Econ_1").startswith("9 "))
-        .withColumn("admin0", lit("Central"))
-        .withColumn("admin1", lit("Central Scope"))
-        .withColumn(
-            "admin2",
-            initcap(trim(regexp_replace(col("Admin_1"), "^[0-9\\s]*", ""))),
-        )
-        .withColumn(
-            "geo1",
-            when(
-                (col("Geo") == "")
-                | col("Geo").startswith("00")
-                | lower(col("Geo")).contains("n/a"),
-                "Central Scope",
-            ).otherwise(
-                initcap(trim(regexp_replace(col("Geo"), "^[0-9\\s]*", "")))
-            ),
-        )
-        .withColumn(
-            "geo1",
-            when(
-                col("geo1").isin("Bujumbura Mairie", "Bujumbura - Mairie"),
-                "Mairie de Bujumbura",
+    # Each condition is the SUMIFS criteria of one row of "Burundi BOOST.xlsx" (row numbers are the
+    # Executed sheet's; approved uses the same criteria). The workbook uses ministry codes in 2013-2015
+    # and COFOG codes from 2016; judiciary, public safety and agriculture go back to ministry codes after 2016.
+    # Where the workbook counts a line in two rows, the order of the when() decides which keeps it
+    from_2013_to_2015 = (col('year') >= 2013) & (col('year') <= 2015)
+    from_2016_to_2017 = (col('year') >= 2016) & (col('year') <= 2017)
+    from_2019_to_2024 = (col('year') >= 2019) & (col('year') <= 2024)
+    from_2016_to_2024 = from_2016_to_2017 | from_2019_to_2024 # no 2018 data
+    not_2016 = from_2013_to_2015 | (col('year') == 2017) | from_2019_to_2024
+    water_admin2 = ['44012', '44013', '44014', '42011', '44503', '44510', '42503']
+    housing_admin2 = ['45017', '09018', '45016', '44011', '44008', '45013', '11019']
+    # social assistance (row 18), used by func, econ_sub and econ
+    social_assistance = col('Econ_3').startswith('672')
+    # wage bill (row 4), used by both econ_sub and econ
+    wage_bill = col('Econ_1').startswith('1 ') | (col('Econ_4') == '6212 Stage de premier emploi pour 250 jeunes')
+    # water and sanitation (row 205), used by both func and func_sub. The workbook lists admin2 42503 twice
+    water_and_sanitation = (
+        (from_2013_to_2015 & (
+            substring(col('Admin_2'), 1, 5).isin(water_admin2) |
+            col('Econ_4').startswith('2132 Reseaux adduction'))) |
+        (from_2016_to_2024 & col('func2').startswith('7062')))
+    return (dlt.read(f'bdi_boost_bronze')
+        .withColumn('Econ_1', coalesce(col('Econ_1'), lit('')))
+        .withColumn('Econ_3', coalesce(col('Econ_3'), lit('')))
+        .withColumn('Econ_4', coalesce(col('Econ_4'), lit('')))
+        .withColumn('func1', coalesce(col('func1'), lit('')))
+        .withColumn('func2', coalesce(col('func2'), lit('')))
+        .withColumn('func3', coalesce(col('func3'), lit('')))
+        .withColumn('Admin_1', coalesce(col('Admin_1'), lit('')))
+        .withColumn('Admin_2', coalesce(col('Admin_2'), lit('')))
+        .withColumn('Geo', coalesce(col('Geo'), lit('')))
+        .withColumn('road', coalesce(col('road'), lit('')))
+        .withColumn('environment', coalesce(col('environment'), lit('')))
+        .withColumn('year', col('Year').cast('int'))
+        # total expenditures (row 2)
+        .filter(~col('Econ_1').startswith('9 '))
+        # 2015 has no execution data: the workbook scales approved by the 2014 execution rate
+        # (Executed!K2 / approved!K2). The Executed sheet has no 2024 values
+        .withColumn('executed',
+            when(col('year') == 2015, col('Credit') * lit(719503643911 / 793650121655))
+            .when(col('year') != 2024, col('Ordered_to_pay'))
+        ).withColumn('admin0', lit('Central')
+        ).withColumn('admin1', lit('Central Scope')
+        ).withColumn('admin2',
+            initcap(trim(regexp_replace(col('Admin_1'), '^[0-9\\s]*', '')))
+        ).withColumn('geo1',
+            when((col('Geo') == '') | col('Geo').startswith('00') | lower(col('Geo')).contains('n/a'), 'Central Scope')
+            .otherwise(initcap(trim(regexp_replace(col('Geo'), '^[0-9\\s]*', ''))))
+        ).withColumn('geo1',
+            when(col('geo1').isin('Bujumbura Mairie', 'Bujumbura - Mairie'), 'Mairie de Bujumbura')
+            .when(col('geo1') == 'Bujumbura Rural', 'Bujumbura')
+            .when(col('geo1') == 'Kirundi', 'Kirundo')
+            .otherwise(col('geo1'))
+        ).withColumn('func',
+            # social protection (row 257). Expert decision: social assistance (672) only in 2013-2015 and 2019-2024,
+            # and no other function keeps those lines in 2013-2015
+            when((from_2013_to_2015 & social_assistance) |
+                 (from_2016_to_2017 & col('func1').startswith('710')) |
+                 (from_2019_to_2024 & social_assistance), 'Social protection')
+            # housing (row 203 = water and sanitation + the housing units). Needs to be before economic affairs:
+            # the water units of ministry 42 are also in energy
+            .when((from_2013_to_2015 & ~social_assistance & (
+                      water_and_sanitation |
+                      substring(col('Admin_2'), 1, 5).isin(housing_admin2))) |
+                  (from_2016_to_2024 & col('func1').startswith('706')), 'Housing and community amenities')
+            # defence (row 28)
+            .when(col('Admin_1').startswith('13 ') & ~(from_2013_to_2015 & social_assistance), 'Defence')
+            # public order and safety (row 30 = judiciary + public safety)
+            .when((not_2016 & ~(from_2013_to_2015 & social_assistance) & (
+                      substring(col('Admin_1'), 1, 2).isin('74', '75', '76') |
+                      substring(col('Admin_1'), 1, 3).isin('16 ', '11 '))) |
+                  ((col('year') == 2016) & col('func1').startswith('703')), 'Public order and safety')
+            # environmental protection (row 193)
+            .when((from_2013_to_2015 & ~social_assistance & (lower(col('environment')) == 'y')) |
+                  (from_2016_to_2024 & col('func1').startswith('705')), 'Environmental protection')
+            # health (row 215)
+            .when((from_2013_to_2015 & ~social_assistance & (
+                      col('Admin_1').startswith('33 ') |
+                      col('Econ_4').startswith('2133 Reseaux d'))) |
+                  (from_2016_to_2024 & col('func1').startswith('707')), 'Health')
+            # recreation, culture and religion (row 233)
+            .when((from_2013_to_2015 & ~social_assistance & col('Admin_1').startswith('37 ')) |
+                  (from_2016_to_2024 & col('func1').startswith('708')), 'Recreation, culture and religion')
+            # education (row 235)
+            .when((from_2013_to_2015 & ~social_assistance & substring(col('Admin_1'), 1, 3).isin('31 ', '32 ')) |
+                  (from_2016_to_2024 & col('func1').startswith('709')), 'Education')
+            # economic affairs (row 41 = agriculture + transport + energy + telecoms + ministry 41).
+            # Expert decision: admin2 42009, 42011 and 42503 are not energy
+            .when((from_2013_to_2015 & ~social_assistance &
+                   (substring(col('Admin_1'), 1, 3).isin('40 ', '45 ', '42 ', '18 ') | col('Admin_1').startswith('41')) &
+                   ~substring(col('Admin_2'), 1, 5).isin('42009', '42011', '42503')) |
+                  ((col('year') == 2016) & (
+                      substring(col('func2'), 1, 4).isin('7042', '7043', '7045', '7046') |
+                      col('Admin_1').startswith('41'))) |
+                  (((col('year') == 2017) | from_2019_to_2024) & (
+                      col('Admin_1').startswith('40 ') |
+                      substring(col('func2'), 1, 4).isin('7043', '7045', '7046') |
+                      col('Admin_1').startswith('41'))), 'Economic affairs')
+            # general public services (row 24 = total - the rows above)
+            .otherwise('General public services')
+        ).withColumn('func_sub',
+            # a sub-function is only kept under the function that owns the line
+            when(col('func') == 'Public order and safety',
+                # judiciary (row 32)
+                when((not_2016 & (
+                          substring(col('Admin_1'), 1, 2).isin('74', '75', '76') |
+                          col('Admin_1').startswith('16 '))) |
+                     ((col('year') == 2016) & col('func2').startswith('7033')), 'Judiciary')
+                # public safety (row 36)
+                .when((not_2016 & col('Admin_1').startswith('11 ')) |
+                      ((col('year') == 2016) & col('func1').startswith('703') & ~col('func2').startswith('7033')), 'Public Safety')
             )
-            .when(col("geo1") == "Bujumbura Rural", "Bujumbura")
-            .when(col("geo1") == "Kirundi", "Kirundo")
-            .otherwise(col("geo1")),
+            .when(col('func') == 'Housing and community amenities',
+                # water and sanitation (row 205)
+                when(water_and_sanitation, 'Water Supply')
+            )
+            .when(col('func') == 'Economic affairs',
+                # agriculture (row 43)
+                when((not_2016 & col('Admin_1').startswith('40 ')) |
+                     ((col('year') == 2016) & col('func2').startswith('7042')), 'Agriculture')
+                # roads (row 76)
+                .when((from_2013_to_2015 & (lower(col('road')) == 'y') &
+                       ~substring(col('Admin_2'), 1, 5).isin('45513', '45523')) |
+                      (from_2016_to_2024 & col('func3').startswith('70451')), 'Roads')
+                # railroads (row 91)
+                .when((from_2013_to_2015 & substring(col('Admin_2'), 1, 5).isin('45513', '45523', '41515', '41523')) |
+                      (from_2016_to_2024 & col('func3').startswith('70453')), 'Railroads')
+                # water transport (row 104), no formula before 2016
+                .when(from_2016_to_2024 & col('func3').startswith('70452'), 'Water Transport')
+                # air transport (row 117)
+                .when((from_2013_to_2015 & (
+                          col('Econ_4').startswith('2136') |
+                          col('Econ_4').startswith('2128 Construction cloture') |
+                          col('Admin_2').startswith('45528'))) |
+                      (from_2016_to_2024 & col('func3').startswith('70454')), 'Air Transport')
+                # transport (row 63), what is left of it after the four modes above
+                .when((from_2013_to_2015 & col('Admin_1').startswith('45 ')) |
+                      (from_2016_to_2024 & col('func2').startswith('7045')), 'Transport')
+                # energy (row 130). Expert decision: admin2 42009, 42011 and 42503 are not energy
+                .when((from_2013_to_2015 & col('Admin_1').startswith('42 ') &
+                       ~substring(col('Admin_2'), 1, 5).isin('42009', '42011', '42503')) |
+                      (from_2016_to_2024 & col('func2').startswith('7043')), 'Energy')
+                # telecoms (row 188)
+                .when((from_2013_to_2015 & col('Admin_1').startswith('18 ')) |
+                      (from_2016_to_2024 & col('func2').startswith('7046')), 'Telecom')
+            )
+            .when(col('func') == 'Education',
+                # primary education (row 241), no formula before 2016
+                when(from_2016_to_2024 & col('func2').startswith('7091'), 'Primary Education')
+                # secondary education (row 243), no formula before 2016
+                .when(from_2016_to_2024 & col('func2').startswith('7092'), 'Secondary Education')
+                # tertiary education (row 247)
+                .when((from_2013_to_2015 & col('Admin_1').startswith('31 ')) |
+                      (from_2016_to_2024 & col('func2').startswith('7094')), 'Tertiary Education')
+                # primary and secondary education (row 245 = education - tertiary in 2013-2015)
+                .when(from_2013_to_2015 & col('Admin_1').startswith('32 '), 'Primary and Secondary education')
+            )
+        ).withColumn('econ_sub',
+            # social assistance (row 18)
+            when(social_assistance, 'Social Assistance')
+            # other social benefits (row 20)
+            .when(col('Econ_3').startswith('673'), 'Other Social Benefits')
+            # allowances (row 6)
+            .when(col('Econ_3').startswith('614') | col('Econ_3').startswith('615'), 'Allowances')
+            # basic wages (row 5 = wage bill - allowances)
+            .when(wage_bill, 'Basic Wages')
+            # basic services (row 12)
+            .when(col('Econ_3').startswith('624') | col('Econ_3').startswith('635'), 'Basic Services')
+            # employment contracts (row 13)
+            .when(col('Econ_3').startswith('627'), 'Employment Contracts')
+            # recurrent maintenance (row 14)
+            .when(col('Econ_3').startswith('625'), 'Recurrent Maintenance')
+            # subsidies to production (row 16)
+            .when(col('Econ_1').startswith('5 '), 'Subsidies to Production')
+        ).withColumn('econ',
+            # wage bill (row 4)
+            when(wage_bill, 'Wage bill')
+            # social benefits (row 17)
+            .when(col('econ_sub').isin('Social Assistance', 'Other Social Benefits'), 'Social benefits')
+            # capital expenditures (row 8)
+            .when(col('Econ_1').startswith('4 '), 'Capital expenditures')
+            # goods and services (row 11)
+            .when(col('Econ_1').startswith('2 '), 'Goods and services')
+            # subsidies (row 15)
+            .when(col('Econ_1').startswith('5 '), 'Subsidies')
+            # other grants and transfers (row 21)
+            .when(col('Econ_3').startswith('664'), 'Other grants and transfers')
+            # interest on debt (row 26)
+            .when(col('Econ_1').startswith('3 '), 'Interest on debt')
+            # other expenses (row 22 = total - the rows above)
+            .otherwise('Other expenses')
         )
     )
 
-    year = col("Year")
-    is_2013_15 = year.isin(2013, 2014, 2015)
-    is_2016_17 = year.isin(2016, 2017)
-    is_2019_24 = year.isin(2019, 2020, 2021, 2022, 2023, 2024)
-    is_2016_24 = is_2016_17 | is_2019_24
-    # Years whose Judiciary, Public safety and Agriculture leaves use admin1.
-    is_admin1_year = is_2013_15 | (year == 2017) | is_2019_24
-
-    is_social_benefit_code = starts_with_any("Econ_3", ("672", "673"))
-    is_social_assistance_code = col("Econ_3").startswith("672")
-    is_wage_bill = normalized_text("Econ_1").isin(
-        "1 rémunérations des salariés",
-        "1 remunerations des salaries",
-    ) | (
-        col("Econ_4") == "6212 Stage de premier emploi pour 250 jeunes"
-    )
-    is_goods_and_services = col("Econ_1").startswith("2 ")
-
-    is_social_protection = (
-        (is_2013_15 & is_social_assistance_code)
-        | (is_2016_17 & col("func1").startswith("710"))
-        | (is_2019_24 & is_social_assistance_code)
-    )
-
-    is_water_and_sanitation = (
-        is_2013_15
-        & (
-            starts_with_any("Admin_2", WATER_ADMIN2_CODES_2013_15)
-            | normalized_text("Econ_4").isin(
-                "2132 réseaux adduction d'eau potable",
-                "2132 reseaux adduction d'eau potable",
-            )
-        )
-    ) | ((is_2016_17 | is_2019_24) & col("func2").startswith("7062"))
-
-    is_housing = (
-        is_2013_15
-        & ~is_social_assistance_code
-        & (
-            is_water_and_sanitation
-            | starts_with_any("Admin_2", HOUSING_ADMIN2_CODES_2013_15)
-        )
-    ) | ((is_2016_17 | is_2019_24) & col("func1").startswith("706"))
-
-    is_defence = col("Admin_1").startswith("13 ") & ~(
-        is_2013_15 & is_social_assistance_code
-    )
-    is_public_order = (
-        ((year == 2016) & col("func1").startswith("703"))
-        | (
-            (is_2013_15 | (year == 2017) | is_2019_24)
-            & starts_with_any("Admin_1", ("74", "75", "76", "16 ", "11 "))
-            & ~(is_2013_15 & is_social_assistance_code)
-        )
-    )
-    is_economic_affairs = (
-        (
-            is_2013_15
-            & ~is_social_assistance_code
-            & starts_with_any("Admin_1", ("40 ", "45 ", "42 ", "18 ", "41"))
-            & ~starts_with_any("Admin_2", ("42009", "42011", "42503"))
-        )
-        | (
-            (year == 2016)
-            & (
-                starts_with_any("func2", ("7042", "7043", "7045", "7046"))
-                | col("Admin_1").startswith("41")
-            )
-        )
-        | (
-            ((year == 2017) | is_2019_24)
-            & (
-                col("Admin_1").startswith("40 ")
-                | starts_with_any("func2", ("7043", "7045", "7046"))
-                | col("Admin_1").startswith("41")
-            )
-        )
-    )
-    is_environment = (
-        (
-            is_2013_15
-            & ~is_social_assistance_code
-            & (lower(col("environment")) == "y")
-        )
-        | ((is_2016_17 | is_2019_24) & col("func1").startswith("705"))
-    )
-    is_health = (
-        (
-            is_2013_15
-            & ~is_social_assistance_code
-            & (
-                col("Admin_1").startswith("33 ")
-                | normalized_text("Econ_4").isin(
-                    "2133 réseaux d'assainissement",
-                    "2133 reseaux d'assainissement",
-                )
-            )
-        )
-        | ((is_2016_17 | is_2019_24) & col("func1").startswith("707"))
-    )
-    is_recreation = (
-        (
-            is_2013_15
-            & ~is_social_assistance_code
-            & col("Admin_1").startswith("37 ")
-        )
-        | ((is_2016_17 | is_2019_24) & col("func1").startswith("708"))
-    )
-    is_education = (
-        (
-            is_2013_15
-            & ~is_social_assistance_code
-            & starts_with_any("Admin_1", ("31 ", "32 "))
-        )
-        | ((is_2016_17 | is_2019_24) & col("func1").startswith("709"))
-    )
-
-    df = (
-        df.withColumn("_is_water_and_sanitation", is_water_and_sanitation)
-        .withColumn("_is_social_protection", is_social_protection)
-        .withColumn("_is_housing", is_housing)
-        .withColumn("_is_defence", is_defence)
-        .withColumn("_is_public_order", is_public_order)
-        .withColumn("_is_economic_affairs", is_economic_affairs)
-        .withColumn("_is_environment", is_environment)
-        .withColumn("_is_health", is_health)
-        .withColumn("_is_recreation", is_recreation)
-        .withColumn("_is_education", is_education)
-        .withColumn(
-            "func_sub",
-            # Every branch is the workbook formula of its leaf, with the same
-            # year switch between ministry codes and COFOG codes.
-            when(
-                (is_admin1_year & starts_with_any("Admin_1", ("74", "75", "76", "16 ")))
-                | ((year == 2016) & col("func2").startswith("7033")),
-                "Judiciary",
-            )
-            .when(
-                (is_admin1_year & col("Admin_1").startswith("11 "))
-                | (
-                    (year == 2016)
-                    & col("func1").startswith("703")
-                    & ~col("func2").startswith("7033")
-                ),
-                "Public Safety",
-            )
-            .when(
-                (is_admin1_year & col("Admin_1").startswith("40 "))
-                | ((year == 2016) & col("func2").startswith("7042")),
-                "Agriculture",
-            )
-            .when(
-                (
-                    is_2013_15
-                    & (lower(col("road")) == "y")
-                    & ~starts_with_any("Admin_2", ("45513", "45523"))
-                )
-                | (is_2016_24 & col("func3").startswith("70451")),
-                "Roads",
-            )
-            .when(
-                (
-                    is_2013_15
-                    & starts_with_any("Admin_2", ("45513", "45523", "41515", "41523"))
-                )
-                | (is_2016_24 & col("func3").startswith("70453")),
-                "Railroads",
-            )
-            .when(is_2016_24 & col("func3").startswith("70452"), "Water Transport")
-            .when(
-                (
-                    is_2013_15
-                    & (
-                        normalized_text("Econ_4").isin(*AIR_TRANSPORT_ECON4_2013_15)
-                        | col("Admin_2").startswith("45528")
-                    )
-                )
-                | (is_2016_24 & col("func3").startswith("70454")),
-                "Air Transport",
-            )
-            # Transport is the rest of the workbook's transport total once the
-            # four modes above are taken out.
-            .when(
-                (is_2013_15 & col("Admin_1").startswith("45 "))
-                | (is_2016_24 & col("func2").startswith("7045")),
-                "Transport",
-            )
-            .when(
-                (
-                    is_2013_15
-                    & col("Admin_1").startswith("42 ")
-                    & ~starts_with_any("Admin_2", ("42009", "42011", "42503"))
-                )
-                | (is_2016_24 & col("func2").startswith("7043")),
-                "Energy",
-            )
-            .when(
-                (is_2013_15 & col("Admin_1").startswith("18 "))
-                | (is_2016_24 & col("func2").startswith("7046")),
-                "Telecom",
-            )
-            # One reusable predicate implements the complete Water rule. The
-            # admin2 42503 criterion appears exactly once.
-            .when(col("_is_water_and_sanitation"), "Water Supply")
-            .when(is_2016_24 & col("func2").startswith("7091"), "Primary Education")
-            .when(is_2016_24 & col("func2").startswith("7092"), "Secondary Education")
-            .when(
-                (is_2013_15 & col("Admin_1").startswith("31 "))
-                | (is_2016_24 & col("func2").startswith("7094")),
-                "Tertiary Education",
-            )
-            # 2013-15 only: Education minus Tertiary, i.e. ministry 32.
-            .when(
-                is_2013_15 & col("Admin_1").startswith("32 "),
-                "Primary and Secondary education",
-            ),
-        )
-        .withColumn(
-            "func",
-            # Ownership precedence resolves every confirmed functional overlap:
-            # Social protection wins first; Housing wins over Economic affairs.
-            when(col("_is_social_protection"), "Social protection")
-            .when(col("_is_housing"), "Housing and community amenities")
-            .when(col("_is_defence"), "Defence")
-            .when(col("_is_public_order"), "Public order and safety")
-            .when(col("_is_environment"), "Environmental protection")
-            .when(col("_is_health"), "Health")
-            .when(col("_is_recreation"), "Recreation, culture and religion")
-            .when(col("_is_education"), "Education")
-            .when(col("_is_economic_affairs"), "Economic affairs")
-            .otherwise("General public services"),
-        )
-        .withColumn(
-            "econ_sub",
-            when(col("Econ_3").startswith("672"), "Social Assistance")
-            .when(col("Econ_3").startswith("673"), "Other Social Benefits")
-            .when(
-                col("Econ_3").startswith("614") | col("Econ_3").startswith("615"),
-                "Allowances",
-            )
-            .when(is_wage_bill, "Basic Wages")
-            .when(
-                col("Econ_3").startswith("624") | col("Econ_3").startswith("635"),
-                "Basic Services",
-            )
-            .when(col("Econ_3").startswith("627"), "Employment Contracts")
-            .when(col("Econ_3").startswith("625"), "Recurrent Maintenance")
-            .when(col("Econ_1").startswith("5 "), "Subsidies to Production"),
-        )
-        .withColumn(
-            "econ",
-            # Social benefits owns the 616/672/673 intersection with Wage bill;
-            # Wage bill owns the 6212 intersection with Goods and services.
-            when(is_wage_bill, "Wage bill")
-            .when(is_social_benefit_code, "Social benefits")
-            .when(col("Econ_1").startswith("4 "), "Capital expenditures")
-            .when(is_goods_and_services, "Goods and services")
-            .when(col("Econ_1").startswith("5 "), "Subsidies")
-            .when(col("Econ_3").startswith("664"), "Other grants and transfers")
-            .when(col("Econ_1").startswith("3 "), "Interest on debt")
-            .otherwise("Other expenses"),
-        )
-        # FY2015 has no direct execution column in the workbook. Preserve its
-        # approved-times-execution-scale method. The Executed sheet has no
-        # FY2024 values, so FY2024 stays empty. Every other year uses
-        # Ordered_to_pay directly.
-        .withColumn(
-            "executed",
-            when(
-                col("Year") == 2015,
-                col("Credit") * lit(719503643911 / 793650121655),
-            ).when(col("Year") != 2024, col("Ordered_to_pay")),
-        )
-        # Keep func_sub consistent with the final func owner.
-        .withColumn(
-            "func_sub",
-            when(col("func") == "Social protection", lit(None).cast("string"))
-            .when(
-                col("func") == "Housing and community amenities",
-                when(col("_is_water_and_sanitation"), "Water Supply").otherwise(
-                    lit(None).cast("string")
-                ),
-            )
-            .when(
-                col("func") == "Public order and safety",
-                when(
-                    col("func_sub").isin("Judiciary", "Public Safety"),
-                    col("func_sub"),
-                ).otherwise(lit(None).cast("string")),
-            )
-            .when(
-                col("func") == "Economic affairs",
-                when(
-                    col("func_sub").isin(
-                        "Agriculture",
-                        "Roads",
-                        "Railroads",
-                        "Water Transport",
-                        "Air Transport",
-                        "Transport",
-                        "Energy",
-                        "Telecom",
-                    ),
-                    col("func_sub"),
-                ).otherwise(lit(None).cast("string")),
-            )
-            .when(
-                col("func") == "Education",
-                when(
-                    col("func_sub").isin(
-                        "Primary Education",
-                        "Secondary Education",
-                        "Tertiary Education",
-                        "Primary and Secondary education",
-                    ),
-                    col("func_sub"),
-                ).otherwise(lit(None).cast("string")),
-            )
-            .otherwise(lit(None).cast("string")),
-        )
-        .withColumn(
-            "geo0",
-            when(col("geo1") == "Central Scope", "Central").otherwise("Regional"),
-        )
-        # The workbook has no formula for any foreign-funded row.
-        .withColumn("is_foreign", lit(None).cast("boolean"))
-        .drop(
-            "_is_water_and_sanitation",
-            "_is_social_protection",
-            "_is_housing",
-            "_is_defence",
-            "_is_public_order",
-            "_is_economic_affairs",
-            "_is_environment",
-            "_is_health",
-            "_is_recreation",
-            "_is_education",
-        )
-    )
-    return df
-
-# The DLT output is line-level, so it does not need 26 separate Excel aggregate
-# formulas. The same classification rules run for all rows.
-@dlt.expect("classifications_available", "func IS NOT NULL AND econ IS NOT NULL")
-@dlt.table(name="bdi_boost_gold")
+@dlt.table(name=f'bdi_boost_gold')
 def boost_gold():
-    return (
-        dlt.read("bdi_boost_silver")
-        .withColumn("country_name", lit(COUNTRY))
-        .select(
-            "country_name",
-            col("Year").alias("year").cast("int"),
-            col("Credit").alias("approved").cast(DoubleType()),
-            expr("CAST(NULL AS DOUBLE) as revised"),
-            col("executed").cast(DoubleType()),
-            "admin0",
-            "admin1",
-            "admin2",
-            "geo0",
-            "geo1",
-            "is_foreign",
-            "func",
-            "func_sub",
-            "econ",
-            "econ_sub",
+    return (dlt.read(f'bdi_boost_silver')
+        .withColumn('country_name', lit(COUNTRY))
+        .select('country_name',
+                'year',
+                col('Credit').alias('approved').cast(DoubleType()),
+                lit(None).cast(DoubleType()).alias('revised'),
+                col('executed').cast(DoubleType()),
+                'admin0',
+                'admin1',
+                'admin2',
+                'geo1',
+                # the workbook has no foreign funding formula
+                lit(None).cast('boolean').alias('is_foreign'),
+                'func',
+                'func_sub',
+                'econ',
+                'econ_sub'
         )
     )
