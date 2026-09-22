@@ -5,8 +5,8 @@
 
 # Bulgaria BOOST workbook extraction: a dump of the workbook's `Expenditure` sheet, kept for the verification
 # of the rebuild from the Ministry of Finance extracts (README.md, "Verification against the delivered files").
-# The DLT pipeline (BGR_transform_load_dlt.py) no longer reads it: it starts from the two rebuild files,
-# BGR_expenditures_2005-2019.csv and BGR_expenditures_2020-2024.csv.
+# The DLT pipeline (BGR_transform_load_raw_dlt.py) no longer reads it: it starts from the rebuilds' yearly files
+# in raw_microdata_csv/Bulgaria.
 #
 # Principle (same as Uganda/Zimbabwe/Kenya): dump the sheet to CSV with NO transformation. All classification
 # logic (econ/func tagging, the order-proof mutually-exclusive predicates) lives in the transform -- never here.

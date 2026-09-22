@@ -22,7 +22,7 @@ import numpy as np
 import pandas as pd
 
 COUNTRY = 'Bulgaria'
-OUT_DIR = Path(prepare_microdata_csv_dir(COUNTRY))
+OUT_DIR = Path(prepare_raw_microdata_csv_dir(COUNTRY))
 BASE = Path(f"{RAW_INPUT_DIR}/Bulgaria")
 REFERENCE_WORKBOOK = BASE / "Bulgaria BOOST 2015-2024 expenditure.xlsx"  # the delivered data, for the check cell
 REFERENCE_SHEET = "2019-24"
@@ -233,7 +233,7 @@ for YEAR, (extract_file, report_file) in INPUTS.items():
     # 6. Assemble and write the year
     parts = [su[EXP_COLS], clean[EXP_COLS]] if YEAR == 2020 else [clean[EXP_COLS], su[EXP_COLS]]
     expenditures[YEAR] = pd.concat(parts, ignore_index=True)
-    year_path = OUT_DIR / f"BGR_expenditures_{YEAR}.csv"
+    year_path = OUT_DIR / f"{YEAR}.csv"
     expenditures[YEAR].to_csv(year_path, index=False, float_format="%.17g", lineterminator="\n", encoding="utf-8")
     print(f"wrote {year_path}: {len(expenditures[YEAR]):,} rows; executed {expenditures[YEAR]['executed'].sum() / 1e6:,.1f} million BGN")
 

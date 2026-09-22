@@ -1,4 +1,8 @@
 # Databricks notebook source
+!pip install xlrd
+
+# COMMAND ----------
+
 # MAGIC %run ../utils
 
 # COMMAND ----------
@@ -10,7 +14,7 @@ import numpy as np
 import pandas as pd
 
 COUNTRY = 'Bulgaria'
-OUT_DIR = Path(prepare_microdata_csv_dir(COUNTRY))
+OUT_DIR = Path(prepare_raw_microdata_csv_dir(COUNTRY))
 BASE = Path(f"{RAW_INPUT_DIR}/Bulgaria")
 LABELS_PATH = BASE / "labels_en.json"  # the code list shared with the 2020-2024 notebook (a copy sits in the repository)
 
@@ -176,10 +180,6 @@ df.loc[e2.notna() & (e1 * 100 != e2), "adjusted"] = np.nan  # adjusted kept at e
 df = df[~((df["adjusted"].isna() | (df["adjusted"] == 0)) & (df["executed"].isna() | (df["executed"] == 0)))]
 df = df.reset_index(drop=True)
 print(f"classified expenditures: {len(df):,} rows")
-
-# COMMAND ----------
-
-!pip install xlrd
 
 # COMMAND ----------
 
@@ -355,7 +355,7 @@ print(f"final database: {len(df):,} rows, {df.shape[1]} columns")
 # COMMAND ----------
 
 # 5. Label and write.  The labelled file carries the workbook's label style ("2 Local", "19.01 Payment of
-#    state taxes, ...") and is what BGR_transform_load_dlt.py reads (see README.md).
+#    state taxes, ...") and is what BGR_transform_load_raw_dlt.py reads (see README.md).
 #    The code list is hierarchical (units carry their admin1-3 labels, activities their func1-3, economic codes
 #    their econ1-2 and expenditure type); each level's labels are collected from it and keyed on the numeric
 #    code that opens every label ("1.1 ..." -> 11, "01.01 ..." -> 101, "98.121 ..." -> 98121); the transfer
@@ -381,7 +381,7 @@ for var, labels in LABELS.items():
     if unlabelled:
         print(f"{var}: no label for codes {unlabelled}")
 for year, rows in labelled.groupby("year"):  # one file per year, like the 2020-onward notebook
-    year_path = OUT_DIR / f"BGR_expenditures_{int(year)}.csv"
+    year_path = OUT_DIR / f"{int(year)}.csv"
     rows.to_csv(year_path, index=False, float_format="%.17g", lineterminator="\n", encoding="utf-8")
     print(f"wrote {year_path}: {len(rows):,} rows")
 
