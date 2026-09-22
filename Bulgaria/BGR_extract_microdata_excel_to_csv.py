@@ -3,11 +3,13 @@
 
 # COMMAND ----------
 
-# Bulgaria BOOST microdata extraction.
+# Bulgaria BOOST workbook extraction: a dump of the workbook's `Expenditure` sheet, kept for the verification
+# of the rebuild from the Ministry of Finance extracts (README.md, "Verification against the delivered files").
+# The DLT pipeline (BGR_transform_load_dlt.py) no longer reads it: it starts from the two rebuild files,
+# BGR_expenditures_2005-2019.csv and BGR_expenditures_2020-2024.csv.
 #
-# Principle (same as Uganda/Zimbabwe/Kenya): dump the workbook's raw `Expenditure` sheet to CSV
-# with NO transformation. All classification logic (econ/func tagging, the order-proof
-# mutually-exclusive predicates) lives in BGR_transform_load_dlt.py -- never here.
+# Principle (same as Uganda/Zimbabwe/Kenya): dump the sheet to CSV with NO transformation. All classification
+# logic (econ/func tagging, the order-proof mutually-exclusive predicates) lives in the transform -- never here.
 #
 # The Expenditure sheet is the microdata that the workbook's `Approved`/`Executed` sheets
 # aggregate via SUMIFS over the named ranges year / admin1 / func1 / func2 / func3 / econ1 /

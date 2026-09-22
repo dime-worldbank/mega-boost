@@ -28,55 +28,43 @@ def classify(categories, residual=None):
 
 # COMMAND ----------
 
-@dlt.table(name='bgr_boost_bronze')
-def boost_bronze():
-    return (spark.read.format("csv").options(**CSV_READ_OPTIONS).option("inferSchema", "true")
-            .load(f'{COUNTRY_MICRODATA_DIR}/Expenditure.csv'))
-
-
-@dlt.table(name='bgr_boost_bronze_raw_2005_2019')
-def boost_bronze_raw_2005_2019():
-    # The 2005-2019 rebuild from the Ministry of Finance extracts (BGR_extract_raw_microdata_txt_to_csv_2005_2019.py),
-    # labelled like the workbook. Only its paragraph 19.01 lines of 2014-2019 are used (boost_silver).
+@dlt.table(name='bgr_boost_bronze_2005_2019')
+def boost_bronze_2005_2019():
+    # The 2005-2019 rebuild from the Ministry of Finance extracts (BGR_extract_raw_microdata_txt_to_csv_2005_2019.py).
     return (spark.read.format("csv").options(**CSV_READ_OPTIONS).option("inferSchema", "true")
             .load(f'{COUNTRY_MICRODATA_DIR}/BGR_expenditures_2005-2019.csv'))
+
+
+@dlt.table(name='bgr_boost_bronze_2020_2024')
+def boost_bronze_2020_2024():
+    # The 2020-2024 rebuild (BGR_extract_raw_microdata_txt_to_csv_2020_2024.py); the same 15 columns and labels.
+    return (spark.read.format("csv").options(**CSV_READ_OPTIONS).option("inferSchema", "true")
+            .load(f'{COUNTRY_MICRODATA_DIR}/BGR_expenditures_2020-2024.csv'))
 
 
 # COMMAND ----------
 
 @dlt.table(name='bgr_boost_silver')
 def boost_silver():
-    df = (dlt.read('bgr_boost_bronze')
+    # Both rebuilds carry the signed amounts of the extracts (the workbook's Expenditure sheet, no longer read,
+    # held paragraph 19 in absolute value for 2014-2019 and started in 2006; see README.md, "Verification").
+    df = (dlt.read('bgr_boost_bronze_2005_2019')
+          .unionByName(dlt.read('bgr_boost_bronze_2020_2024'))
           .withColumn('year', col('year').cast(IntegerType()))
-          .filter(col('year').isNotNull()))
+          .filter(col('year').isNotNull())
+          .withColumn('adjusted', col('adjusted').cast(DoubleType()))
+          .withColumn('executed', col('executed').cast(DoubleType())))
 
-    # --- Paragraph 19.01 "Payment of state taxes, penalties and administrative sanctions" carries negative amounts
-    #     (refunds) in the Ministry of Finance extracts. The workbook turned them positive in 2014-2019 (NOTE sheet:
-    #     'some negative values for econ1 "19 paid taxes" were turned positive'), line by line in 2016-2018 and on
-    #     the aggregated lines of 2014, 2015 and 2019, so its executed totals overstate spending by twice the
-    #     negatives (39 to 809 million BGN a year). The workbook's 19.01 lines of those years are dropped and the
-    #     raw rebuild's lines take their place, with the workbook's helper flags set the way its NOTE sheet defines
-    #     them: road = activities 831-834 and 849; interest = paragraphs 21-29, never 19. ---
-    taxes_flipped = col('econ2').startswith('19.01') & col('year').between(2014, 2019)
-    raw_taxes = (dlt.read('bgr_boost_bronze_raw_2005_2019')
-                 .withColumn('year', col('year').cast(IntegerType()))
-                 .filter(taxes_flipped)
-                 .withColumn('adjusted', col('adjusted').cast(DoubleType()))
-                 .withColumn('executed', col('executed').cast(DoubleType()))
-                 .withColumn('roads', when(col('func3').rlike('^(831|832|833|834|849) '), 'y'))
-                 .withColumn('Interest', lit(None).cast('string'))
-                 .select(df.columns))
-    df = df.filter(~taxes_flipped).unionByName(raw_taxes)
-
-    # Blank labels/flags become '' so that `~col.startswith(...)` is never NULL (a NULL would silently
+    # Blank labels become '' so that `~col.startswith(...)` is never NULL (a NULL would silently
     # drop the row out of every `... & ~...` predicate into the residual category).
-    for c in ['admin1', 'func1', 'func2', 'func3', 'econ1', 'econ2', 'fin_source1', 'exp_type', 'roads', 'Interest']:
+    for c in ['admin1', 'func1', 'func2', 'func3', 'econ1', 'econ2', 'fin_source1', 'exp_type']:
         df = df.withColumn(c, coalesce(col(c).cast('string'), lit('')))
 
     # --- admin / geo ---
     # "2 Local" = municipalities (EXP_ECON_SBN_TOT_SPE_EXE: admin1,"2 Local"); "1 Central" and "3 Other"
-    # (the social security funds) are central government. The Expenditure sheet has no region or ministry
-    # column, so admin1/geo1 is null for Local lines and admin2 is null everywhere (verification.md D6).
+    # (the social security funds) are central government. The workbook's Expenditure sheet had no region or
+    # ministry column, so admin1/geo1 is null for Local lines and admin2 is null everywhere (verification.md D6);
+    # the rebuilds carry the budget unit (admin3) and unit type (admin2), not yet used here.
     df = (df
           .withColumn('admin0', when(col('admin1').startswith('2 '), 'Regional').otherwise('Central'))
           .withColumn('admin1', when(col('admin0') == 'Central', 'Central Scope'))
@@ -85,16 +73,20 @@ def boost_silver():
           .withColumn('geo1', col('admin1'))
           .withColumn('is_foreign', lower(col('fin_source1')).isin(FOREIGN_SOURCES)))
 
-    # --- workbook criteria shared by several categories ---
-    interest = lower(col('Interest')) == 'y'                                # EXP_ECON_INT_DEB_EXE  interest,"y"
+    # --- workbook criteria shared by several categories. The workbook's `interest` and `road` helper flags are
+    #     the lookups its NOTE sheet defines, interest = the sub-paragraphs of paragraphs 21-29 and road =
+    #     activities 831-834 and 849, applied here to the codes; the flags the workbook set by hand outside
+    #     those lookups (30 wage, contribution and capital lines of 2023 as interest, 388 culture lines of 2023
+    #     as road) are not reproduced. ---
+    interest = col('econ1').rlike('^(21|22|25|26|27|28|29) ')              # EXP_ECON_INT_DEB_EXE  interest,"y"
     social_protection = col('func1').startswith('5 ')                       # EXP_FUNC_SOC_PRO_EXE  func1,"5 social*"
     social_assistance = social_protection & col('econ1').startswith('42 ')  # EXP_ECON_SOC_ASS_EXE  func1,"5 Social protection",econ1,"42 Current transfers*"
     pensions = col('econ1').startswith('41 ')                               # EXP_ECON_SOC_BEN_PEN_EXE  econ1,"41 Pensions"
-    roads = lower(col('roads')) == 'y'                                      # EXP_FUNC_ROA_EXE  road,"y"
+    roads = col('func3').rlike('^(831|832|833|834|849) ')                   # EXP_FUNC_ROA_EXE  road,"y"
 
-    # --- econ: the seven workbook categories; Other expenses = Total - the seven (row 22). The Interest
-    #     flag is the only within-econ overlap (30 lines, 2023): the workbook counts them twice, here
-    #     Interest owns them and `~interest` sits on the other six (verification.md Q1). ---
+    # --- econ: the seven workbook categories; Other expenses = Total - the seven (row 22). Interest is
+    #     disjoint from the other six by code (paragraphs 21-29 are neither personnel, capital, maintenance,
+    #     subsidies nor transfers); `~interest` stays on them as written for the workbook's flag (verification.md Q1). ---
     econ_cats = [
         (interest, 'Interest on debt'),
         (col('exp_type').startswith('1 ') & ~interest, 'Wage bill'),              # EXP_ECON_WAG_BIL_EXE  exp_type,"1 Personnel"
@@ -135,8 +127,7 @@ def boost_silver():
     ]
 
     # --- func_sub: the workbook's leaves as written (disjoint on the microdata; Transport, row 63, is
-    #     Roads + Railroads + Water + Air transport). Roads follows the `road` flag, so the 388 flagged
-    #     culture lines of 2023 carry func Recreation with func_sub Roads, as the workbook counts them. ---
+    #     Roads + Railroads + Water + Air transport). ---
     func_sub_cats = [
         (col('func2').startswith('2.3 '), 'Judiciary'),                                   # EXP_FUNC_JUD_EXE  func2,{"2.3*"} / {"2.3 Juridical authority"}
         (col('func2').rlike('^2\\.(2|4|5) '), 'Public Safety'),                           # EXP_FUNC_PUB_SAF_EXE  func2,{"2.2 *","2.4*","2.5*"}
