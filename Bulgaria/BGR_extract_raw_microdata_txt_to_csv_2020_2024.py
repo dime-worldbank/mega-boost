@@ -28,21 +28,24 @@ INPUTS = {
     2023: ("2023_annual_deatiled_data.txt",       "2023 - special_spending_units.xls"),
     2024: ("2024_annual_deatiled_data.txt",       "2024 - special_spending_units.xls"),
 }
-LEGEND_PATH = BASE / "TXT" / "2020-2024 - legend.json"
+LABELS_PATH = BASE / "labels_en.json"  # the code list shared with the 2005-2019 notebook (a copy sits in the repository)
 
 # COMMAND ----------
 
-# 1. Code lists
-legend = json.load(open(LEGEND_PATH, encoding="utf-8"))
-econ1_of = {k: v["econ1"] for k, v in legend["economic"].items()}
-econ2_of = {k: v["econ2"] for k, v in legend["economic"].items()}
-exptype_of_code = {k: v["exp_type"] for k, v in legend["economic"].items()}
-exptype_of = {v["econ2"]: v["exp_type"] for v in legend["economic"].values()}
-fin1_of = {int(k): v["fin_source1"] for k, v in legend["financing"].items()}
-fin2_of = {int(k): v["fin_source2"] for k, v in legend["financing"].items()}
-admin1_of, admin2_of, admin3_of = ({k: v[c] for k, v in legend["units"].items()} for c in ("admin1", "admin2", "admin3"))
-func1_of, func2_of, func3_of = ({k: v[c] for k, v in legend["activities"].items()} for c in ("func1", "func2", "func3"))
-print(f"code lists: {len(econ2_of)} economic codes, {len(admin3_of)} units, {len(func3_of)} activities, {len(fin1_of)} financing codes")
+# 1. Code lists: the hierarchical code list (labels_en.json) gives every unit its admin1-3 labels, every activity
+#    its func1-3, every economic code its econ1-2 and expenditure type, every financing source its fin_source1 label
+#    and the fin_source2 the workbooks attach to it, and every programme code its fin_source2 label.
+code_list = json.load(open(LABELS_PATH, encoding="utf-8"))
+econ1_of = {k: v["econ1"] for k, v in code_list["economic"].items()}
+econ2_of = {k: v["econ2"] for k, v in code_list["economic"].items()}
+exptype_of_code = {k: v["exp_type"] for k, v in code_list["economic"].items()}
+exptype_of = {v["econ2"]: v["exp_type"] for v in code_list["economic"].values()}
+fin1_of = {int(k): v["fin_source1"] for k, v in code_list["fin_source1"].items()}
+fin2_of = {int(k): v.get("fin_source2", "") for k, v in code_list["fin_source1"].items()}  # by financing source ...
+fin2_of.update({int(k): v["fin_source2"] for k, v in code_list["fin_source2"].items() if int(k) >= 98000})  # ... or programme code
+admin1_of, admin2_of, admin3_of = ({k: v[c] for k, v in code_list["units"].items()} for c in ("admin1", "admin2", "admin3"))
+func1_of, func2_of, func3_of = ({k: v[c] for k, v in code_list["activities"].items()} for c in ("func1", "func2", "func3"))
+print(f"code lists: {len(econ2_of)} economic codes, {len(admin3_of)} units, {len(func3_of)} activities, {len(fin1_of)} financing sources")
 
 line_para = {}
 for year, (_, report_file) in INPUTS.items():
@@ -221,7 +224,8 @@ print(f"\nwrote {final_path}: {len(all_years):,} rows")
 
 # COMMAND ----------
 
-# 7. Check against the delivered data
+# 7. Check against the delivered data: rows matched one to one on the codes that open the labels and on the
+#    amounts (the code list names codes the delivered files leave as "n/a"), and, for information, on the label text.
 if REFERENCE_WORKBOOK.exists():
     from openpyxl import load_workbook
     ws = load_workbook(REFERENCE_WORKBOOK, read_only=True, data_only=True)[REFERENCE_SHEET]
@@ -237,15 +241,20 @@ if REFERENCE_WORKBOOK.exists():
             for c in EXP_COLS:
                 if c not in ("adjusted", "executed"):
                     d[c] = d[c].fillna("").astype(str).str.strip().str.replace(r"\.0$", "", regex=True)
+                    d[c + "_code"] = d[c].str.split(" ").str[0].str.replace(".", "", regex=False)  # "98.323" and "98323" alike
             d["_n"] = d.groupby(EXP_COLS).cumcount()
-        m = a.merge(b, on=EXP_COLS + ["_n"], how="outer", indicator=True)
+            d["_n_code"] = d.groupby([c + "_code" if c not in ("adjusted", "executed") else c for c in EXP_COLS]).cumcount()
+        on_codes = [c + "_code" if c not in ("adjusted", "executed") else c for c in EXP_COLS] + ["_n_code"]
+        m = a.merge(b, on=on_codes, how="outer", indicator=True)
+        text = a.merge(b, on=EXP_COLS + ["_n"], how="outer", indicator=True)
         print(f"\ndelivered data {YEAR}: ours {len(a):,} rows, file {len(b):,} rows; identical rows {int((m['_merge'] == 'both').sum()):,}; "
-              f"only ours {int((m['_merge'] == 'left_only').sum()):,}; only file {int((m['_merge'] == 'right_only').sum()):,}")
+              f"only ours {int((m['_merge'] == 'left_only').sum()):,}; only file {int((m['_merge'] == 'right_only').sum()):,}"
+              f" (on the label text: identical {int((text['_merge'] == 'both').sum()):,})")
         print(f"executed, million BGN: ours {a['executed'].sum() / 1e6:,.1f}, file {b['executed'].sum() / 1e6:,.1f}")
         diff = m[m["_merge"] != "both"]
         if len(diff):
-            by = diff.assign(side=diff["_merge"].map({"left_only": "ours", "right_only": "file"}), paragraph=diff["econ2"].str[:5],
-                             part=np.where(diff["admin3"].str.startswith("9999"), "special units", "extract"))
+            by = diff.assign(side=diff["_merge"].map({"left_only": "ours", "right_only": "file"}), paragraph=diff["econ2_code"],
+                             part=np.where(diff["admin3_code"] == "9999", "special units", "extract"))
             print("rows that differ, by paragraph (executed in million BGN):")
             print(by.groupby(["part", "paragraph", "side"]).agg(rows=("executed", "size"), executed=("executed", lambda s: round(s.sum() / 1e6, 2)))
                   .unstack("side", fill_value=0).to_string())

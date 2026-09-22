@@ -3,6 +3,7 @@
 
 # COMMAND ----------
 
+import json
 import re
 
 import numpy as np
@@ -11,7 +12,7 @@ import pandas as pd
 COUNTRY = 'Bulgaria'
 OUT_DIR = Path(prepare_microdata_csv_dir(COUNTRY))
 BASE = Path(f"{RAW_INPUT_DIR}/Bulgaria")
-LABELS_PATH = BASE / "labels_en.csv"
+LABELS_PATH = BASE / "labels_en.json"  # the code list shared with the 2020-2024 notebook (a copy sits in the repository)
 
 # COMMAND ----------
 
@@ -352,10 +353,27 @@ print(f"final database: {len(df):,} rows, {df.shape[1]} columns")
 #    state taxes, ...") so that BGR_transform_load_dlt.py can take lines from it: the workbook turned the
 #    negative 19.01 amounts of 2014-2019 positive (its NOTE sheet), the DLT pipeline replaces those lines
 #    with the raw ones from this file (see README.md, "Verification against the delivered files").
-labels = pd.read_csv(LABELS_PATH, keep_default_na=False, encoding="utf-8")
+#    The code list is hierarchical (units carry their admin1-3 labels, activities their func1-3, economic codes
+#    their econ1-2 and expenditure type); each level's labels are collected from it and keyed on the numeric
+#    code that opens every label ("1.1 ..." -> 11, "01.01 ..." -> 101, "98.121 ..." -> 98121); the transfer
+#    flag, whose labels carry no code, is keyed on the entry's code.
+code_list = json.load(open(LABELS_PATH, encoding="utf-8"))
+def level_labels(section, field):
+    labels = {}
+    for entry in code_list[section].values():
+        label = entry.get(field, "")
+        code = label.split(" ")[0].replace(".", "")
+        if code.isdigit():
+            labels[int(code)] = label
+    return labels
+LABELS = {var: level_labels(section, var) for section, var in [
+    ("units", "admin1"), ("units", "admin2"), ("units", "admin3"), ("activities", "func1"), ("activities", "func2"),
+    ("activities", "func3"), ("economic", "econ1"), ("economic", "econ2"), ("fin_source1", "fin_source1"),
+    ("fin_source2", "fin_source2"), ("exp_type", "exp_type")]}
+LABELS["transfer"] = {int(code): entry["transfer"] for code, entry in code_list["transfer"].items()}
 labelled = df.copy()
-for var, g in labels.groupby("variable", sort=False):
-    labelled[var] = df[var].map(dict(zip(g["code"], g["label"])))
+for var, labels in LABELS.items():
+    labelled[var] = df[var].map(labels)
     unlabelled = sorted(df.loc[labelled[var].isna() & df[var].notna(), var].unique())
     if unlabelled:
         print(f"{var}: no label for codes {unlabelled}")
