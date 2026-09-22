@@ -30,6 +30,11 @@ INPUTS = {
 }
 LABELS_PATH = BASE / "labels_en.json"  # the code list shared with the 2005-2019 notebook (a copy sits in the repository)
 
+
+def applymap(frame, fn):
+    """DataFrame.applymap, cell by cell (the method is called map from pandas 2.1 and applymap is gone in 3.0)."""
+    return frame.applymap(fn) if hasattr(frame, "applymap") else frame.map(fn)
+
 # COMMAND ----------
 
 # 1. Code lists: the hierarchical code list (labels_en.json) gives every unit its admin1-3 labels, every activity
@@ -51,7 +56,7 @@ line_para = {}
 for year, (_, report_file) in INPUTS.items():
     if year == 2021:
         continue
-    text = pd.read_excel(BASE / "TXT" / report_file, sheet_name=0, header=None).map(lambda v: re.sub(r"\s+", " ", v).strip() if isinstance(v, str) else "")
+    text = applymap(pd.read_excel(BASE / "TXT" / report_file, sheet_name=0, header=None), lambda v: re.sub(r"\s+", " ", v).strip() if isinstance(v, str) else "")
     name_col = next(j for j in text.columns if text[j].map(lambda v: "EXPENDITURE BY FUNCTION" in v).any())
     para_col = max(text.columns, key=lambda j: int(text[j].str.match(r"^\d{2}-\d{2}").sum()))
     block = text.loc[text.index[text[name_col].str.contains("EXPENDITURE BY FUNCTION")][0]:]
@@ -124,9 +129,9 @@ for YEAR, (extract_file, report_file) in INPUTS.items():
 
     # 4. Parse the special-units report
     sheet = pd.read_excel(BASE / "TXT" / report_file, sheet_name=0, header=None)
-    sheet = sheet.map(lambda v: re.sub(r"\s+", " ", v).strip() if isinstance(v, str) else v)
-    text = sheet.map(lambda v: v if isinstance(v, str) else "")
-    first_data = text.index[text.map(lambda v: "REVENUE" in v).any(axis=1)][0]
+    sheet = applymap(sheet, lambda v: re.sub(r"\s+", " ", v).strip() if isinstance(v, str) else v)
+    text = applymap(sheet, lambda v: v if isinstance(v, str) else "")
+    first_data = text.index[applymap(text, lambda v: "REVENUE" in v).any(axis=1)][0]
     header = {j: " / ".join(v for v in text.loc[:first_data - 1, j] if v) for j in sheet.columns}
     name_col = next(j for j in sheet.columns if text[j].map(lambda v: "EXPENDITURE BY FUNCTION" in v).any())
     ssu_cols = [j for j, h in header.items() if "SSU" in h or ("Special" in h and "Budget" in h)]

@@ -14,6 +14,11 @@ OUT_DIR = Path(prepare_microdata_csv_dir(COUNTRY))
 BASE = Path(f"{RAW_INPUT_DIR}/Bulgaria")
 LABELS_PATH = BASE / "labels_en.json"  # the code list shared with the 2020-2024 notebook (a copy sits in the repository)
 
+
+def applymap(frame, fn):
+    """DataFrame.applymap, cell by cell (the method is called map from pandas 2.1 and applymap is gone in 3.0)."""
+    return frame.applymap(fn) if hasattr(frame, "applymap") else frame.map(fn)
+
 # COMMAND ----------
 
 # 1. Raw extracts (do-file lines 22-78).  One tab-delimited file per year, CRLF line endings.
@@ -231,12 +236,12 @@ for year, fname in SSU_REPORTS.items():
     sheet = (pd.read_csv(path, header=None, dtype=str, keep_default_na=False) if fname.endswith(".csv")
              else pd.read_excel(path, sheet_name=0, header=None))
     # every cell becomes text (whitespace collapsed), a number, or None
-    sheet = sheet.map(lambda v: None if v is None or (isinstance(v, float) and np.isnan(v))
+    sheet = applymap(sheet, lambda v: None if v is None or (isinstance(v, float) and np.isnan(v))
                       else (float(v) if not is_text(v) else
                             (None if not v.strip() else
                              (float(v.strip()) if NUMBER.match(v.strip()) else re.sub(r"\s+", " ", v).strip()))))
     sheet.columns = range(sheet.shape[1])
-    text = sheet.map(lambda v: v if is_text(v) else "")
+    text = applymap(sheet, lambda v: v if is_text(v) else "")
     first_data = text.index[text.apply(lambda col: col.str.contains("REVENUE", na=False)).any(axis=1)][0]
     header = {j: " / ".join(v for v in text.loc[:first_data - 1, j] if v) for j in sheet.columns}
     name_col = next(j for j in sheet.columns if text[j].map(lambda v: "EXPENDITURE BY FUNCTION" in v).any())
