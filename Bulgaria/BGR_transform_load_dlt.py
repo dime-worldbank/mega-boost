@@ -1,7 +1,7 @@
 # Databricks notebook source
 
 import dlt
-from pyspark.sql.functions import col, lower, when, lit, coalesce
+from pyspark.sql.functions import col, lower, when, lit, coalesce, regexp_replace
 from pyspark.sql.types import DoubleType, IntegerType
 
 TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
@@ -57,18 +57,23 @@ def boost_silver():
 
     # Blank labels become '' so that `~col.startswith(...)` is never NULL (a NULL would silently
     # drop the row out of every `... & ~...` predicate into the residual category).
-    for c in ['admin1', 'func1', 'func2', 'func3', 'econ1', 'econ2', 'fin_source1', 'exp_type']:
+    for c in ['admin1', 'admin2', 'admin3', 'func1', 'func2', 'func3', 'econ1', 'econ2', 'fin_source1', 'exp_type']:
         df = df.withColumn(c, coalesce(col(c).cast('string'), lit('')))
 
     # --- admin / geo ---
-    # "2 Local" = municipalities (EXP_ECON_SBN_TOT_SPE_EXE: admin1,"2 Local"); "1 Central" and "3 Other"
-    # (the social security funds) are central government. The workbook's Expenditure sheet had no region or
-    # ministry column, so admin1/geo1 is null for Local lines and admin2 is null everywhere (verification.md D6);
-    # the rebuilds carry the budget unit (admin3) and unit type (admin2), not yet used here.
+    # "2 Local" = municipalities (EXP_ECON_SBN_TOT_SPE_EXE: admin1,"2 Local"); "1 Central" and "3 Other" (the
+    # social security funds; the special spending units from 2021) are central government. The rebuilds carry
+    # the unit type (admin2: for municipalities their district, "66 Plovdiv region (oblast) municipalities",
+    # "72 Sofia city (capital municipality and districts)") and the budget unit (admin3: "1600 Ministry of
+    # Health", "5103 Municipality of Blagoevgrad"), so admin1 is "Central Scope" or the district, admin2 the
+    # budget unit and geo1 the district of municipal spending, as in the other countries' transforms. (The
+    # workbook's sheet had neither column, hence the nulls of verification.md D6.)
+    district = regexp_replace(col('admin2'), r'^\d+\s+|\s+region \(oblast\) municipalities$|\s+\(capital municipality and districts\)$', '')
+    unit = regexp_replace(col('admin3'), r'^\d+\s+', '')
     df = (df
           .withColumn('admin0', when(col('admin1').startswith('2 '), 'Regional').otherwise('Central'))
-          .withColumn('admin1', when(col('admin0') == 'Central', 'Central Scope'))
-          .withColumn('admin2', lit(None).cast('string'))
+          .withColumn('admin1', when(col('admin0') == 'Central', 'Central Scope').otherwise(district))
+          .withColumn('admin2', unit)
           .withColumn('geo0', col('admin0'))
           .withColumn('geo1', col('admin1'))
           .withColumn('is_foreign', lower(col('fin_source1')).isin(FOREIGN_SOURCES)))
