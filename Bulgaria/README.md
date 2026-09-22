@@ -5,12 +5,17 @@ Two Databricks notebooks rebuild the Bulgaria BOOST expenditure dataset from the
 
 | notebook | years | method | outputs |
 |---|---|---|---|
-| `BGR_extract_raw_microdata_txt_to_csv_2005_2019.py` | 2005-2019 | the BOOST team's Stata do-file rules (v1.4 to v1.9) | `BGR_expenditure+2005-2019.csv` |
+| `BGR_extract_raw_microdata_txt_to_csv_2005_2019.py` | 2005-2019 | the BOOST team's Stata do-file rules (v1.4 to v1.9) | `BGR_expenditures_2005-2019.csv` |
 | `BGR_extract_raw_microdata_txt_to_csv_2020_2024.py` | 2020-2024, one run | the newer BOOST team's yearly Excel workbooks ("YYYY BOOST update.xlsx") | `BGR_2020-2024.csv` |
 
 Both follow the same sequence of cells: settings, imports, code lists, parse the extract(s), clean the expenditure
 rows, parse the special-units report(s), label, write, check. The two methods differ in substance (see
 "Why two methods"), so they are kept separate.
+
+The DLT pipeline (`BGR_transform_load_dlt.py`) reads the reduced workbook's `Expenditure` sheet, dumped by
+`BGR_extract_microdata_excel_to_csv.py`, and `BGR_expenditures_2005-2019.csv` for the one correction it makes to the
+workbook's amounts: the paragraph 19.01 lines of 2014-2019, which the workbook holds in absolute value (see
+"Verification against the delivered files"). Run the 2005-2019 notebook before the pipeline.
 
 Run locally with `/opt/anaconda3/bin/python3 python-files/<notebook>.py` (pandas 3, numpy, xlrd, openpyxl). On
 Databricks set `BASE` in the settings cell to the volume that holds `TXT/`.
@@ -30,7 +35,8 @@ there are two auxiliary code lists, `labels_en.csv` (2005-2019) and `2020-2024 -
 * **Consolidated Fiscal Program reports** `YYYY - special_spending_units.xls[x]`, one per year, in thousands of BGN:
   the defense-related "special spending units" whose spending is not in the extracts. Only the "EXPENDITURE BY
   FUNCTION" block is used. The 2005-2011, 2014 and 2015 reports were copied out of the BOOST team's v1.7 workbook
-  sheets (the team's mapping columns removed); the 2018 report is not available, so 2018 has no special-unit rows.
+  sheets (the team's mapping columns removed); the 2018 report is the 2018 sheet of the team's
+  `Special_spending_units_2005-2018.xls` in the same way (its first eleven columns, laid out like the 2019 report).
   The 2021 report prints no paragraph codes; the notebook maps its line names to paragraphs with the table it
   derives from the other years' reports, where every name carries one and the same paragraph.
 * **Code lists.** `python-files/labels_en.csv` (variable, code, label; from the do-files' `labels_en.do`) for
@@ -43,8 +49,8 @@ there are two auxiliary code lists, `labels_en.csv` (2005-2019) and `2020-2024 -
 ## Output columns
 
 `year, admin1, admin2, admin3, func1, func2, func3, econ1, econ2, fin_source1, fin_source2, exp_type, transfer,
-adjusted, executed`. Amounts in BGN. The 2005-2019 file contains codes; the 2020-2024 file carries labels ("0100
-National Assembly").
+adjusted, executed`. Amounts in BGN. Both files carry labels ("0100 National Assembly"); the 2005-2019 labels come
+from `labels_en.csv` and, for the columns the workbook keeps, read like the workbook's.
 
 ## BGR_extract_raw_microdata_txt_to_csv_2005_2019.py (2005-2019)
 
@@ -66,18 +72,20 @@ from a hand-mapped workbook that is not available here.
    paragraphs, plus 19.00 since v1.5); executed blanked on subtotals and adjusted blanked below paragraph level.
 4. **Parse the special-units reports**: function from the roman-numeral header, function group from the sub-block
    header (wording changed over the years), economic code from the paragraph column taking the first code of a
-   multi-code line, a line listing whole paragraphs ("01,02,...") as 11.00; amount from the "Incl. Special" column
-   or, where a report lacks it, the sum of the special-unit columns; adjusted = executed; lines keyed on paragraph
+   multi-code line, a line listing whole paragraphs ("01,02,...") as 11.00; amount = the sum of the special-unit
+   columns (budget, National Fund, NAF, other international programmes, other EU funds, third parties), as for
+   2020-2024; the 2005-2013 reports print no such columns, only their total "Incl. Special spending units", which
+   is used instead (from 2014 that total equals the sum except on 21 lines of 2016); adjusted = executed; lines keyed on paragraph
    and amount because names drift by a row in old reports; from 2019 the whole-function block repeats its
    sub-blocks and is dropped when its total equals theirs; a paragraph total is a subtotal when its sub-lines are in
    the same block.
 5. **Assemble**: rows and special units together; exp_type from the paragraph (1 personnel, 2 recurrent, 3 capital
    incl. 49.02, 4 other); transfer flag for paragraphs 30-32, 60-69, 74-78; unit 7900 is central with its own type 79
    (v1.7); sort; integer codes.
-6. **Label**, 7. **Write**, 8. **Checks**: the yearly executed totals against the "TOTAL EXPENDITURE" of the fiscal
+6. **Label and write** `BGR_expenditures_2005-2019.csv`, 7. **Checks**: the yearly executed totals against the "TOTAL EXPENDITURE" of the fiscal
    program printed in the reports (equal to the leva in most years; 2009 -51m and 2014 +24m are in the published
    files too), and the special units against the rows the team mapped by hand for 2005-2017 (totals agree to about
-   a million a year; 2016 +6m).
+   a million a year; 2016 +4m).
 
 Deliberate departures from the do-files: the special units are parsed from the raw reports with one rule set instead
 of taking the team's hand-mapped rows; rows with econ2 4902 get exp_type 3 as the do-files say (the shipped v1.4 file
@@ -157,18 +165,43 @@ Against `Bulgaria BOOST reduced.xlsx` (Expenditure sheet, aggregated to its colu
 
 | year | ours | file | difference | cause |
 |---|---|---|---|---|
-| 2006-2013 | | | 0.0 | identical to the leva (two special-unit lines coded by the last instead of the first code in 2006-2011, no effect on totals) |
+| 2006-2013 | | | 0.0 | identical to the leva; in 2006-2011 the file codes part of 10.91 as 10.98, 10.62 as 10.69 and 21.00 as 29.00 (up to 468 million a year, amounts unchanged) and two special-unit lines by the last instead of the first code |
 | 2014 | 32,506.3 | 32,545.6 | -39.2 | 19.01 sign flip |
-| 2015 | 34,684.6 | 35,492.3 | -807.7 | 19.01 sign flip -809.0; special units +1.3 |
-| 2016 | 32,493.9 | 32,634.7 | -140.8 | 19.01 sign flip -147.0; special units +6.4 |
+| 2015 | 34,684.6 | 35,493.6 | -809.0 | 19.01 sign flip |
+| 2016 | 32,491.5 | 32,634.7 | -143.2 | 19.01 sign flip -147.0; special units +3.8 (police block: the file left out its 8.4 million 19.00 line and booked the printed total on the 21 lines where it differs from the columns) |
 | 2017 | 34,471.1 | 34,523.7 | -52.6 | 19.01 sign flip |
-| 2018 | 36,037.2 | 39,623.7 | -3,586.5 | special units missing on our side -3,478.7; 19.01 sign flip -107.9 |
+| 2018 | 39,515.7 | 39,623.7 | -108.0 | 19.01 sign flip |
 | 2019 | 45,201.0 | 45,127.1 | +73.9 | file booked special units from the budget column only (+145.5); 19.01 sign flip -71.6 |
 | 2020 | 47,747.7 | 47,857.4 | -109.7 | the file's duplicated NHIF row |
 | 2021-2024 | | | 0.0 | identical in amounts (2022, 2023: the file's zero lines and, in 2023, its incremented "N State budget" special-unit labels) |
 
 19.01 "paid taxes, charges and administrative sanctions" carries negative amounts in the extracts; the reduced file
-turned them positive (its NOTE sheet), so the difference is twice the negatives.
+turned them positive (its NOTE sheet: 'some negative values for econ1 "19 paid taxes" were turned positive'), so the
+difference is twice the negatives. The reduced file keeps the delivered lines of 2016-2018 and 2021 but aggregates the
+other years to its columns; the sign was removed line by line in 2016-2018 and on the aggregated lines in 2014, 2015
+and 2019, and every 19.01 amount of 2014-2019 is non-negative there. The delivered files themselves carry the signed
+amounts in every year, equal to the extracts (2014 -8.0, 2015 -392.7, 2016 -57.6, 2017 -11.9, 2018 -39.8, 2019 -24.3
+million BGN net), as do the reduced file's 2020-2024 lines.
+
+Row for row, after the steps that turn our file into the tab (drop 2005, admin2, admin3 and fin_source2; a road flag on
+activities 831-834 and 849 and an interest flag on sub-paragraphs 21-29; one line per remaining key in every year except
+2016-2018, which the tab keeps at line level; func2, econ1 and exp_type cut to 20 characters in 2006-2008), the tab and
+our file hold the same lines on codes and amounts for 100% of the lines in 2012-2013, 99.7-99.9% in 2006-2011 (the
+recodes above) and 98.7-99.9% in 2014-2019 (paragraph 19 and the special units). Matched on the label text the shares
+are 89-99%: the tab writes "§" where `labels_en.csv` has "Â§" in 10.91, names activities 448, 761 and 867 in 2019 that
+the list leaves to confirm, and has "074 Religious activities (unclassified)" (2007-2008), "062 Environment
+(unclassified)" (2015-2016) and "42.18 n/a" (2016).
+
+With the sign flip applied to our file as well, the two are identical to the leva in 2012-2014 and 2017 (every line),
+2018 up to one line (the tab keeps the agriculture special units' 10.00 total of 93,400 BGN next to its sub-lines) and
+2006-2011 up to the recodes above; 2015 differs on 182 lines that net to zero (a few central units carried under another
+government level in the tab); 2016 and 2019 differ by the special-unit choices in the table.
+
+The DLT pipeline therefore drops the reduced file's 19.01 lines of 2014-2019 and takes those lines from
+`BGR_expenditures_2005-2019.csv` (the workbook's columns, signed amounts), setting the workbook's `roads` flag as its
+NOTE sheet defines it (activities 831-834 and 849; the `Interest` flag never applies to paragraph 19). The 2020-2024
+lines are kept as the workbook has them. Executed totals fall by the amounts in the table above (2014 -39.2, 2015
+-809.0, 2016 -147.0, 2017 -52.6, 2018 -107.9, 2019 -71.6 million BGN).
 
 ## Known facts about the delivered files
 
@@ -185,7 +218,6 @@ turned them positive (its NOTE sheet), so the difference is twice the negatives.
 
 ## Open items
 
-* The 2018 special-units report (or the team's "Special_spending_units_2005-2019.xls" that the v1.9 do-file reads).
 * Placeholder labels: `labels_en.csv` has "(name to confirm)" for units 2028, 2029, 2233, 2234, 7400, 7500, 8199,
   activities 222, 279, 448, 625, 761, 845, 867 and sub-paragraphs 28.20, 28.90; the merged legend has "n/a" for
   05.58, 28.10-28.90, 33.07, 40.71, programmes 98121, 98222, 98321-98324, 99001, units 2028, 7400, 7500, 8199 and

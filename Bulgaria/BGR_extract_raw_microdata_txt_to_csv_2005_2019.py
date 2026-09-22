@@ -184,9 +184,12 @@ print(f"classified expenditures: {len(df):,} rows")
 #    * the economic code comes from the paragraph column, first code when a line lists several;
 #      a line listing whole paragraphs ("01,02,03,04,05,07,08,10") is the aggregate current
 #      expenditure of the older defense and security blocks and becomes paragraph 11.00;
-#    * the amount is the "Incl. Special spending units" column, or, when a report lacks it, the sum
-#      of the special-unit sub-columns; both are in thousands of BGN.  Adjusted and executed hold
-#      the same amount, as in the rows the BOOST team mapped by hand for 2005-2017;
+#    * the amount is the sum of the special-unit columns (budget, National Fund, NAF, other
+#      international programmes, other EU funds, third parties), as in the 2020-2024 notebook; the
+#      reports of 2005-2013 print no such columns, only their total "Incl. Special spending units",
+#      which is used instead.  From 2014 the total column is the sum of the others except on one
+#      line of 2014 and 21 lines of 2016.  Thousands of BGN.  Adjusted and executed hold the same
+#      amount, as in the rows the BOOST team mapped by hand for 2005-2017;
 #    * from 2019 the reports put a breakdown of the whole function before its sub-blocks; that
 #      block repeats the sub-blocks and is dropped when its total equals theirs;
 #    * a paragraph total (XX-00) is a subtotal when its sub-lines are in the same block, and the
@@ -201,7 +204,7 @@ SSU_REPORTS = {
     2012: "2012 - special_spending_units_28.05.14.xls", 2013: "2013 - special_spending_units_29.05.14.xls",
     2014: "2014 - special_spending_units.xlsx", 2015: "2015 - special_spending_units.xlsx",
     2016: "2016 - special_spending_units.xls", 2017: "2017 - special_spending_units.xls",
-    2018: "2018 - special_spending_units.xls", 2019: "2019 - special_spending_units.xls",
+    2018: "2018 - special_spending_units.xlsx", 2019: "2019 - special_spending_units.xls",
 }
 FUNC2_BY_HEADER = [  # regex on the sub-block header -> func2 (the wording changed over the years)
     (r"EXECUTIVE", 11), (r"GENERAL SERVICES|COMMON SERVICES", 12), (r"SCIENCE", 13),
@@ -227,12 +230,12 @@ for year, fname in SSU_REPORTS.items():
     sheet = (pd.read_csv(path, header=None, dtype=str, keep_default_na=False) if fname.endswith(".csv")
              else pd.read_excel(path, sheet_name=0, header=None))
     # every cell becomes text (whitespace collapsed), a number, or None
-    sheet = sheet.applymap(lambda v: None if v is None or (isinstance(v, float) and np.isnan(v))
+    sheet = sheet.map(lambda v: None if v is None or (isinstance(v, float) and np.isnan(v))
                       else (float(v) if not is_text(v) else
                             (None if not v.strip() else
                              (float(v.strip()) if NUMBER.match(v.strip()) else re.sub(r"\s+", " ", v).strip()))))
     sheet.columns = range(sheet.shape[1])
-    text = sheet.applymap(lambda v: v if is_text(v) else "")
+    text = sheet.map(lambda v: v if is_text(v) else "")
     first_data = text.index[text.apply(lambda col: col.str.contains("REVENUE", na=False)).any(axis=1)][0]
     header = {j: " / ".join(v for v in text.loc[:first_data - 1, j] if v) for j in sheet.columns}
     name_col = next(j for j in sheet.columns if text[j].map(lambda v: "EXPENDITURE BY FUNCTION" in v).any())
@@ -241,7 +244,8 @@ for year, fname in SSU_REPORTS.items():
     if para_counts[para_col] <= 50:
         para_col = None
     incl = [j for j, h in header.items() if "Incl. Special" in h or ("OF WHICH" in h and "Special" in h)]
-    amount_cols = incl[:1] or [j for j, h in header.items() if "SSU" in h or ("Special" in h and "Budget" in h)]
+    ssu = [j for j, h in header.items() if "SSU" in h or ("Special" in h and "Budget" in h)]
+    amount_cols = ssu or incl[:1]  # the special-unit columns; their printed total only where a report has no columns
     cfp = [j for j, h in header.items() if "Consolidated" in h and "Incl" not in h]  # whole fiscal program
     total_row = text.index[text.apply(lambda row: row.str.startswith("TOTAL EXPENDITURE")).any(axis=1)]
     if cfp and len(total_row):
@@ -344,15 +348,20 @@ print(f"final database: {len(df):,} rows, {df.shape[1]} columns")
 
 # COMMAND ----------
 
+# 5. Label and write.  The labelled file carries the workbook's label style ("2 Local", "19.01 Payment of
+#    state taxes, ...") so that BGR_transform_load_dlt.py can take lines from it: the workbook turned the
+#    negative 19.01 amounts of 2014-2019 positive (its NOTE sheet), the DLT pipeline replaces those lines
+#    with the raw ones from this file (see README.md, "Verification against the delivered files").
 labels = pd.read_csv(LABELS_PATH, keep_default_na=False, encoding="utf-8")
 labelled = df.copy()
 for var, g in labels.groupby("variable", sort=False):
     labelled[var] = df[var].map(dict(zip(g["code"], g["label"])))
     unlabelled = sorted(df.loc[labelled[var].isna() & df[var].notna(), var].unique())
-#     assert not unlabelled, f"{var}: no label for codes {unlabelled}"
-# labelled_path = OUT_DIR / "Bulgaria BOOST v1.4_expenditures 2005-2014 (en).csv"
-# labelled.to_csv(labelled_path, index=False, float_format="%.17g", lineterminator="\n", encoding="utf-8")
-# print(f"wrote {labelled_path}")
+    if unlabelled:
+        print(f"{var}: no label for codes {unlabelled}")
+labelled_path = OUT_DIR / "BGR_expenditures_2005-2019.csv"
+labelled.to_csv(labelled_path, index=False, float_format="%.17g", lineterminator="\n", encoding="utf-8")
+print(f"wrote {labelled_path}: {len(labelled):,} rows")
 
 # COMMAND ----------
 

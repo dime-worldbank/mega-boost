@@ -34,6 +34,14 @@ def boost_bronze():
             .load(f'{COUNTRY_MICRODATA_DIR}/Expenditure.csv'))
 
 
+@dlt.table(name='bgr_boost_bronze_raw_2005_2019')
+def boost_bronze_raw_2005_2019():
+    # The 2005-2019 rebuild from the Ministry of Finance extracts (BGR_extract_raw_microdata_txt_to_csv_2005_2019.py),
+    # labelled like the workbook. Only its paragraph 19.01 lines of 2014-2019 are used (boost_silver).
+    return (spark.read.format("csv").options(**CSV_READ_OPTIONS).option("inferSchema", "true")
+            .load(f'{COUNTRY_MICRODATA_DIR}/BGR_expenditures_2005-2019.csv'))
+
+
 # COMMAND ----------
 
 @dlt.table(name='bgr_boost_silver')
@@ -41,6 +49,24 @@ def boost_silver():
     df = (dlt.read('bgr_boost_bronze')
           .withColumn('year', col('year').cast(IntegerType()))
           .filter(col('year').isNotNull()))
+
+    # --- Paragraph 19.01 "Payment of state taxes, penalties and administrative sanctions" carries negative amounts
+    #     (refunds) in the Ministry of Finance extracts. The workbook turned them positive in 2014-2019 (NOTE sheet:
+    #     'some negative values for econ1 "19 paid taxes" were turned positive'), line by line in 2016-2018 and on
+    #     the aggregated lines of 2014, 2015 and 2019, so its executed totals overstate spending by twice the
+    #     negatives (39 to 809 million BGN a year). The workbook's 19.01 lines of those years are dropped and the
+    #     raw rebuild's lines take their place, with the workbook's helper flags set the way its NOTE sheet defines
+    #     them: road = activities 831-834 and 849; interest = paragraphs 21-29, never 19. ---
+    taxes_flipped = col('econ2').startswith('19.01') & col('year').between(2014, 2019)
+    raw_taxes = (dlt.read('bgr_boost_bronze_raw_2005_2019')
+                 .withColumn('year', col('year').cast(IntegerType()))
+                 .filter(taxes_flipped)
+                 .withColumn('adjusted', col('adjusted').cast(DoubleType()))
+                 .withColumn('executed', col('executed').cast(DoubleType()))
+                 .withColumn('roads', when(col('func3').rlike('^(831|832|833|834|849) '), 'y'))
+                 .withColumn('Interest', lit(None).cast('string'))
+                 .select(df.columns))
+    df = df.filter(~taxes_flipped).unionByName(raw_taxes)
 
     # Blank labels/flags become '' so that `~col.startswith(...)` is never NULL (a NULL would silently
     # drop the row out of every `... & ~...` predicate into the residual category).
