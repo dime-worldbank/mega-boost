@@ -1,4 +1,8 @@
 # Databricks notebook source
+!pip install xlrd
+
+# COMMAND ----------
+
 # MAGIC %run ../utils
 
 # COMMAND ----------
