@@ -1,12 +1,12 @@
 # Bulgaria BOOST expenditures: Python rebuild
 
 Two Databricks notebooks rebuild the Bulgaria BOOST expenditure dataset from the Ministry of Finance raw files in
-`TXT/`, with no Stata and no intermediate files. Each writes CSV to `OUT_DIR` (`python_output/` locally).
+`TXT/`, with no Stata and no intermediate files. Each writes one CSV to the country's `microdata_csv` folder.
 
 | notebook | years | method | outputs |
 |---|---|---|---|
 | `BGR_extract_raw_microdata_txt_to_csv_2005_2019.py` | 2005-2019 | the BOOST team's Stata do-file rules (v1.4 to v1.9) | `BGR_expenditures_2005-2019.csv` |
-| `BGR_extract_raw_microdata_txt_to_csv_2020_2024.py` | 2020-2024, one run | the newer BOOST team's yearly Excel workbooks ("YYYY BOOST update.xlsx") | `BGR_2020-2024.csv` |
+| `BGR_extract_raw_microdata_txt_to_csv_2020_2024.py` | 2020-2024, one run | the newer BOOST team's yearly Excel workbooks ("YYYY BOOST update.xlsx") | `BGR_expenditures_2020-2024.csv` |
 
 Both follow the same sequence of cells: settings, imports, code lists, parse the extract(s), clean the expenditure
 rows, parse the special-units report(s), label, write, check. The two methods differ in substance (see
@@ -17,8 +17,10 @@ The DLT pipeline (`BGR_transform_load_dlt.py`) reads the reduced workbook's `Exp
 workbook's amounts: the paragraph 19.01 lines of 2014-2019, which the workbook holds in absolute value (see
 "Verification against the delivered files"). Run the 2005-2019 notebook before the pipeline.
 
-Run locally with `/opt/anaconda3/bin/python3 python-files/<notebook>.py` (pandas 3, numpy, xlrd, openpyxl). On
-Databricks set `BASE` in the settings cell to the volume that holds `TXT/`.
+Both notebooks take their paths from `../utils` like the other extract notebooks: inputs under
+`RAW_INPUT_DIR/Bulgaria/` (`TXT/`, `labels_en.csv`, the delivered workbook for the check cell) and outputs in
+`microdata_csv/Bulgaria` (`prepare_microdata_csv_dir`). To run one locally (pandas 3, numpy, xlrd, openpyxl), exec
+the file with `Path`, `RAW_INPUT_DIR` and `prepare_microdata_csv_dir` defined for local folders.
 
 ## Inputs
 

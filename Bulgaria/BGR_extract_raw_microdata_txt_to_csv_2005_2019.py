@@ -9,9 +9,9 @@ import numpy as np
 import pandas as pd
 
 COUNTRY = 'Bulgaria'
-OUT_DIR = prepare_microdata_csv_dir(COUNTRY)
+OUT_DIR = Path(prepare_microdata_csv_dir(COUNTRY))
 BASE = Path(f"{RAW_INPUT_DIR}/Bulgaria")
-LABELS_PATH = BASE / "labels_en.csv" #
+LABELS_PATH = BASE / "labels_en.csv"
 
 # COMMAND ----------
 

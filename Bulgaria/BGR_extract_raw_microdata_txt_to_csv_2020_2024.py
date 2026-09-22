@@ -1,15 +1,24 @@
 # Databricks notebook source
-# MAGIC %md
-# MAGIC # Bulgaria BOOST expenditures 2020-2024
-# MAGIC See python-files/README.md for the method, the inputs and outputs, the year rules and the checks.
+# MAGIC %run ../utils
 
 # COMMAND ----------
 
-from pathlib import Path
+# MAGIC %md
+# MAGIC # Bulgaria BOOST expenditures 2020-2024
+# MAGIC See README.md for the method, the inputs and outputs, the year rules and the checks.
 
-BASE = Path("/Users/ysuzuki2/Downloads/Bulgaria_BOOST_pipeline")
-OUT_DIR = BASE / "python_output"
-REFERENCE_WORKBOOK = BASE / "Bulgaria BOOST 2015-2024 expenditure.xlsx"
+# COMMAND ----------
+
+import json
+import re
+
+import numpy as np
+import pandas as pd
+
+COUNTRY = 'Bulgaria'
+OUT_DIR = Path(prepare_microdata_csv_dir(COUNTRY))
+BASE = Path(f"{RAW_INPUT_DIR}/Bulgaria")
+REFERENCE_WORKBOOK = BASE / "Bulgaria BOOST 2015-2024 expenditure.xlsx"  # the delivered data, for the check cell
 REFERENCE_SHEET = "2019-24"
 
 INPUTS = {
@@ -20,14 +29,6 @@ INPUTS = {
     2024: ("2024_annual_deatiled_data.txt",       "2024 - special_spending_units.xls"),
 }
 LEGEND_PATH = BASE / "TXT" / "2020-2024 - legend.json"
-
-# COMMAND ----------
-
-import json
-import re
-
-import numpy as np
-import pandas as pd
 
 # COMMAND ----------
 
@@ -60,7 +61,6 @@ print(f"report line names with a paragraph: {len(line_para)}")
 
 EXP_COLS = ["year", "admin1", "admin2", "admin3", "func1", "func2", "func3", "econ1", "econ2",
             "fin_source1", "fin_source2", "exp_type", "transfer", "adjusted", "executed"]
-OUT_DIR.mkdir(parents=True, exist_ok=True)
 # 2-6. One year at a time
 expenditures = {}
 for YEAR, (extract_file, report_file) in INPUTS.items():
@@ -215,7 +215,7 @@ for YEAR, (extract_file, report_file) in INPUTS.items():
     print(f"prepared {YEAR}: {len(expenditures[YEAR]):,} rows; executed {expenditures[YEAR]['executed'].sum() / 1e6:,.1f} million BGN")
 
 all_years = pd.concat([expenditures[y] for y in INPUTS], ignore_index=True)
-final_path = OUT_DIR / "BGR_2020-2024.csv"
+final_path = OUT_DIR / "BGR_expenditures_2020-2024.csv"
 all_years.to_csv(final_path, index=False, float_format="%.17g", lineterminator="\n", encoding="utf-8")
 print(f"\nwrote {final_path}: {len(all_years):,} rows")
 
