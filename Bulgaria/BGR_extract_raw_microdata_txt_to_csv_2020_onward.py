@@ -4,8 +4,10 @@
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC # Bulgaria BOOST expenditures 2020-2024
-# MAGIC See README.md for the method, the inputs and outputs, the year rules and the checks.
+# MAGIC # Bulgaria BOOST expenditures 2020 onward
+# MAGIC See README.md for the method, the inputs and outputs, the year rules and the checks. Every year from 2020 whose
+# MAGIC extract sits in `TXT/` is processed and written to its own file; a new year needs no change here unless the
+# MAGIC Ministry of Finance changes the files' layout.
 
 # COMMAND ----------
 
@@ -21,13 +23,17 @@ BASE = Path(f"{RAW_INPUT_DIR}/Bulgaria")
 REFERENCE_WORKBOOK = BASE / "Bulgaria BOOST 2015-2024 expenditure.xlsx"  # the delivered data, for the check cell
 REFERENCE_SHEET = "2019-24"
 
-INPUTS = {
-    2020: ("2020_annual_deatiled_data.txt",       "2020 - special_spending_units.xls"),
-    2021: ("2021_annual_deatiled_data.txt",       "2021 - special_spending_units.xls"),
-    2022: ("2022_annual_deatiled_data-final.txt", "2022 - special_spending_units-final.xls"),
-    2023: ("2023_annual_deatiled_data.txt",       "2023 - special_spending_units.xls"),
-    2024: ("2024_annual_deatiled_data.txt",       "2024 - special_spending_units.xls"),
-}
+# Years and files: every extract "YYYY_annual_deatiled_data*.txt" of 2020 or later in TXT/, with the report
+# "YYYY - special_spending_units*.xls[x]" of the same year ("-final" versions included; earlier versions, whose
+# name carries "v1", ignored). Exactly one file of each kind per year.
+def input_file(year, pattern):
+    files = sorted(f for f in (BASE / "TXT").glob(pattern.format(year=year)) if "v1" not in f.name.lower())
+    assert len(files) == 1, f"{year}: expected one file {pattern.format(year=year)}, found {[f.name for f in files]}"
+    return files[0].name
+YEARS = sorted({int(f.name[:4]) for f in (BASE / "TXT").glob("2???_annual_deatiled_data*.txt") if int(f.name[:4]) >= 2020})
+INPUTS = {year: (input_file(year, "{year}_annual_deatiled_data*.txt"), input_file(year, "{year} - special_spending_units*.xls*"))
+          for year in YEARS}
+print("years:", ", ".join(f"{y} ({e}, {r})" for y, (e, r) in INPUTS.items()))
 LABELS_PATH = BASE / "labels_en.json"  # the code list shared with the 2005-2019 notebook (a copy sits in the repository)
 
 
@@ -52,13 +58,16 @@ admin1_of, admin2_of, admin3_of = ({k: v[c] for k, v in code_list["units"].items
 func1_of, func2_of, func3_of = ({k: v[c] for k, v in code_list["activities"].items()} for c in ("func1", "func2", "func3"))
 print(f"code lists: {len(econ2_of)} economic codes, {len(admin3_of)} units, {len(func3_of)} activities, {len(fin1_of)} financing sources")
 
+def prints_codes(text, para_col):
+    """A report prints paragraph codes when its best column holds at least 50 (the 2021 report prints none)."""
+    return int(text[para_col].str.match(r"^\d{2}-\d{2}").sum()) >= 50
 line_para = {}
 for year, (_, report_file) in INPUTS.items():
-    if year == 2021:
-        continue
     text = applymap(pd.read_excel(BASE / "TXT" / report_file, sheet_name=0, header=None), lambda v: re.sub(r"\s+", " ", v).strip() if isinstance(v, str) else "")
     name_col = next(j for j in text.columns if text[j].map(lambda v: "EXPENDITURE BY FUNCTION" in v).any())
     para_col = max(text.columns, key=lambda j: int(text[j].str.match(r"^\d{2}-\d{2}").sum()))
+    if not prints_codes(text, para_col):
+        continue
     block = text.loc[text.index[text[name_col].str.contains("EXPENDITURE BY FUNCTION")][0]:]
     for name, para in zip(block[name_col], block[para_col]):
         if name and re.match(r"^\d{2}-\d{2}", para):
@@ -136,11 +145,11 @@ for YEAR, (extract_file, report_file) in INPUTS.items():
     name_col = next(j for j in sheet.columns if text[j].map(lambda v: "EXPENDITURE BY FUNCTION" in v).any())
     ssu_cols = [j for j, h in header.items() if "SSU" in h or ("Special" in h and "Budget" in h)]
     amount = sum(pd.to_numeric(sheet[j], errors="coerce").fillna(0.0) for j in ssu_cols)
-    if YEAR == 2021:
-        para = text[name_col].map(line_para).fillna("")
-    else:
-        para_col = max(sheet.columns, key=lambda j: int(text[j].str.match(r"^\d{2}-\d{2}").sum()))
+    para_col = max(sheet.columns, key=lambda j: int(text[j].str.match(r"^\d{2}-\d{2}").sum()))
+    if prints_codes(text, para_col):
         para = text[para_col].where(text[para_col].str.match(r"^\d{2}-\d{2}"), "")
+    else:  # 2021: paragraphs from the line names
+        para = text[name_col].map(line_para).fillna("")
     next_para = para[para != ""].shift(-1).reindex(para.index).fillna("")
     leaf = (para.str[-2:] != "00") | (para.str[:2] != next_para.str[:2])
     econ = para.str[:2] + "." + (para.str[3:5] if YEAR == 2020 else para.str[-2:])
@@ -220,12 +229,9 @@ for YEAR, (extract_file, report_file) in INPUTS.items():
     # 6. Assemble and write the year
     parts = [su[EXP_COLS], clean[EXP_COLS]] if YEAR == 2020 else [clean[EXP_COLS], su[EXP_COLS]]
     expenditures[YEAR] = pd.concat(parts, ignore_index=True)
-    print(f"prepared {YEAR}: {len(expenditures[YEAR]):,} rows; executed {expenditures[YEAR]['executed'].sum() / 1e6:,.1f} million BGN")
-
-all_years = pd.concat([expenditures[y] for y in INPUTS], ignore_index=True)
-final_path = OUT_DIR / "BGR_expenditures_2020-2024.csv"
-all_years.to_csv(final_path, index=False, float_format="%.17g", lineterminator="\n", encoding="utf-8")
-print(f"\nwrote {final_path}: {len(all_years):,} rows")
+    year_path = OUT_DIR / f"BGR_expenditures_{YEAR}.csv"
+    expenditures[YEAR].to_csv(year_path, index=False, float_format="%.17g", lineterminator="\n", encoding="utf-8")
+    print(f"wrote {year_path}: {len(expenditures[YEAR]):,} rows; executed {expenditures[YEAR]['executed'].sum() / 1e6:,.1f} million BGN")
 
 # COMMAND ----------
 
@@ -240,6 +246,9 @@ if REFERENCE_WORKBOOK.exists():
     delivered["year"] = delivered["year"].astype(str).str.split(".").str[0]
     for YEAR in INPUTS:
         a, b = expenditures[YEAR].copy(), delivered[delivered["year"] == str(YEAR)].copy()
+        if not len(b):
+            print(f"\ndelivered data {YEAR}: not in the reference workbook")
+            continue
         for d in (a, b):
             for c in ("adjusted", "executed"):
                 d[c] = pd.to_numeric(d[c], errors="coerce").round(2).fillna(-1)

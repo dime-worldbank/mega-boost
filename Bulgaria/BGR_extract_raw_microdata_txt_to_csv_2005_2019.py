@@ -355,9 +355,7 @@ print(f"final database: {len(df):,} rows, {df.shape[1]} columns")
 # COMMAND ----------
 
 # 5. Label and write.  The labelled file carries the workbook's label style ("2 Local", "19.01 Payment of
-#    state taxes, ...") so that BGR_transform_load_dlt.py can take lines from it: the workbook turned the
-#    negative 19.01 amounts of 2014-2019 positive (its NOTE sheet), the DLT pipeline replaces those lines
-#    with the raw ones from this file (see README.md, "Verification against the delivered files").
+#    state taxes, ...") and is what BGR_transform_load_dlt.py reads (see README.md).
 #    The code list is hierarchical (units carry their admin1-3 labels, activities their func1-3, economic codes
 #    their econ1-2 and expenditure type); each level's labels are collected from it and keyed on the numeric
 #    code that opens every label ("1.1 ..." -> 11, "01.01 ..." -> 101, "98.121 ..." -> 98121); the transfer
@@ -382,9 +380,10 @@ for var, labels in LABELS.items():
     unlabelled = sorted(df.loc[labelled[var].isna() & df[var].notna(), var].unique())
     if unlabelled:
         print(f"{var}: no label for codes {unlabelled}")
-labelled_path = OUT_DIR / "BGR_expenditures_2005-2019.csv"
-labelled.to_csv(labelled_path, index=False, float_format="%.17g", lineterminator="\n", encoding="utf-8")
-print(f"wrote {labelled_path}: {len(labelled):,} rows")
+for year, rows in labelled.groupby("year"):  # one file per year, like the 2020-onward notebook
+    year_path = OUT_DIR / f"BGR_expenditures_{int(year)}.csv"
+    rows.to_csv(year_path, index=False, float_format="%.17g", lineterminator="\n", encoding="utf-8")
+    print(f"wrote {year_path}: {len(rows):,} rows")
 
 # COMMAND ----------
 

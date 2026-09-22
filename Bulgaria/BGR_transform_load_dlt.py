@@ -28,28 +28,21 @@ def classify(categories, residual=None):
 
 # COMMAND ----------
 
-@dlt.table(name='bgr_boost_bronze_2005_2019')
-def boost_bronze_2005_2019():
-    # The 2005-2019 rebuild from the Ministry of Finance extracts (BGR_extract_raw_microdata_txt_to_csv_2005_2019.py).
+@dlt.table(name='bgr_boost_bronze')
+def boost_bronze():
+    # One file per year from the rebuilds of the Ministry of Finance extracts (BGR_extract_raw_microdata_txt_to_csv_
+    # 2005_2019.py and ..._2020_onward.py): the same 15 columns and labels; a new year's file is picked up by the pattern.
     return (spark.read.format("csv").options(**CSV_READ_OPTIONS).option("inferSchema", "true")
-            .load(f'{COUNTRY_MICRODATA_DIR}/BGR_expenditures_2005-2019.csv'))
-
-
-@dlt.table(name='bgr_boost_bronze_2020_2024')
-def boost_bronze_2020_2024():
-    # The 2020-2024 rebuild (BGR_extract_raw_microdata_txt_to_csv_2020_2024.py); the same 15 columns and labels.
-    return (spark.read.format("csv").options(**CSV_READ_OPTIONS).option("inferSchema", "true")
-            .load(f'{COUNTRY_MICRODATA_DIR}/BGR_expenditures_2020-2024.csv'))
+            .load(f'{COUNTRY_MICRODATA_DIR}/BGR_expenditures_????.csv'))
 
 
 # COMMAND ----------
 
 @dlt.table(name='bgr_boost_silver')
 def boost_silver():
-    # Both rebuilds carry the signed amounts of the extracts (the workbook's Expenditure sheet, no longer read,
+    # The rebuilds carry the signed amounts of the extracts (the workbook's Expenditure sheet, no longer read,
     # held paragraph 19 in absolute value for 2014-2019 and started in 2006; see README.md, "Verification").
-    df = (dlt.read('bgr_boost_bronze_2005_2019')
-          .unionByName(dlt.read('bgr_boost_bronze_2020_2024'))
+    df = (dlt.read('bgr_boost_bronze')
           .withColumn('year', col('year').cast(IntegerType()))
           .filter(col('year').isNotNull())
           .withColumn('adjusted', col('adjusted').cast(DoubleType()))
