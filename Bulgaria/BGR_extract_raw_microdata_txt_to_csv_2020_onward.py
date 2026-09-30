@@ -38,7 +38,7 @@ YEARS = sorted({int(f.name[:4]) for f in (BASE / "TXT").glob("2???_annual_deatil
 INPUTS = {year: (input_file(year, "{year}_annual_deatiled_data*.txt"), input_file(year, "{year} - special_spending_units*.xls*"))
           for year in YEARS}
 print("years:", ", ".join(f"{y} ({e}, {r})" for y, (e, r) in INPUTS.items()))
-LABELS_PATH = BASE / "labels_en.json"  # the code list shared with the 2005-2019 notebook (a copy sits in the repository)
+LABELS_PATH = BASE / "labels_en.json"  # the code list shared with the 2005-2019 notebook, on the volume next to TXT/
 
 
 def applymap(frame, fn):

@@ -16,7 +16,7 @@ import pandas as pd
 COUNTRY = 'Bulgaria'
 OUT_DIR = Path(prepare_raw_microdata_csv_dir(COUNTRY))
 BASE = Path(f"{RAW_INPUT_DIR}/Bulgaria")
-LABELS_PATH = BASE / "labels_en.json"  # the code list shared with the 2020-2024 notebook (a copy sits in the repository)
+LABELS_PATH = BASE / "labels_en.json"  # the code list shared with the 2020-onward notebook, on the volume next to TXT/
 
 
 def applymap(frame, fn):
@@ -191,7 +191,7 @@ print(f"classified expenditures: {len(df):,} rows")
 #      a line listing whole paragraphs ("01,02,03,04,05,07,08,10") is the aggregate current
 #      expenditure of the older defense and security blocks and becomes paragraph 11.00;
 #    * the amount is the sum of the special-unit columns (budget, National Fund, NAF, other
-#      international programmes, other EU funds, third parties), as in the 2020-2024 notebook; the
+#      international programmes, other EU funds, third parties), as in the 2020-onward notebook; the
 #      reports of 2005-2013 print no such columns, only their total "Incl. Special spending units",
 #      which is used instead.  From 2014 the total column is the sum of the others except on one
 #      line of 2014 and 21 lines of 2016.  Thousands of BGN.  Adjusted and executed hold the same
