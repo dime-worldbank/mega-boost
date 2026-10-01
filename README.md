@@ -23,9 +23,11 @@ BOOST data is country-specific — for instance, some ministries of finance have
 Some countries have integration tests under [`tests/`](./tests/) that run the extraction/ETL notebooks end to end against small fixture workbooks and compare the output to committed golden CSVs. They run in a plain Python environment (no Databricks or Spark required):
 
 ```
-pip install numpy pandas openpyxl
+pip install -r tests/requirements.txt
 cd tests && python -m unittest
 ```
+
+They also run on every pull request via [GitHub Actions](./.github/workflows/tests.yml).
 
 ## How to Add a New Country
 ### 0. Clone the repository (if not already done)
