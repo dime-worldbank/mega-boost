@@ -33,7 +33,7 @@ Alternativley, the script can also be imported into Jupyter and executed as a no
 
 ## Aggregation Script for the Dashboard
 
-[TGO_aggregate.py](Togo/TGO_aggregate.py) builds the tables the RPF country dashboard reads, from the gold table written by `TGO_ETL.py` and CSV extracts of the indicator tables it joins. It runs in a regular python environment without databricks or spark; no quality checks are run.
+[TGO_aggregate.py](TGO_aggregate.py) builds the tables the RPF country dashboard reads, from the gold table written by `TGO_ETL.py` and CSV extracts of the indicator tables it joins. It runs in a regular python environment without databricks or spark; no quality checks are run.
 
 ### Inputs
 - `tgo_boost_gold.csv` from the `OUTPUT_DIR` of `TGO_ETL.py`
