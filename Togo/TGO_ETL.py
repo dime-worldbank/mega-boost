@@ -11,6 +11,11 @@ IS_DATABRICKS = "DATABRICKS_RUNTIME_VERSION" in os.environ
 
 # COMMAND ----------
 
+def _is_blank(cell):
+    # whitespace-only text is padding from exports / manual edits, not data
+    return cell is None or (isinstance(cell, str) and not cell.strip())
+
+
 def largest_sheet(path):
     """Name of the workbook's sheet with the most non-empty rows."""
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
@@ -18,7 +23,7 @@ def largest_sheet(path):
         return max(
             wb.sheetnames,
             key=lambda name: sum(
-                any(cell is not None for cell in row)
+                not all(_is_blank(cell) for cell in row)
                 for row in wb[name].iter_rows(values_only=True)
             ),
         )
@@ -57,10 +62,8 @@ else:
     bronze_dir = os.environ.get('OUTPUT_DIR') or input("Enter the output directory (e.g. /path/to/output/): ").strip()
     output_dir = bronze_dir  # reused by the silver/gold CSV exports below
 
-# Ingest every workbook in the folder, taking each file's sheet with the most data. Only the
-# consolidated new-format .xlsx export(s) are picked up; legacy per-year files are the old .xls
-# format (BUDGET 2009.xls ... BUDGET 2021.xls), use a different column structure, and are not
-# yet harmonized.
+# Only the new-format .xlsx exports are read; the legacy per-year .xls files (BUDGET 2009.xls ...
+# BUDGET 2021.xls) use a different column structure and are not yet harmonized.
 input_files = sorted(glob(f"{input_dir}/*.xlsx"))
 assert input_files, f"No xlsx files found under {input_dir}"
 sheets = {path: largest_sheet(path) for path in input_files}
@@ -69,13 +72,34 @@ Path(bronze_dir).mkdir(parents=True, exist_ok=True)
 
 # COMMAND ----------
 
-# Read every source sheet (largest per file) and combine for the silver/gold steps
+# A year can arrive in several files (e.g. partial, then a full resend). Keep the file with the
+# most executed spending for it: execution grows through the year while budgets barely change.
+# Not mtime, since edits/copies reset it. Ties go to the later filename.
+frames = {path: read_clean_sheet(path, sheet) for path, sheet in sheets.items()}
+
+
+def executed_total(path, year):
+    frame = frames[path]
+    return frame.loc[frame["YEAR"] == year, "ORDONNANCER"].sum()
+
+
+years = sorted({year for frame in frames.values() for year in frame["YEAR"].dropna().unique()})
+year_source = {}
+for year in years:
+    candidates = [path for path in input_files if (frames[path]["YEAR"] == year).any()]
+    year_source[year] = max(candidates, key=lambda path: (executed_total(path, year), path))
+    superseded = [f"{os.path.basename(p)} (executed {executed_total(p, year):,.0f})"
+                  for p in candidates if p != year_source[year]]
+    note = f"; superseding {', '.join(superseded)}" if superseded else ""
+    print(f"{int(year)}: using {os.path.basename(year_source[year])} "
+          f"(executed {executed_total(year_source[year], year):,.0f}){note}")
+
 df = pd.concat(
-    [read_clean_sheet(path, sheet) for path, sheet in sheets.items()],
+    [frames[path][(frames[path]["YEAR"].map(year_source) == path) | frames[path]["YEAR"].isna()]
+     for path in input_files],
     ignore_index=True,
 )
 
-# Save bronze data as one CSV per year
 for year, year_df in df.groupby("YEAR"):
     year_df.to_csv(
         os.path.join(bronze_dir, f'{int(year)}.csv'),

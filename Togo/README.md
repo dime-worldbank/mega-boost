@@ -18,7 +18,8 @@ pip install numpy pandas openpyxl
 
 # export input & output directory information based on local setup
 # without the env var exports the script will prompt for user input on every script run
-# INPUT_DIR holds the raw .xlsx workbook(s); each file's sheet with the most data is used
+# INPUT_DIR holds the raw .xlsx workbook(s); each file's sheet with the most data is used.
+# If a year appears in several workbooks, only the rows of the file with the most executed spending (ORDONNANCER) for that year are used.
 export INPUT_DIR='/path/to/raw/data/dir'
 export OUTPUT_DIR='/path/to/output/dir/'
 ```

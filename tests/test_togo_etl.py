@@ -12,6 +12,8 @@ import os
 import shutil
 import unittest
 
+import pandas as pd
+
 from helpers import REPO_ROOT, run_script, write_workbook
 
 NB = "Togo/TGO_ETL.py"
@@ -50,10 +52,10 @@ class TogoEtlTest(unittest.TestCase):
         self.out = os.path.join(TMP, "out")
         os.makedirs(self.input_dir)
         os.makedirs(self.out)
-        # Two workbooks read in sorted order; part1 also has a smaller decoy sheet so
-        # largest_sheet must pick the data sheet over it. Split by year across the two files.
+        # part1 also has a decoy sheet with fewer real rows (padded with whitespace-only rows) that
+        # largest_sheet must skip. Years are split across the two files.
         write_workbook(os.path.join(self.input_dir, "BUDGET part1.xlsx"), {
-            "decoy": [["ignore", "me"], ["1", "2"]],
+            "decoy": [["ignore", "me"], ["1", "2"]] + [["  ", " "]] * 20,
             SHEET_NAME: [COLS] + ROWS_2021,
         })
         write_workbook(os.path.join(self.input_dir, "BUDGET part2.xlsx"), {
@@ -76,11 +78,23 @@ class TogoEtlTest(unittest.TestCase):
 
     def test_outputs_match_golden(self):
         run_script(NB, env={"INPUT_DIR": self.input_dir, "OUTPUT_DIR": self.out})
-        # per-year bronze split (filenames + content), then the silver and gold tables
         self._assert_golden("2021.csv")
         self._assert_golden("2022.csv")
         self._assert_golden("tgo_2021_onward_boost_silver.csv")
         self._assert_golden("tgo_boost_gold.csv")
+
+    def test_year_in_multiple_files_uses_file_with_most_executed(self):
+        # A resend of 2022 with more execution replaces the earlier rows. Named part0 (sorts first) so
+        # winning proves executed spending, not filename order, decides.
+        resent_2022 = [row[:-3] + [v * 10 for v in row[-3:]] for row in ROWS_2022]
+        write_workbook(os.path.join(self.input_dir, "BUDGET part0.xlsx"),
+                       {SHEET_NAME: [COLS] + resent_2022})
+
+        run_script(NB, env={"INPUT_DIR": self.input_dir, "OUTPUT_DIR": self.out})
+
+        self._assert_golden("2021.csv")
+        bronze_2022 = pd.read_csv(os.path.join(self.out, "2022.csv"))
+        self.assertEqual(bronze_2022["ORDONNANCER"].tolist(), [row[-3] * 10 for row in ROWS_2022])
 
 
 if __name__ == "__main__":
