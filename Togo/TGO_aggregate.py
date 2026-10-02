@@ -9,6 +9,7 @@
 #                  poverty_rate, global_data_lab_hd_index, edu_spending,
 #                  health_expenditure (Databricks exports write nulls as "null")
 #   OUTPUT_DIR     where the output CSVs go
+# TODO: Refactor the cross-country aggregation so the logic lives in one place and every country can reuse it.
 import os
 
 import numpy as np
