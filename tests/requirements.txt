@@ -1,0 +1,7 @@
+# Pinned to Databricks Runtime 15.4 LTS (prod cluster ITSDA_DAP_TEAM_boostprocessed) so tests match production.
+# Upgrade these pins (and python-version in .github/workflows/tests.yml) when the prod runtime is upgraded;
+# pandas >=3 also requires replacing DataFrame.applymap with DataFrame.map in the extract notebooks.
+numpy==1.23.5
+pandas==1.5.3
+# not bundled with the runtime; the cluster installs the latest from PyPI
+openpyxl

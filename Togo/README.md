@@ -16,10 +16,11 @@
 # install depedencies
 pip install numpy pandas openpyxl
 
-# export input file & output directory information based on local setup
+# export input & output directory information based on local setup
 # without the env var exports the script will prompt for user input on every script run
-export INPUT_FILE_NAME='/path/to/raw/data.xlsx'
-export INPUT_SHEET_NAME='Sheet1'
+# INPUT_DIR holds the raw .xlsx workbook(s); each file's sheet with the most data is used.
+# If a year appears in several workbooks, only the rows of the file with the most executed spending (ORDONNANCER) for that year are used.
+export INPUT_DIR='/path/to/raw/data/dir'
 export OUTPUT_DIR='/path/to/output/dir/'
 ```
 
@@ -29,7 +30,15 @@ export OUTPUT_DIR='/path/to/output/dir/'
 python TGO_ETL.py
 ```
 
-Alternativley, the script can also be imported into Jupyter and executed as a notebook.
+Alternatively, the script can also be imported into Jupyter and executed as a notebook.
+
+### Running tests (without databricks)
+
+Integration tests run `TGO_ETL.py` end to end against a small fixture workbook via its non-databricks path. From the repo-level [`tests/`](../tests/) folder, run only the Togo tests:
+
+```
+cd tests && python -m unittest test_togo_etl
+```
 
 ## Aggregation Script for the Dashboard
 
