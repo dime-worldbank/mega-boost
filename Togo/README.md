@@ -62,3 +62,27 @@ python TGO_aggregate.py
 ### Outputs
 One CSV per table the dashboard reads, in `OUTPUT_DIR`: `pov_expenditure_by_country_year`, `expenditure_by_country_func_econ_year`, `expenditure_by_country_geo0_func_sub_year`, `expenditure_by_country_geo1_year`, `expenditure_and_outcome_by_country_geo1_func_year`, `edu_private_expenditure_by_country_year`, `health_private_expenditure_by_country_year` and `data_availability`.
 
+## Tables in PostgreSQL
+
+Off databricks, both scripts can keep their tables in a PostgreSQL database instead of CSVs, in the layout the RPF country dashboard reads with its own `DB_BACKEND=postgres`: a database named `prd_mega`, with schemas named as in Unity Catalog.
+
+```
+pip install "psycopg[binary]"
+
+export DB_BACKEND=postgres
+export POSTGRES_DSN='postgresql://user:password@host:5432/prd_mega'
+
+python TGO_ETL.py        # INPUT_DIR and OUTPUT_DIR as above; OUTPUT_DIR still receives the per-year bronze CSVs
+python TGO_aggregate.py  # GOLD_CSV, INDICATOR_DIR and OUTPUT_DIR are not used
+```
+
+- `TGO_ETL.py` replaces `boost_intermediate.tgo_2021_onward_boost_silver` and `boost_intermediate.tgo_boost_gold`.
+- `TGO_aggregate.py` reads `boost_intermediate.tgo_boost_gold` and the `indicator` tables listed above, which mega-indicators writes with the same `DB_BACKEND=postgres`. It replaces the eight output tables in schema `boost`.
+- The role in `POSTGRES_DSN` must be allowed to create schemas and tables in the database; the dashboard's read-only role is not enough.
+- Each table is replaced in one transaction. The dashboard caches query results, so clear its cache after a run, or it keeps showing the previous figures.
+- [postgres_tables.py](postgres_tables.py) has the PostgreSQL code, identical to the copy in mega-indicators.
+- `tests/test_togo_postgres.py` runs both scripts in CSV and PostgreSQL mode on the same inputs and compares every table. It needs psycopg and a test database named `prd_mega` given in `TEST_POSTGRES_DSN`, and is skipped without one:
+
+```
+cd tests && TEST_POSTGRES_DSN='postgresql://postgres:test@localhost:5432/prd_mega' python -m unittest test_togo_postgres
+```

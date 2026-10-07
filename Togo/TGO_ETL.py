@@ -8,6 +8,13 @@ import pandas as pd
 import openpyxl
 
 IS_DATABRICKS = "DATABRICKS_RUNTIME_VERSION" in os.environ
+# Off Databricks the silver and gold tables go to CSVs in OUTPUT_DIR, or with
+# DB_BACKEND=postgres to the PostgreSQL database in POSTGRES_DSN (postgres_tables.py).
+DB_BACKEND = "databricks" if IS_DATABRICKS else os.environ.get("DB_BACKEND", "csv")
+if DB_BACKEND == "postgres":
+    import postgres_tables
+elif not IS_DATABRICKS and DB_BACKEND != "csv":
+    raise RuntimeError(f"Unknown DB_BACKEND {DB_BACKEND!r}; expected csv or postgres.")
 
 # COMMAND ----------
 
@@ -319,13 +326,14 @@ def map_econ_sub(row):
                 return "Social Assistance"
 df_silver["econ_sub"] = df_silver.apply(map_econ_sub, axis=1)
 
-# Save silver table to Unity Catalog if running in Databricks, else export to CSV
+# Save silver table to Unity Catalog if running in Databricks, else to PostgreSQL or CSV
 if IS_DATABRICKS:
     sdf = spark.createDataFrame(df_silver)
     sdf.write.mode("overwrite").option("overwriteSchema", "true")\
         .saveAsTable("prd_mega.boost_intermediate.tgo_2021_onward_boost_silver")
+elif DB_BACKEND == "postgres":
+    postgres_tables.replace_table(df_silver, "prd_mega", "boost_intermediate", "tgo_2021_onward_boost_silver")
 else:
-    # TODO: directly write to relational database when credentials are available
     df_silver.to_csv(
         os.path.join(output_dir, "tgo_2021_onward_boost_silver.csv"),
         index=False,
@@ -363,8 +371,9 @@ if IS_DATABRICKS:
     sdf_gold = spark.createDataFrame(df_gold)
     sdf_gold.write.mode("overwrite").option("overwriteSchema", "true")\
         .saveAsTable("prd_mega.boost_intermediate.tgo_boost_gold")
+elif DB_BACKEND == "postgres":
+    postgres_tables.replace_table(df_gold, "prd_mega", "boost_intermediate", "tgo_boost_gold")
 else:
-    # TODO: directly write to relational database when credentials are available
     df_gold.to_csv(
         os.path.join(output_dir, "tgo_boost_gold.csv"),
         index=False,

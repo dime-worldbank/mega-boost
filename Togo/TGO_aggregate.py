@@ -9,6 +9,10 @@
 #                  poverty_rate, global_data_lab_hd_index, edu_spending,
 #                  health_expenditure (Databricks exports write nulls as "null")
 #   OUTPUT_DIR     where the output CSVs go
+# With DB_BACKEND=postgres none of the three is used: the same tables are read from
+# boost_intermediate.tgo_boost_gold and the indicator schema of the PostgreSQL
+# database in POSTGRES_DSN, and the outputs replace the tables of its boost schema,
+# where the dashboard reads them (postgres_tables.py).
 # TODO: Refactor the cross-country aggregation so the logic lives in one place and every country can reuse it.
 import os
 
@@ -16,13 +20,22 @@ import numpy as np
 import pandas as pd
 
 COUNTRY = 'Togo'
-GOLD_CSV = os.environ.get('GOLD_CSV') or input("Path to tgo_boost_gold.csv: ").strip()
-INDICATOR_DIR = os.environ.get('INDICATOR_DIR') or input("Folder with the indicator CSVs: ").strip()
-OUTPUT_DIR = os.environ.get('OUTPUT_DIR') or input("Output folder: ").strip()
+DB_BACKEND = os.environ.get('DB_BACKEND', 'csv')
+if DB_BACKEND == 'postgres':
+    import postgres_tables
+elif DB_BACKEND == 'csv':
+    GOLD_CSV = os.environ.get('GOLD_CSV') or input("Path to tgo_boost_gold.csv: ").strip()
+    INDICATOR_DIR = os.environ.get('INDICATOR_DIR') or input("Folder with the indicator CSVs: ").strip()
+    OUTPUT_DIR = os.environ.get('OUTPUT_DIR') or input("Output folder: ").strip()
+else:
+    raise RuntimeError(f"Unknown DB_BACKEND {DB_BACKEND!r}; expected csv or postgres.")
 
 
 def read_indicator(name):
-    df = pd.read_csv(os.path.join(INDICATOR_DIR, f'{name}.csv'), na_values=['null'])
+    if DB_BACKEND == 'postgres':
+        df = postgres_tables.read_table('prd_mega', 'indicator', name)
+    else:
+        df = pd.read_csv(os.path.join(INDICATOR_DIR, f'{name}.csv'), na_values=['null'])
     return df[df['country_name'] == COUNTRY].reset_index(drop=True)
 
 
@@ -38,7 +51,10 @@ health_expenditure = read_indicator('health_expenditure')
 
 # boost_gold: geo0 follows geo1, and rows with neither an executed nor an
 # approved amount are dropped
-gold = pd.read_csv(GOLD_CSV, na_values=['null'])
+if DB_BACKEND == 'postgres':
+    gold = postgres_tables.read_table('prd_mega', 'boost_intermediate', 'tgo_boost_gold')
+else:
+    gold = pd.read_csv(GOLD_CSV, na_values=['null'])
 gold['adm1_name'] = gold['geo1']
 gold['geo0'] = np.where((gold['geo1'] == 'Central Scope') | gold['geo1'].isna(), 'Central', 'Regional')
 gold = gold[['country_name', 'year', 'admin0', 'admin1', 'admin2', 'geo0', 'geo1', 'adm1_name',
@@ -237,8 +253,9 @@ data_availability = pd.DataFrame([{
 
 # COMMAND ----------
 
-# One CSV per table the dashboard (rpf-country-dash/queries.py) reads
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+# One output per table the dashboard (rpf-country-dash/queries.py) reads
+if DB_BACKEND == 'csv':
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 for name, table in [
     ('pov_expenditure_by_country_year', pov_expenditure_by_country_year),
     ('expenditure_by_country_func_econ_year', expenditure_by_country_func_econ_year),
@@ -249,5 +266,8 @@ for name, table in [
     ('health_private_expenditure_by_country_year', health_private_expenditure_by_country_year),
     ('data_availability', data_availability),
 ]:
-    table.to_csv(os.path.join(OUTPUT_DIR, f'{name}.csv'), index=False)
+    if DB_BACKEND == 'postgres':
+        postgres_tables.replace_table(table, 'prd_mega', 'boost', name)
+    else:
+        table.to_csv(os.path.join(OUTPUT_DIR, f'{name}.csv'), index=False)
     print(f'{len(table):>7} rows  {name}')
