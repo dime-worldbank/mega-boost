@@ -20,11 +20,15 @@ from psycopg import sql
 _MAX_IDENTIFIER_BYTES = 63
 
 
-def _connect(catalog):
+def _dsn():
     dsn = os.environ.get("POSTGRES_DSN")
     if not dsn:
         raise RuntimeError("DB_BACKEND=postgres requires POSTGRES_DSN, e.g. postgresql://user:password@host:5432/prd_mega")
-    conn = psycopg.connect(dsn)
+    return dsn
+
+
+def _connect(catalog):
+    conn = psycopg.connect(_dsn())
     database = conn.info.dbname
     if database != catalog:
         conn.close()
@@ -82,7 +86,10 @@ def _existing_columns(cur, schema, table):
 
 
 def table_exists(catalog, schema, table):
-    with _connect(catalog) as conn, conn.cursor() as cur:
+    """False for a table of another catalog, which this database does not hold."""
+    with psycopg.connect(_dsn()) as conn, conn.cursor() as cur:
+        if conn.info.dbname != catalog:
+            return False
         return bool(_existing_columns(cur, schema.lower(), table.lower()))
 
 
