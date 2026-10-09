@@ -18,6 +18,8 @@ from psycopg import sql
 
 # Longer identifiers are silently truncated by PostgreSQL.
 _MAX_IDENTIFIER_BYTES = 63
+# Type OIDs of smallint, integer, bigint, real, double precision and numeric.
+_NUMERIC_TYPE_OIDS = {21, 23, 20, 700, 701, 1700}
 
 
 def _dsn():
@@ -99,7 +101,28 @@ def read_table(catalog, schema, table, columns=None):
     query = sql.SQL("SELECT {} FROM {}.{}").format(selected, _identifier(schema.lower()), _identifier(table.lower()))
     with _connect(catalog) as conn, conn.cursor() as cur:
         cur.execute(query)
-        return pd.DataFrame(cur.fetchall(), columns=[d.name for d in cur.description])
+        description = cur.description
+        df = pd.DataFrame(cur.fetchall(), columns=[d.name for d in description])
+    # A numeric column of NULLs only would come back as object, which pandas'
+    # numeric_only aggregations then drop.
+    for d in description:
+        if d.type_code in _NUMERIC_TYPE_OIDS and df[d.name].dtype == object:
+            df[d.name] = pd.to_numeric(df[d.name])
+    return df
+
+
+def _grants(cur, schema, table):
+    """The privileges other roles hold on schema.table: (grantee, privilege, grantable)."""
+    cur.execute(
+        "SELECT grantee, privilege_type, is_grantable = 'YES' FROM information_schema.role_table_grants "
+        "WHERE table_schema = %s AND table_name = %s AND grantee <> current_user",
+        (schema, table),
+    )
+    return cur.fetchall()
+
+
+def _grantee(name):
+    return sql.SQL("PUBLIC") if name == "PUBLIC" else sql.Identifier(name)
 
 
 def replace_table(df, catalog, schema, table):
@@ -107,7 +130,8 @@ def replace_table(df, catalog, schema, table):
 
     When the columns and their types are unchanged the table is truncated and
     refilled, so readers such as the dashboard wait for the commit instead of failing
-    on a dropped table; otherwise it is dropped and recreated.
+    on a dropped table; otherwise it is dropped and recreated, with the privileges
+    other roles held on it granted again.
     """
     schema, table = schema.lower(), table.lower()
     columns = [str(c) for c in df.columns]
@@ -123,11 +147,16 @@ def replace_table(df, catalog, schema, table):
         if _existing_columns(cur, schema, table) == list(zip(columns, types)):
             cur.execute(sql.SQL("TRUNCATE TABLE {}").format(target))
         else:
+            grants = _grants(cur, schema, table)
             cur.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(target))
             definitions = sql.SQL(", ").join(
                 sql.SQL("{} {}").format(_identifier(c), sql.SQL(t)) for c, t in zip(columns, types)
             )
             cur.execute(sql.SQL("CREATE TABLE {} ({})").format(target, definitions))
+            for grantee, privilege, grantable in grants:
+                cur.execute(sql.SQL("GRANT {} ON {} TO {}{}").format(
+                    sql.SQL(privilege), target, _grantee(grantee),
+                    sql.SQL(" WITH GRANT OPTION" if grantable else "")))
         with cur.copy(sql.SQL("COPY {} ({}) FROM STDIN").format(target, column_list)) as copy:
             for row in rows:
                 copy.write_row(row)
