@@ -16,6 +16,7 @@ def run_script(nb_relpath, env=None, cwd=None):
     notebook-relative reads (e.g. ALB_extract's ./mapping.csv) resolve, mirroring Databricks."""
     child_env = dict(os.environ)
     child_env.pop("DATABRICKS_RUNTIME_VERSION", None)  # force the non-Databricks path
+    child_env.pop("DB_BACKEND", None)  # the CSV path unless `env` names a backend
     child_env.update(env or {})
     result = subprocess.run(
         [sys.executable, os.path.join(REPO_ROOT, nb_relpath)],
