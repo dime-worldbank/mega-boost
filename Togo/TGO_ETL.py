@@ -1,6 +1,7 @@
 # Databricks notebook source
 import csv
 import os
+import unicodedata
 from glob import glob
 from pathlib import Path
 import numpy as np
@@ -38,6 +39,18 @@ def largest_sheet(path):
         wb.close()
 
 
+# Characters of the DGBF's labels that are read as plain ASCII ones.
+LABEL_CHARACTERS = {"¿": "'", "’": "'", "\xa0": " "}
+
+
+def unaccented(value):
+    """``value`` without accents and with LABEL_CHARACTERS replaced; non-text values unchanged."""
+    if not isinstance(value, str):
+        return value
+    value = "".join(LABEL_CHARACTERS.get(c, c) for c in value)
+    return "".join(c for c in unicodedata.normalize("NFD", value) if not unicodedata.combining(c))
+
+
 def read_clean_sheet(path, sheet):
     # Read header rows to extract CODE_* columns for type enforcement
     header = pd.read_excel(path, sheet_name=sheet, nrows=0)
@@ -52,6 +65,20 @@ def read_clean_sheet(path, sheet):
 
     df = df[[col for col in df.columns if col and not str(col).startswith("Unnamed")]]
     df.columns = [col.strip() for col in df.columns]
+
+    # A label column headed with its code column's name (CODE_ECON3 twice) is read as
+    # CODE_ECON3.1; it becomes ECON3 unless the sheet has that column already.
+    df = df.rename(columns={
+        col: col[len("CODE_"):-len(".1")] for col in df.columns
+        if col.startswith("CODE_") and col.endswith(".1") and col[len("CODE_"):-len(".1")] not in df.columns
+    })
+
+    # The region mapping and the label tests below match unaccented text, so labels are read
+    # without accents: "RÉGION MARITIME" becomes "REGION MARITIME".
+    for col in df.columns:
+        if not col.startswith("CODE_") and not pd.api.types.is_numeric_dtype(df[col]):
+            df[col] = df[col].map(unaccented)
+
     df.dropna(how='all', inplace=True)
     return df
 
