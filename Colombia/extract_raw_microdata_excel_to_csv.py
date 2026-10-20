@@ -57,6 +57,12 @@ for f in central_files:
     df.index.name = 'raw_row_id'
     print(year, row_index, col_index, df.shape)
 
+    if year == 2019:
+        # Source typo: the first SALARIO line item under Ministerio de Agricultura is labelled as an entity
+        typo = (df.EntidadDetalle == '320102 Unidad de Parques Nacionales') & (df.EntidadDetalle.shift() == 'Gastos de Personal')
+        assert typo.sum() == 1, f'Expected exactly 1 mislabelled 2019 SALARIO row, found {typo.sum()}'
+        df.loc[typo, 'EntidadDetalle'] = '01-01-01-- SALARIO'
+
     assert df.shape[0] > 4000, f'Expected more than 4000 rows of line items but got {df.shape[0]} from {f}'
     assert df.shape[1] == 6, f'Expected 6 columns but got {df.shape[1]}: {df.columns} from {f}'
 
