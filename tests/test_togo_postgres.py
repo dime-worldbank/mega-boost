@@ -79,6 +79,8 @@ class TogoPostgresTest(unittest.TestCase):
         cls.pg = postgres_tables
         os.environ["POSTGRES_DSN"] = DSN
         with psycopg.connect(DSN, autocommit=True) as conn:
+            if conn.info.dbname != "prd_mega":
+                raise RuntimeError(f"TEST_POSTGRES_DSN must name a database prd_mega, not {conn.info.dbname!r}")
             for schema in ("boost_intermediate", "indicator", "boost"):
                 conn.execute(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
 
