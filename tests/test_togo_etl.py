@@ -96,6 +96,42 @@ class TogoEtlTest(unittest.TestCase):
         bronze_2022 = pd.read_csv(os.path.join(self.out, "2022.csv"))
         self.assertEqual(bronze_2022["ORDONNANCER"].tolist(), [row[-3] * 10 for row in ROWS_2022])
 
+    def test_accented_labels_give_the_same_outputs(self):
+        # The DGBF's exports write labels with accents ("RÉGION MARITIME", "RÉHABILITATION"); the
+        # region mapping and the rehabilitation test must still match them.
+        for name, rows in [("BUDGET part1.xlsx", ROWS_2021), ("BUDGET part2.xlsx", ROWS_2022)]:
+            write_workbook(os.path.join(self.input_dir, name),
+                           {SHEET_NAME: [COLS] + [accented(row) for row in rows]})
+
+        run_script(NB, env={"INPUT_DIR": self.input_dir, "OUTPUT_DIR": self.out})
+
+        self._assert_golden("2021.csv")
+        self._assert_golden("2022.csv")
+        self._assert_golden("tgo_2021_onward_boost_silver.csv")
+        self._assert_golden("tgo_boost_gold.csv")
+
+    def test_label_column_headed_with_its_code_name(self):
+        # The DGBF's exports head the ECON3 label column CODE_ECON3, like the code column before it.
+        label = "INTÉRÊTS\xa0SUR LA DETTE D¿ÉTAT"
+        write_workbook(os.path.join(self.input_dir, "BUDGET part2.xlsx"),
+                       {SHEET_NAME: [COLS + ["CODE_ECON3"]] + [row + [label] for row in ROWS_2022]})
+
+        run_script(NB, env={"INPUT_DIR": self.input_dir, "OUTPUT_DIR": self.out})
+
+        bronze_2022 = pd.read_csv(os.path.join(self.out, "2022.csv"), dtype=str)
+        self.assertEqual(bronze_2022["CODE_ECON3"].tolist(),
+                         [row[COLS.index("CODE_ECON3")] for row in ROWS_2022])
+        self.assertEqual(bronze_2022["ECON3"].tolist(), ["INTERETS SUR LA DETTE D'ETAT"] * len(ROWS_2022))
+
+
+ACCENTS = {"REGION": "RÉGION", "REGIONS": "RÉGIONS", "REHABILITATION": "RÉHABILITATION"}
+
+
+def accented(row):
+    """``row`` with its labels' words spelt as in the DGBF's exports."""
+    return [" ".join(ACCENTS.get(word, word) for word in cell.split(" ")) if isinstance(cell, str) else cell
+            for cell in row]
+
 
 if __name__ == "__main__":
     unittest.main()
