@@ -42,7 +42,7 @@ We want:
 | Level | Years | Executed | Approved | Notes |
 |---|---|---|---|---|
 | Central | 2019–2022 | frozen reference CSV (below) | same | from the workbook's `Revenue` sheet, Central rows |
-| Central | 2024–2025 | `central/revenues/CUADROS EJECUCION INGRESOS PGN DICIEMBRE {year}.xlsx` sheets C2–C5, "Recaudo" | "Aforo Definitivo"/"Vigente" | billions of pesos (×1e9). C1 header says "Definitivo" (2024) vs "Vigente" (2025) |
+| Central | 2024–2025 | `central/revenues/CUADROS EJECUCION INGRESOS PGN DICIEMBRE {year}.xlsx` sheets C2–C5 plus the Establecimientos Públicos block of C1, "Recaudo" | "Aforo Definitivo"/"Vigente" | billions of pesos (×1e9). C1 header says "Definitivo" (2024) vs "Vigente" (2025) |
 | Subnational | 2019–2020 | `subnational/ingresos/{year}_FUTIngresos.xlsx` `Total Ingresos` (= Recaudo + Sin Situación de Fondos; matches the workbook's local totals within ~1.5%, `Recaudo` alone is ~20% lower) | `Presupuesto Definitivo` (same file) | FUT codes `TI.A.1.1.1…` (root row `TI`; `VAL` rows are validation — drop); DANE dept + municipio codes |
 | Subnational | 2021 | `2021_EJECUCION_DE_INGRESOS.xlsx` sheet `Raw`, `TotalRecaudo` | `2021_PROGRAMACION_DE_INGRESOS.xlsx` `PresupuestoDefinitivo` | CUIPO codes; entity = `EntidadTerritorialID` (FUT code) |
 | Subnational | 2022 | `2022_Ejecucion_de_Ingresos (1).xlsx` sheet `Ejecución de Ingresos`, `totalRecaudo` | `2022 approved.xlsx` sheet `Programación de Ingresos`, `presupuestoDefinitivo` | other sheets in these workbooks are analyst pivots — ignore |
@@ -52,8 +52,9 @@ Subnational 2025 is not published by DNP yet; the pipeline picks it up when file
 
 ### Frozen central 2019–2022
 
-`auxiliary/central_revenue_2019_2022.csv` (copied into the CSV folder by the extract step,
-like the other auxiliary files): the workbook `Revenue` sheet's Central rows for 2019–2022
+`Colombia/central_revenue_2019_2022.csv`, committed in the repo next to the extract notebook
+(read via a notebook-relative path, like Albania's `mapping.csv`, so the label fixes are
+reviewable in the PR): the workbook `Revenue` sheet's Central rows for 2019–2022
 (`year, econ1, econ2, econ3, econ4, approved, executed`), with OCR typos fixed **in labels
 only**; numbers untouched. A label-fix mapping (old → new) is kept in the PR description so
 reviewers can see each change.
