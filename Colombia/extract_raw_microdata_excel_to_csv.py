@@ -24,7 +24,7 @@ def normalize(cell):
 
 # Central data extraction
 HEADER = ["EntidadDetalle", "ApropiacionDefinitiva", "Compromiso", "Obligacion", "Pago"]
-central_files = glob(f'{RAW_INPUT_DIR}/{COUNTRY}/central/execution/*.xlsx')
+central_files = glob(f'{RAW_INPUT_DIR}/{COUNTRY}/central/egresos/*Presupuesto General de la Naci*n detalle*.xlsx')
 for f in central_files:
     num_sheets = len(pd.ExcelFile(f).sheet_names)
     sheet_name = 0 if num_sheets == 1 else 'Cuadro No. 7'
@@ -34,7 +34,7 @@ for f in central_files:
     row_index = None
     col_index = None
     year = None
-    year_pattern = r'Acumulada a diciembre de (\d{4})'
+    year_pattern = r'Acumulada a diciembre (?:de )?(\d{4})' # 2025 dropped the "de"
     for i, row in df.iterrows():
         for j, value in enumerate(row):
             if type(value) == str:
@@ -91,7 +91,7 @@ def read_subnat_excel_with_header_detection(file_path):
     if header_row_index is None:
         raise ValueError("The header 'compromisos' and 'pagos' were not found in the sheet.")
     
-    return pd.read_excel(file_path, sheet_name=sheet_name, header=header_row_index)
+    return pd.read_excel(file_path, sheet_name=0, header=header_row_index)
 
 for filename in earlier_filenames + recent_filenames:
     filename_stem = Path(filename).stem
