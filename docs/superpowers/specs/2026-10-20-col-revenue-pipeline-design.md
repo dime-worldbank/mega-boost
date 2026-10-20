@@ -63,7 +63,12 @@ reviewers can see each change.
 `country_name, year, admin0 ('Central'|'Regional'), admin1, admin2, geo1, econ1…econ4,
 concept_code, econ_rev, econ_rev_sub, exclude_from_total (bool), approved, executed`
 
-- Central: `admin1 = 'Central Scope'`, `geo1 = 'Central Scope'` (as expenditure), `admin2` null.
+Admin columns follow the cross-country BOOST schema meaning (`cross_country_aggregate_dlt.py`):
+`admin1`/`admin2` = **who collected** the revenue, `geo1` = department (decided with the user;
+Albania's revenue table uses `admin1` = 'Central'/'Local', which we don't copy).
+
+- Central: `admin1 = 'Central Scope'`, `geo1 = 'Central Scope'` (as expenditure), `admin2` null
+  (central revenue sources aren't by entity).
 - Subnational: `admin1`/`admin2` = department / municipality names via the same
   `indicator_intermediate.col_subnational_adm2_adm1_lookup` (DANE `nso_code`) used by expenditure.
   Departmental governments have `admin2` null.
@@ -158,6 +163,11 @@ Rules live in the transform as `when(...)` chains on concept code where codes ex
 - FUT code → category rules (FUT uses its own code tree).
 - How to read the CUIPO title block (header-row detection, as the gastos extract does).
 
-## Open questions
+## Open questions (emailed to the workbook author 2026-10-20)
 
-1. Central borrowing in total revenue for 2024–2025 (see Categories).
+Both are implemented as single switches so the build doesn't wait on the answers.
+
+1. Central borrowing in total revenue for 2024–2025. Default until answered: **keep it in**
+   (matches 2019–2022); switch = mark central `Recursos de crédito interno/externo` as
+   `exclude_from_total`.
+2. Predial: default **Property Taxes (Immovable)**; switch = map to Income Tax.
