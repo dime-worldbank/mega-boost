@@ -14,9 +14,9 @@ import pandas as pd
 IS_DATABRICKS = "DATABRICKS_RUNTIME_VERSION" in os.environ
 COUNTRY = 'Colombia'
 
-# Open questions with the workbook author; see Colombia/README.md "Revenue pipeline"
-EXCLUDE_CENTRAL_BORROWING = False
-PREDIAL_CATEGORY = ('Property Taxes', 'Property Taxes (Immovable)')
+# Decided by the workbook author (2026-10-21); see Colombia/README.md "Revenue pipeline"
+EXCLUDE_CENTRAL_BORROWING = True
+PREDIAL_CATEGORY = ('Income Tax', None)
 
 CUADROS_UNIT = 1e9  # MinHacienda Cuadros are in miles de millones de pesos
 CUADROS_APPROVED_COL, CUADROS_EXECUTED_COL = 3, 4
@@ -45,7 +45,19 @@ def strip_code_prefix(label):
     return re.sub(r'^\d+(\.\d+)*\s+', '', label)
 
 
-def load_line_map(path='./central_revenue_lines.csv'):
+LINE_MAP_FILE = 'central_revenue_lines.csv'
+
+
+def notebook_dir():
+    if IS_DATABRICKS:
+        context = dbutils.notebook.entry_point.getDbutils().notebook().getContext()
+        return '/Workspace' + os.path.dirname(context.notebookPath().get())
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+def load_line_map():
+    # Databricks doesn't always start a notebook in its own folder, so fall back to that folder
+    path = LINE_MAP_FILE if os.path.exists(LINE_MAP_FILE) else os.path.join(notebook_dir(), LINE_MAP_FILE)
     return pd.read_csv(path, dtype=str).fillna('')
 
 
@@ -276,7 +288,7 @@ def read_subnational(year, ejecucion_path, programacion_path):
     names = raw.drop_duplicates('concept_code').set_index('concept_code').concept_name.to_dict()
     entity_names = raw.dropna(subset=['entity_name']).groupby('codigo_fut').entity_name.first()
     root = (raw[raw.concept_code.isin(SUBNATIONAL_ROOT_CODES)]
-            .groupby('codigo_fut', as_index=False)[['approved', 'executed']].sum(min_count=1))
+            .groupby(['year', 'codigo_fut'], as_index=False)[['approved', 'executed']].sum(min_count=1))
     df = leaf_rows(raw)
     df['entity_name'] = df.codigo_fut.map(entity_names)
 
@@ -295,7 +307,7 @@ def read_subnational(year, ejecucion_path, programacion_path):
         df.concept_code.map(classify_subnational).tolist(), index=df.index)
 
     sums = df.groupby('codigo_fut')[['approved', 'executed']].sum(min_count=1)
-    check = root.set_index('codigo_fut').join(sums, rsuffix='_leaves')
+    check = root.drop(columns='year').set_index('codigo_fut').join(sums, rsuffix='_leaves')
     for measure in ['approved', 'executed']:
         gap = (check[measure] - check[f'{measure}_leaves']).fillna(0)
         mismatched = check[gap.abs() > 1e3]

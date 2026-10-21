@@ -86,15 +86,16 @@ All raw files live in the BOOSTProcessed SharePoint under
   2019–2022 line *Ingresos de los Establecimientos Públicos*. Central totals therefore equal
   MinHacienda's *TOTAL INGRESOS DEL PGN*.
 
-### Open questions (sent to the workbook author, 2026-10-20)
+### Decisions from the workbook author (2026-10-21)
 
 Both are single switches at the top of `extract_revenue_to_csv.py`.
 
-1. **Central borrowing in total revenue** (`EXCLUDE_CENTRAL_BORROWING`, default `False`).
-   2019–2022 can't separate borrowing from other capital resources, so it's kept in for
-   consistency until answered.
-2. **Impuesto Predial** (`PREDIAL_CATEGORY`, default Property Taxes (Immovable)). The old
-   workbook formula counted it under Income Tax in 2021–2022 only.
+1. **Central borrowing is excluded from total revenue** (`EXCLUDE_CENTRAL_BORROWING = True`):
+   C3's *Recursos de crédito interno/externo* get `exclude_from_total`. This only applies to
+   2024 onward, because 2019–2022 central capital resources are one undivided line that
+   includes borrowing. Expect a step down in central total revenue between 2022 and 2024.
+2. **Impuesto Predial stays in Income Tax** (`PREDIAL_CATEGORY = ('Income Tax', None)`), now
+   for every year. The old workbook formula picked it up only in 2021–2022.
 - **Known break, VAT vs Customs:** in the 2019–2022 tables, *Impuesto sobre aduanas y
   recargos* includes VAT on imports (IVA externo), roughly 24–44 tn COP a year. From 2024
   MinHacienda reports IVA externo separately, and it's counted as VAT. So Customs drops to

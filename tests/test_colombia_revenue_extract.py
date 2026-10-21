@@ -156,8 +156,13 @@ class ColombiaRevenueExtractTest(unittest.TestCase):
         for name, sheets in files:
             write_workbook(os.path.join(SUBNAT_DIR, name), sheets)
 
-    def run_nb(self):
-        return run_script(NB, env={"RAW_INPUT_DIR": INPUT_ROOT, "OUTPUT_DIR": OUT_DIR}, cwd=NB_DIR)
+    def run_nb(self, cwd=NB_DIR):
+        return run_script(NB, env={"RAW_INPUT_DIR": INPUT_ROOT, "OUTPUT_DIR": OUT_DIR}, cwd=cwd)
+
+    def test_line_map_found_from_any_working_dir(self):
+        write_workbook(cuadros_path(2024), cuadros_workbook(2024))
+        self.run_nb(cwd=TMP)  # Databricks doesn't always start a notebook in its own folder
+        self.assertTrue(os.path.exists(os.path.join(OUT_DIR, "revenue_central_2024.csv")))
 
     def out(self, name):
         return pd.read_csv(os.path.join(OUT_DIR, name))
@@ -223,7 +228,9 @@ class ColombiaRevenueExtractTest(unittest.TestCase):
         self.assertEqual(df.loc["Otras Tasas, Multas y Otras Contribuciones", "econ2"], "Ingresos No Tributarios")
         self.assertTrue(pd.isna(df.loc["Otras Tasas, Multas y Otras Contribuciones", "econ3"]))
         self.assertEqual(df.loc["Recursos de crédito interno", "econ1"], "Recursos de Capital")
-        self.assertFalse(df.exclude_from_total.any())
+        # Borrowing is financing, not revenue (decided by the workbook author, 2026-10-21)
+        self.assertTrue(df.loc["Recursos de crédito interno", "exclude_from_total"])
+        self.assertFalse(df.drop(index="Recursos de crédito interno").exclude_from_total.any())
 
     def test_frozen_tagged(self):
         self.run_nb()
@@ -268,6 +275,7 @@ class ColombiaRevenueExtractTest(unittest.TestCase):
         self.assertNotIn("TI", df.index)
         root = self.out("revenue_subnational_root_2020.csv")
         self.assertEqual(root.executed.tolist(), [100])
+        self.assertEqual(root.year.tolist(), [2020])
 
     def test_subnational_golden_2020_2024(self):
         self.write_subnat([fut_file(2020)] + cuipo_files(2024, 2024))
@@ -275,8 +283,9 @@ class ColombiaRevenueExtractTest(unittest.TestCase):
         for name in ["revenue_subnational_2020.csv", "revenue_subnational_2024.csv", "revenue_subnational_root_2024.csv"]:
             self.assert_golden(name)
         df = self.out("revenue_subnational_2024.csv").set_index("concept_code")
-        self.assertEqual(df.loc["1.1.01.01.200", ["econ_rev", "econ_rev_sub", "exclude_from_total"]].tolist(),
-                         ["Property Taxes", "Property Taxes (Immovable)", False])
+        predial = df.loc["1.1.01.01.200"]
+        self.assertEqual((predial.econ_rev, predial.exclude_from_total), ("Income Tax", False))
+        self.assertTrue(pd.isna(predial.econ_rev_sub))
         self.assertEqual(df.loc["1.1.01.02.200", "econ_rev"], "Subnational Own Revenues")
 
     def test_non_territorial_entities_dropped(self):
@@ -305,7 +314,7 @@ def load_notebook_module():
 
 
 class ClassifySubnationalTest(unittest.TestCase):
-    PROPERTY = ("Property Taxes", "Property Taxes (Immovable)", False)
+    PREDIAL = ("Income Tax", None, False)  # kept in Income Tax (workbook author, 2026-10-21)
     FUELS = ("Excises", "Excises (Fuels)", False)
     TOBACCO = ("Excises", "Excises (Tobacco)", False)
     ALCOHOL = ("Excises", "Excises (Alcohol)", False)
@@ -313,7 +322,7 @@ class ClassifySubnationalTest(unittest.TestCase):
     OWN = ("Subnational Own Revenues", None, False)
     EXCLUDED = (None, None, True)
     CASES = [
-        ("1.1.01.01.200", PROPERTY), ("1.1.01.01.200.01", PROPERTY), ("TI.A.1.3", PROPERTY), ("TI.A.1.3.1", PROPERTY),
+        ("1.1.01.01.200", PREDIAL), ("1.1.01.01.200.01", PREDIAL), ("TI.A.1.3", PREDIAL), ("TI.A.1.3.1", PREDIAL),
         ("1.1.01.02.109", FUELS), ("TI.A.1.26", FUELS),
         ("1.1.01.02.106", TOBACCO), ("TI.A.1.18", TOBACCO),
         ("1.1.01.02.103", ALCOHOL), ("1.1.01.02.104", ALCOHOL), ("1.1.01.02.105", ALCOHOL),
@@ -335,9 +344,9 @@ class ClassifySubnationalTest(unittest.TestCase):
 
     def test_predial_switch(self):
         m = load_notebook_module()
-        with mock.patch.object(m, "PREDIAL_CATEGORY", ("Income Tax", None)):
-            self.assertEqual(m.classify_subnational("1.1.01.01.200"), ("Income Tax", None, False))
-            self.assertEqual(m.classify_subnational("TI.A.1.3"), ("Income Tax", None, False))
+        with mock.patch.object(m, "PREDIAL_CATEGORY", ("Property Taxes", "Property Taxes (Immovable)")):
+            self.assertEqual(m.classify_subnational("1.1.01.01.200"), ("Property Taxes", "Property Taxes (Immovable)", False))
+            self.assertEqual(m.classify_subnational("TI.A.1.3"), ("Property Taxes", "Property Taxes (Immovable)", False))
 
 
 
