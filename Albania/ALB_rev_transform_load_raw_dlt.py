@@ -23,7 +23,7 @@ CSV_READ_OPTIONS = {
     "escape": '"',
 }
 
-with open(f"{RAW_INPUT_DIR}/{COUNTRY}/labels_en_v01_overall.json", 'r') as json_file:
+with open(f"./labels_en_v01_overall.json", 'r') as json_file:
     labels = json.load(json_file)
 
 def replacement_udf(column_name):
@@ -167,6 +167,7 @@ def alb_2022_and_before_boost_rev_gold():
                 'admin0',
                 'admin1',
                 'admin2',
+                'admin2_new',
                 'admin3',
                 'admin4',
                 'econ1',
@@ -189,6 +190,7 @@ def alb_2023_onward_boost_rev_gold():
                 'admin0',
                 'admin1',
                 'admin2',
+                'admin2_new',
                 'admin3',
                 'admin4',
                 'econ1',
