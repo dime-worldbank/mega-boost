@@ -170,6 +170,131 @@ def tag_frozen(frozen, line_map):
     return df[CENTRAL_COLUMNS]
 
 
+SUBNATIONAL_COLUMNS = ['year', 'codigo_fut', 'entity_name', 'concept_code', 'econ1', 'econ2', 'econ3', 'econ4',
+                       'approved', 'executed']
+SUBNATIONAL_ROOT_CODES = {'TI', '1'}
+SUBNATIONAL_FIRST_YEAR = 2019
+SUBNATIONAL_SHEETS = ['Raw', 'Ejecución de Ingresos', 'Programación de Ingresos']
+SUBNATIONAL_RELATIVE_TOLERANCE = 1e-4
+# Departments (11…) and municipalities (21…); 2021 files also list every other public entity
+TERRITORIAL_FUT_PREFIXES = ('11', '21')
+# Header keys after header_key(); several layouts across 2019-2024
+CODE_HEADERS = {'codigoconcepto', 'conceptocod', 'codigoconceptocod'}
+NAME_HEADERS = ['concepto', 'nombreconcepto']
+ENTITY_HEADERS = ['codigofut', 'entidadterritorialid', 'nombreentidad']
+# 2021's 'EntidadTerritorialID' carries '110505000 Antioquia', matching the short names of later years
+ENTITY_NAME_HEADERS = ['entidad', 'nombreentidad', 'entidadterritorialid', 'nombrefut']
+EXECUTED_HEADERS = ['totalrecaudo', 'totalingresos']  # FUT 'Total Ingresos' includes sin situación de fondos
+APPROVED_HEADERS = ['presupuestodefinitivo']
+
+
+def header_key(v):
+    return normalize_label(v).replace(' ', '') if isinstance(v, str) else ''
+
+
+def read_subnational_sheet(path):
+    xl = pd.ExcelFile(path)
+    sheet = next((s for s in SUBNATIONAL_SHEETS if s in xl.sheet_names), xl.sheet_names[0])
+    head = pd.read_excel(path, sheet_name=sheet, header=None, nrows=40, dtype=str)
+    header_row = next(i for i, row in head.iterrows() if any(header_key(v) in CODE_HEADERS for v in row))
+    df = pd.read_excel(path, sheet_name=sheet, header=header_row, dtype=str)
+    keys = [header_key(c.split('.')[0] if re.search(r'\.\d+$', c) else c) for c in df.columns]
+
+    def col(candidates, after=None):
+        for cand in candidates:
+            if cand in keys:
+                return df.iloc[:, keys.index(cand)]
+        # 2021 labels the concept name column just 'Nombre', right after the code column
+        return df.iloc[:, after + 1] if after is not None else None
+
+    code_idx = next(i for i, k in enumerate(keys) if k in CODE_HEADERS)
+    code = df.iloc[:, code_idx].astype(str).str.strip()
+    name = col(NAME_HEADERS, after=code_idx).astype(str).str.strip()
+    name = pd.Series([n[len(c):].strip() if n.startswith(c + ' ') else n for c, n in zip(code, name)], index=df.index)
+    entity_name = (col(ENTITY_NAME_HEADERS).astype(str).str.strip().str.replace(r'^\d{9}\s*', '', regex=True)
+                   .replace('', None))
+    executed, approved = col(EXECUTED_HEADERS), col(APPROVED_HEADERS)
+    return pd.DataFrame({
+        'codigo_fut': col(ENTITY_HEADERS).astype(str).str.strip().str[:9],
+        'entity_name': entity_name, 'concept_code': code, 'concept_name': name,
+        'executed': pd.to_numeric(executed, errors='coerce') if executed is not None else float('nan'),
+        'approved': pd.to_numeric(approved, errors='coerce') if approved is not None else float('nan'),
+    })
+
+
+def leaf_rows(df):
+    df = df[df.concept_code != 'VAL']
+    df = df[~df.concept_code.isin(SUBNATIONAL_ROOT_CODES)]
+    parents = set()
+    for (year, entity), codes in df.groupby(['year', 'codigo_fut']).concept_code:
+        for c in set(codes):
+            parts = c.split('.')
+            parents.update((year, entity, '.'.join(parts[:i])) for i in range(1, len(parts)))
+    is_parent = [(y, e, c) in parents for y, e, c in zip(df.year, df.codigo_fut, df.concept_code)]
+    leaves = df[[not p for p in is_parent]]
+    return (leaves.groupby(['year', 'codigo_fut', 'concept_code'], as_index=False)
+            .agg(entity_name=('entity_name', 'first'),
+                 approved=('approved', lambda s: s.sum(min_count=1)),
+                 executed=('executed', lambda s: s.sum(min_count=1))))
+
+
+def read_subnational(year, ejecucion_path, programacion_path):
+    raw = read_subnational_sheet(ejecucion_path)
+    if programacion_path is not None:
+        raw = pd.concat([raw.drop(columns='approved'), read_subnational_sheet(programacion_path).drop(columns='executed')])
+    raw['year'] = year
+    raw = raw[raw.codigo_fut.str.startswith(TERRITORIAL_FUT_PREFIXES)]
+    names = raw.drop_duplicates('concept_code').set_index('concept_code').concept_name.to_dict()
+    entity_names = raw.dropna(subset=['entity_name']).groupby('codigo_fut').entity_name.first()
+    root = (raw[raw.concept_code.isin(SUBNATIONAL_ROOT_CODES)]
+            .groupby('codigo_fut', as_index=False)[['approved', 'executed']].sum(min_count=1))
+    df = leaf_rows(raw)
+    df['entity_name'] = df.codigo_fut.map(entity_names)
+
+    def labelled(code, depth):
+        parts = code.split('.')
+        if len(parts) < depth:
+            return None
+        prefix = '.'.join(parts[:depth])
+        return f'{prefix} {names.get(prefix, "")}'.strip()
+
+    for i, depth in enumerate([2, 3, 4], start=1):
+        df[f'econ{i}'] = df.concept_code.map(lambda c: labelled(c, depth) if len(c.split('.')) > depth else None)
+    df['econ4'] = df.concept_code.map(lambda c: f'{c} {names.get(c, "")}'.strip())
+
+    sums = df.groupby('codigo_fut')[['approved', 'executed']].sum(min_count=1)
+    check = root.set_index('codigo_fut').join(sums, rsuffix='_leaves')
+    for measure in ['approved', 'executed']:
+        gap = (check[measure] - check[f'{measure}_leaves']).fillna(0)
+        mismatched = check[gap.abs() > 1e3]
+        if not mismatched.empty:
+            print(f'{year} {measure}: {len(mismatched)} entities whose leaf rows differ from their root row\n{mismatched}')
+        assert abs(gap.sum()) <= SUBNATIONAL_RELATIVE_TOLERANCE * check[measure].sum(), \
+            f'{year} {measure}: leaf rows do not add up to the root rows (gap {gap.sum()} of {check[measure].sum()})'
+    return df[SUBNATIONAL_COLUMNS], root
+
+
+def subnational_files(ingresos_dir):
+    """{year: (ejecucion_path, programacion_path | None)} for years >= SUBNATIONAL_FIRST_YEAR."""
+    files = {}
+    for path in sorted(glob(f'{ingresos_dir}/*.xlsx')):
+        name = normalize_label(Path(path).stem)
+        year = int(re.match(r'(\d{4})', name).group(1)) if re.match(r'\d{4}', name) else None
+        if year is None or year < SUBNATIONAL_FIRST_YEAR:
+            continue
+        ejec, prog = files.get(year, (None, None))
+        if 'futingresos' in name.replace(' ', ''):
+            ejec = path
+        elif 'ejecucion' in name:
+            ejec = path
+        elif 'programacion' in name or 'approved' in name:
+            prog = path
+        files[year] = (ejec, prog)
+    for year, (ejec, _) in files.items():
+        assert ejec is not None, f'No ejecución file found for subnational {year} in {ingresos_dir}'
+    return files
+
+
 if __name__ == '__main__':
     if IS_DATABRICKS:
         # RAW_INPUT_DIR and prepare_raw_microdata_csv_dir come from %run ../utils
@@ -190,3 +315,9 @@ if __name__ == '__main__':
         year = df.year.iloc[0]
         print(year, df.shape, path)
         df.to_csv(f'{microdata_csv_dir}/revenue_central_{year}.csv', index=False)
+
+    for year, (ejecucion_path, programacion_path) in subnational_files(f'{RAW_INPUT_DIR}/{COUNTRY}/subnational/ingresos').items():
+        df, root = read_subnational(year, ejecucion_path, programacion_path)
+        print(year, df.shape, ejecucion_path, programacion_path)
+        df.to_csv(f'{microdata_csv_dir}/revenue_subnational_{year}.csv', index=False)
+        root.to_csv(f'{microdata_csv_dir}/revenue_subnational_root_{year}.csv', index=False)

@@ -101,3 +101,15 @@ Both are single switches at the top of `extract_revenue_to_csv.py`.
   about 5–6 tn and VAT rises by the same amount. The frozen years can't be split.
 - **C1 header layout varies:** "Concepto" sits on either header row depending on the year,
   so the parser anchors on the column-number row `(3)=(1+2)` instead.
+- **Subnational = departments and municipalities only** (FUT entity codes starting `11` and
+  `21`). The 2021 CUIPO files list every public entity that reports to CUIPO, including
+  Ecopetrol, ADRES, Colpensiones, pension funds and hospitals, which would more than quadruple
+  2021's approved total. Other years carry 5–7 such entities (about 0.2–0.45 tn COP a year).
+  All of them are dropped, consistent with expenditure.
+- **Line items only.** Source files list every level of the concept tree. The extract keeps
+  rows whose code has no children for that entity (summing repeats split by financing
+  source/CPC), and checks that they add up to the entity's root row (`TI` / `1`). The check is
+  per year, within 0.01%; entities that differ are printed. Known source quirk: one 2019
+  entity's FUT `TI.A.2` approved exceeds its children by 2.55 bn COP.
+- **Executed for FUT years is `Total Ingresos`** (`Recaudo` plus *sin situación de fondos*).
+  It matches the workbook's earlier local totals; `Recaudo` alone is about 20% lower.

@@ -20,6 +20,7 @@ INPUT_ROOT = os.path.join(TMP, "input")
 OUT_DIR = os.path.join(TMP, "out")
 CENTRAL_DIR = os.path.join(INPUT_ROOT, "Colombia", "central", "revenues")
 AUX_DIR = os.path.join(INPUT_ROOT, "Colombia", "auxiliary")
+SUBNAT_DIR = os.path.join(INPUT_ROOT, "Colombia", "subnational", "ingresos")
 WRITE_GOLDEN = os.environ.get("WRITE_GOLDEN") == "1"
 
 
@@ -88,6 +89,55 @@ FROZEN = pd.DataFrame([
 ], columns=["year", "admin0", "econ1", "econ2", "econ3", "econ4", "approved", "executed"])
 
 
+# One entity, executed (code, name, amount) and approved (code, name, amount) lines. Executed
+# repeats 1.1.01.01.200 (CUIPO splits a concept by financing source); 1.1.02.03.001 is approved only.
+EJEC = [("1", "INGRESOS", 180), ("1.1", "INGRESOS CORRIENTES", 180), ("1.1.01", "INGRESOS TRIBUTARIOS", 180),
+        ("1.1.01.01.200", "IMPUESTO PREDIAL UNIFICADO", 100), ("1.1.01.01.200", "IMPUESTO PREDIAL UNIFICADO", 50),
+        ("1.1.01.02.200", "IMPUESTO DE INDUSTRIA Y COMERCIO", 30)]
+PROG = [("1", "INGRESOS", 170), ("1.1", "INGRESOS CORRIENTES", 170), ("1.1.01", "INGRESOS TRIBUTARIOS", 160),
+        ("1.1.01.01.200", "IMPUESTO PREDIAL UNIFICADO", 120), ("1.1.01.02.200", "IMPUESTO DE INDUSTRIA Y COMERCIO", 40),
+        ("1.1.02", "INGRESOS NO TRIBUTARIOS", 10), ("1.1.02.03.001", "MULTAS Y SANCIONES", 10)]
+TITLE_BLOCK = [["Categoría", "CUIPO"], ["Formulario", "CUIPOB_EJECUCION_DE_INGRESOS"]] + [[None]] * 15
+
+
+def cuipo_files(style, year):
+    """(filename, sheets) pairs for one year of CUIPO ingresos in the given year-style layout."""
+    if style == 2021:
+        ejec = {"Reduced": [["x"]], "Raw": [
+            ["EntidadTerritorialID", "EntidadTerritorialID", "NombreFUT", "CodigoConcepto", "Nombre", "CPC", "Nombre", "TotalRecaudo"],
+            *[["110505000 Antioquia", "110505000", "DEPARTAMENTO DE ANTIOQUIA", c, n, "NULL", "NULL", v] for c, n, v in EJEC]]}
+        prog = {"Hoja1": [["EntidadTerritorialID", "Nombrefut", "CodigoConcepto", "Nombre", "PresupuestoInicial", "PresupuestoDefinitivo"],
+                          *[["110505000", "DEPARTAMENTO DE ANTIOQUIA", c, n, v, v] for c, n, v in PROG]]}
+        return [(f"{year}_EJECUCION_DE_INGRESOS.xlsx", ejec), (f"{year}_PROGRAMACION_DE_INGRESOS.xlsx", prog)]
+    if style == 2022:
+        ejec = {"BOOST": [["x"]], "Ejecución de Ingresos": [
+            ["nombreperiodoreporte", "codigodane", "nombreentidad", "concepto_cod", "nombreConcepto", "totalRecaudo"],
+            *[["Anual", "05000", "110505000 Antioquia", c, f"{c} {n}", v] for c, n, v in EJEC]]}
+        prog = {"Reduced": [["x"]], "Programación de Ingresos": [
+            ["nombreperiodoreporte", "CodigoDane", "CodigoFut", "NombreEntidad", "codigoconcepto_cod", "nombreConcepto", "presupuestoInicial", "presupuestoDefinitivo"],
+            *[["Anual", "05000", "110505000", "110505000 Antioquia", c, f"{c} {n}", v, v] for c, n, v in PROG]]}
+        return [(f"{year}_Ejecucion_de_Ingresos (1).xlsx", ejec), (f"{year} approved.xlsx", prog)]
+    ejec = {"Hoja1": TITLE_BLOCK + [
+        ["Año Vigencia", "Periodo", "Código DANE", "Código FUT", "Entidad", "Código Concepto", "Concepto", "Total Recaudo"],
+        *[[year, "Anual", "05000", "110505000", "Antioquia", c, n, v] for c, n, v in EJEC]]}
+    prog = {"Hoja1": TITLE_BLOCK + [
+        ["Año Vigencia", "Periodo", "Código DANE", "Código FUT", "Entidad", "Código Concepto", "Concepto", "Presupuesto Inicial", "Presupuesto Definitivo"],
+        *[[year, "Anual", "05000", "110505000", "Antioquia", c, n, v, v] for c, n, v in PROG]]}
+    return [(f"{year}_Ejecucion de Ingresos_AP_2.xlsx", ejec), (f"{year}_ProgramacionDeIngresos_AP_2.xlsx", prog)]
+
+
+def fut_file(year):
+    header = ["Código FUT", "Nombre Entidad", "Cód. DANE Departamento", "Nombre DANE Departamento", "Cód. DANE Municipio",
+              "Nombre DANE Municipio", "Código Concepto", "Concepto", "Presupuesto Inicial", "Presupuesto Definitivo",
+              "Recaudo", "Sin Situación Fondos", "Total Ingresos"]
+    # (code, name, recaudo, total ingresos, presupuesto definitivo)
+    rows = [("TI", "INGRESOS TOTALES", 90, 100, 110), ("TI.A", "INGRESOS CORRIENTES", 90, 100, 110),
+            ("TI.A.1", "TRIBUTARIOS", 90, 100, 110), ("TI.A.1.3", "IMPUESTO PREDIAL UNIFICADO", 60, 70, 80),
+            ("TI.A.1.5", "IMPUESTO DE INDUSTRIA Y COMERCIO", 30, 30, 30), ("VAL", "INGRESOS TOTALES", 90, 100, 110)]
+    return f"{year}_FUTIngresos.xlsx", {"REPORTE_INFORMACION": [header, *[
+        ["216605266", "ENVIGADO", "05", "ANTIOQUIA", "05266", "ENVIGADO", c, n, d, d, r, t - r, t] for c, n, r, t, d in rows]]}
+
+
 def cuadros_path(year):
     return os.path.join(CENTRAL_DIR, f"CUADROS EJECUCION INGRESOS PGN DICIEMBRE {year}.xlsx")
 
@@ -97,7 +147,12 @@ class ColombiaRevenueExtractTest(unittest.TestCase):
         shutil.rmtree(TMP, ignore_errors=True)
         os.makedirs(CENTRAL_DIR)
         os.makedirs(AUX_DIR)
+        os.makedirs(SUBNAT_DIR)
         FROZEN.to_csv(os.path.join(AUX_DIR, "central_revenue_2019_2022.csv"), index=False)
+
+    def write_subnat(self, files):
+        for name, sheets in files:
+            write_workbook(os.path.join(SUBNAT_DIR, name), sheets)
 
     def run_nb(self):
         return run_script(NB, env={"RAW_INPUT_DIR": INPUT_ROOT, "OUTPUT_DIR": OUT_DIR}, cwd=NB_DIR)
@@ -177,6 +232,63 @@ class ColombiaRevenueExtractTest(unittest.TestCase):
         self.assertIn("03 Recursos De Capital De La Nacion", set(df.econ2))
         self.assertEqual(df[df.econ4 == "01 Impuesto Sobre La Renta Y Complementarios"].econ_rev.iloc[0], "Income Tax")
         self.assertEqual(df.executed.sum(), 172)
+
+    def test_leaf_filter_and_repeat_sum(self):
+        self.write_subnat(cuipo_files(2024, 2024))
+        self.run_nb()
+        df = self.out("revenue_subnational_2024.csv")
+        executed = df.dropna(subset=["executed"]).set_index("concept_code").executed.to_dict()
+        self.assertEqual(executed, {"1.1.01.01.200": 150, "1.1.01.02.200": 30})
+
+    def test_one_sided_concepts_kept(self):
+        self.write_subnat(cuipo_files(2024, 2024))
+        self.run_nb()
+        row = self.out("revenue_subnational_2024.csv").set_index("concept_code").loc["1.1.02.03.001"]
+        self.assertEqual(row.approved, 10)
+        self.assertTrue(pd.isna(row.executed))
+
+    def test_cuipo_header_variants(self):
+        for style, year in [(2021, 2021), (2022, 2022), (2024, 2024)]:
+            self.write_subnat(cuipo_files(style, year))
+        self.run_nb()
+        frames = [self.out(f"revenue_subnational_{y}.csv").drop(columns="year") for y in (2021, 2022, 2024)]
+        pd.testing.assert_frame_equal(frames[0], frames[1])
+        pd.testing.assert_frame_equal(frames[0], frames[2])
+        self.assertEqual(frames[0].codigo_fut.astype(str).unique().tolist(), ["110505000"])
+        self.assertEqual(frames[0].entity_name.unique().tolist(), ["Antioquia"])
+
+    def test_fut_measures(self):
+        self.write_subnat([fut_file(2020)])
+        self.run_nb()
+        df = self.out("revenue_subnational_2020.csv").set_index("concept_code")
+        self.assertEqual(df.loc["TI.A.1.3", ["approved", "executed"]].tolist(), [80, 70])  # Total Ingresos, not Recaudo (60)
+        self.assertNotIn("VAL", df.index)
+        self.assertNotIn("TI", df.index)
+        root = self.out("revenue_subnational_root_2020.csv")
+        self.assertEqual(root.executed.tolist(), [100])
+
+    def test_subnational_golden_2020_2024(self):
+        self.write_subnat([fut_file(2020)] + cuipo_files(2024, 2024))
+        self.run_nb()
+        for name in ["revenue_subnational_2020.csv", "revenue_subnational_2024.csv", "revenue_subnational_root_2024.csv"]:
+            self.assert_golden(name)
+
+    def test_non_territorial_entities_dropped(self):
+        name, sheets = cuipo_files(2021, 2021)[0]
+        sheets["Raw"] += [["923272791 ADRES", "923272791", "ADRES", c, n, "NULL", "NULL", v * 1000] for c, n, v in EJEC]
+        self.write_subnat([(name, sheets), cuipo_files(2021, 2021)[1]])
+        self.run_nb()
+        df = self.out("revenue_subnational_2021.csv")
+        self.assertEqual(df.codigo_fut.astype(str).unique().tolist(), ["110505000"])
+        self.assertEqual(self.out("revenue_subnational_root_2021.csv").codigo_fut.astype(str).tolist(), ["110505000"])
+
+    def test_root_gap_over_tolerance_fails(self):
+        name, sheets = cuipo_files(2024, 2024)[0]
+        sheets["Hoja1"] = [r if r[5:6] != ["1"] else r[:7] + [r[7] * 2] for r in sheets["Hoja1"]]  # root executed doubled
+        self.write_subnat([(name, sheets), cuipo_files(2024, 2024)[1]])
+        with self.assertRaises(AssertionError) as ctx:
+            self.run_nb()
+        self.assertIn("2024 executed: leaf rows do not add up to the root rows", str(ctx.exception))
 
 
 if __name__ == "__main__":
