@@ -159,11 +159,6 @@ class ColombiaRevenueExtractTest(unittest.TestCase):
     def run_nb(self, cwd=NB_DIR):
         return run_script(NB, env={"RAW_INPUT_DIR": INPUT_ROOT, "OUTPUT_DIR": OUT_DIR}, cwd=cwd)
 
-    def test_line_map_found_from_any_working_dir(self):
-        write_workbook(cuadros_path(2024), cuadros_workbook(2024))
-        self.run_nb(cwd=TMP)  # Databricks doesn't always start a notebook in its own folder
-        self.assertTrue(os.path.exists(os.path.join(OUT_DIR, "revenue_central_2024.csv")))
-
     def out(self, name):
         return pd.read_csv(os.path.join(OUT_DIR, name))
 

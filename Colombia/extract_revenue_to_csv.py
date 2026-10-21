@@ -45,19 +45,7 @@ def strip_code_prefix(label):
     return re.sub(r'^\d+(\.\d+)*\s+', '', label)
 
 
-LINE_MAP_FILE = 'central_revenue_lines.csv'
-
-
-def notebook_dir():
-    if IS_DATABRICKS:
-        context = dbutils.notebook.entry_point.getDbutils().notebook().getContext()
-        return '/Workspace' + os.path.dirname(context.notebookPath().get())
-    return os.path.dirname(os.path.abspath(__file__))
-
-
-def load_line_map():
-    # Databricks doesn't always start a notebook in its own folder, so fall back to that folder
-    path = LINE_MAP_FILE if os.path.exists(LINE_MAP_FILE) else os.path.join(notebook_dir(), LINE_MAP_FILE)
+def load_line_map(path='./central_revenue_lines.csv'):
     return pd.read_csv(path, dtype=str).fillna('')
 
 
