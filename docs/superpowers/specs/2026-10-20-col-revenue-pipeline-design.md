@@ -52,12 +52,9 @@ Subnational 2025 is not published by DNP yet; the pipeline picks it up when file
 
 ### Frozen central 2019–2022
 
-`Colombia/central_revenue_2019_2022.csv`, committed in the repo next to the extract notebook
-(read via a notebook-relative path, like Albania's `mapping.csv`, so the label fixes are
-reviewable in the PR): the workbook `Revenue` sheet's Central rows for 2019–2022
-(`year, econ1, econ2, econ3, econ4, approved, executed`), with OCR typos fixed **in labels
-only**; numbers untouched. A label-fix mapping (old → new) is kept in the PR description so
-reviewers can see each change.
+`Data from authorities/Colombia/auxiliary/central_revenue_2019_2022.csv` (BOOSTProcessed SharePoint → volume; data stays out of git per the user): an unmodified copy of the workbook `Revenue` sheet's Central rows for 2019–2022 (`year, econ1, econ2, econ3, econ4, approved, executed`), OCR label typos are fixed in code at read time (a small old → new table), so the data file stays an exact copy. It isn't read from the published workbook in `input/Countries` because that workbook's Revenue sheet will be regenerated from this pipeline (circular).
+
+Design, approach and decisions are documented in `Colombia/README.md` (user request).
 
 ## Shape of `col_boost_rev_gold`
 

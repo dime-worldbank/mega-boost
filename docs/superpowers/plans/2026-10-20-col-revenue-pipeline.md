@@ -31,18 +31,17 @@
 
 ---
 
-### Task 1: Frozen central 2019–2022 and the central line map
+### Task 1: Frozen central 2019–2022 (auxiliary data) and the central line map
 
 **Files:**
-- Create: `Colombia/central_revenue_2019_2022.csv`. Columns `year,econ1,econ2,econ3,econ4,approved,executed`, from workbook sheet `Revenue` rows where `admin0 == 'Central'` and `2019 <= year <= 2022`. Fix OCR typos in labels only and leave numbers untouched.
-- Create: `Colombia/central_revenue_lines.csv` with columns `sheet,label,econ1,econ2,econ3,econ_rev,econ_rev_sub,is_subtotal`
-- Test: `tests/test_colombia_revenue_extract.py` (frozen-file assertions only in this task)
+- Data (not in git): `BOOSTProcessed/input/Data from authorities/Colombia/auxiliary/central_revenue_2019_2022.csv`, local path `~/Library/CloudStorage/OneDrive-WBG/Documents - BOOSTProcessed/…`. It's an unmodified copy of workbook sheet `Revenue` rows with `admin0 == 'Central'` and `2019 <= year <= 2022` (104 rows, columns `year,admin0,econ1,econ2,econ3,econ4,approved,executed`). It syncs to the volume `auxiliary/` folder, which the existing extract copies into the CSV dir.
+- Create: `Colombia/central_revenue_lines.csv` (code-like config: label → hierarchy/category) with columns `sheet,label,econ1,econ2,econ3,econ_rev,econ_rev_sub,is_subtotal`
+- Modify: `Colombia/README.md`: add a "Revenue pipeline" section (design, sources per year, decisions and why, open questions). It grows with each task.
 
 **Interfaces:**
-- Produces: the two CSVs above. `label` is matched after `normalize_label` (Task 2). `sheet` is one of `C1,C2,C3,C4,C5,FROZEN`, or `*`, which applies to any sheet. `label='*'` is the sheet-wide default.
+- Produces: the aux CSV above; the line map; `OCR_LABEL_FIXES: dict[str, str]` in the extract notebook (Task 2), applied to the frozen labels at read time. `label` in the line map is matched after `normalize_label` (Task 2). `sheet` is one of `C1,C2,C3,C4,C5,FROZEN`, or `*`, which applies to any sheet. `label='*'` is the sheet-wide default.
 
-Label fixes to apply (old → new), applied to all econ columns. The executor fills the rest by scanning for non-dictionary tokens, and the PR description lists every fix:
-`Oe → De`, `Naclonal → Nacional`, `Pijblicos → Públicos`, `Rjqljeza → Riqueza`, `O8 → 08`, `Aduanas Y → Aduanas Y Recargos`, `PatriMonio → Patrimonio`.
+Label fixes (old → new, word-level), kept in code: `Oe → De`, `Naclonal → Nacional`, `Pijblicos → Públicos`, `Rjqljeza → Riqueza`, `O8 → 08`, `Aduanas Y → Aduanas Y Recargos` (whole-label match only), `PatriMonio → Patrimonio`. The executor adds any others found by scanning the 104 rows, and lists them in the README.
 
 Line map rows (`econ_rev`, `econ_rev_sub`; blank = no category):
 
@@ -64,16 +63,14 @@ Line map rows (`econ_rev`, `econ_rev_sub`; blank = no category):
 
 Hierarchy (`econ1`/`econ2`/`econ3`) for C2 rows comes from the subtotal they sit under: econ1 `Ingresos Corrientes`, econ2 `Ingresos Tributarios`/`Ingresos No Tributarios`, econ3 the `Impuestos …` subtotal. C3: econ1 `Recursos de Capital`. C4: econ1 `Fondos Especiales`. C5: econ1 `Contribuciones Parafiscales`. C1 block: econ1 `Ingresos de los Establecimientos Públicos` (matches the frozen 2019–2022 line `08 Ingresos De Los Establecimientos Públicos`). In every case econ4 = the line label.
 
-- [ ] **Step 1: Write failing tests** `test_frozen_totals_match_workbook`: for each year, the frozen CSV's `executed` sums are 2019 237.43e12, 2020 288.54e12, 2021 320.71e12, 2022 329.86e12 (to 0.01e12). `test_frozen_labels_clean`: no econ value contains any of `Oe `, `Naclonal`, `Pijbl`, `Rjqlj`, `O8 `.
-- [ ] **Step 2: Run** `cd tests && python -m unittest test_colombia_revenue_extract -v` → FAIL (file missing)
-- [ ] **Step 3: Create both CSVs** (extract from `~/Downloads/Colombia BOOST.xlsx`, sheet `Revenue`).
-- [ ] **Step 4: Run tests** → PASS
-- [ ] **Step 5: Commit** `COL revenue: frozen central 2019-2022 and central line map`
+- [ ] **Step 1: Copy the aux CSV** to BOOSTProcessed and wait for it to show up in the volume (`databricks fs ls …/Colombia/auxiliary`). Verify: 104 rows; executed sums 2019 237.43e12, 2020 288.54e12, 2021 320.71e12, 2022 329.86e12 (±0.01e12).
+- [ ] **Step 2: Create the line map**, and start the README revenue section (sources, frozen-file decision: *data stays out of git; the auxiliary copy rather than reading the published workbook, because the workbook's Revenue sheet will be regenerated from this pipeline*).
+- [ ] **Step 3: Commit** `COL revenue: central line map, README design notes`
 
 ### Task 2: Central parser (Cuadros + frozen) in the extract notebook
 
 **Files:**
-- Create: `Colombia/extract_revenue_to_csv.py`: Databricks notebook source, `# MAGIC %run ../utils` cell, `IS_DATABRICKS` env pattern, reads `./central_revenue_lines.csv` and `./central_revenue_2019_2022.csv` relative to the notebook. Inputs are under `{RAW_INPUT_DIR}/Colombia/central/revenues/` and outputs go to the CSV dir.
+- Create: `Colombia/extract_revenue_to_csv.py`: Databricks notebook source, `# MAGIC %run ../utils` cell, `IS_DATABRICKS` env pattern, reads `./central_revenue_lines.csv` relative to the notebook. Inputs are `{RAW_INPUT_DIR}/Colombia/central/revenues/*.xlsx` and `{RAW_INPUT_DIR}/Colombia/auxiliary/central_revenue_2019_2022.csv`, and outputs go to the CSV dir.
 - Test: `tests/test_colombia_revenue_extract.py`; goldens `tests/fixtures/colombia/revenue_central_{2022,2024}.csv`
 
 **Interfaces:**
@@ -88,7 +85,7 @@ Hierarchy (`econ1`/`econ2`/`econ3`) for C2 rows comes from the subtotal they sit
   - `test_central_cuadros_golden`: build a fixture `CUADROS EJECUCION INGRESOS PGN DICIEMBRE 2024.xlsx` with `write_workbook`. Use sheets C1–C5 (C1 with a Nación block and an Establecimientos Públicos block) in the real layout (title rows, `Acumulado al mes de diciembre de 2024`, header `Concepto` row, values in cols 3/4) with three tax lines, one subtotal and a TOTAL row. Run the notebook, then compare `revenue_central_2024.csv` to its golden. Assert that the golden has the Establecimientos Públicos rows and no C1 Nación rows.
   - `test_unmapped_central_label_fails`: the same fixture plus a C2 line `Impuesto Especial para el Catatumbo`. `run_script` raises, and stderr contains `Unmapped central revenue line in C2: impuesto especial para el catatumbo`.
   - `test_central_units_and_columns`: in the golden, a source value of `1.5` in col 4 becomes `executed == 1.5e9`, col 3 becomes `approved`, and the 2025-style header `Vigente` / `Recaudo Neto` parses the same way.
-  - `test_frozen_tagged`: `revenue_central_2022.csv` has `econ_rev == 'Income Tax'` on the `Impuesto Sobre La Renta Y Complementarios` row.
+  - `test_frozen_tagged`: from a fixture aux CSV containing OCR labels (`03 Recursos Oe Capital De La Nacion`, `14 Impuesto Naclonal Al Carbono`), `revenue_central_2022.csv` has the fixed labels, and `econ_rev == 'Excises'` / `econ_rev_sub == 'Excises (Fuels)'` on the carbon tax row.
 - [ ] **Step 2: Run** → FAIL
 - [ ] **Step 3: Implement** the functions above. Get the year from regex `diciembre de (\d{4})`. Find the header row as the first row whose col 0 normalizes to `concepto`.
 - [ ] **Step 4: Run** with `WRITE_GOLDEN=1` once, inspect the goldens by eye, then run without it → PASS
@@ -165,7 +162,7 @@ Excluded lines get `econ_rev = None`. Every other uncategorised line gets `econ_
 - [ ] **Step 4: Full refresh and verify.** Expected: COMPLETED, and:
   - `select year, admin0, round(sum(executed)/1e12,2) from prd_mega.boost_intermediate.col_boost_rev_gold group by 1,2` gives Central 2019 237.43, 2020 288.54, 2021 320.71, 2022 329.86, 2024 400.91 (C1 TOTAL INGRESOS DEL PGN), 2025 482.50, and Regional for 2019–2024.
   - Department-government rows (codigo_fut ending `000`) have `admin2 IS NULL`.
-- [ ] **Step 5: Commit** `COL revenue: DLT transform`
+- [ ] **Step 5: Finish the README** (pipeline layout, tables, quality checks, how to add a year) and commit `COL revenue: DLT transform`
 
 ### Task 6: Workbook shift report, then REV rows rewrite (after sign-off)
 
