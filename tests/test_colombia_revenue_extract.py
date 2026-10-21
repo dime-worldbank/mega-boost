@@ -4,9 +4,11 @@ CSV to a committed golden file. All fixture values are synthetic.
 
 Set WRITE_GOLDEN=1 to (re)generate the golden CSVs after an intentional change.
 """
+import importlib.util
 import os
 import shutil
 import unittest
+from unittest import mock
 
 import pandas as pd
 
@@ -272,6 +274,10 @@ class ColombiaRevenueExtractTest(unittest.TestCase):
         self.run_nb()
         for name in ["revenue_subnational_2020.csv", "revenue_subnational_2024.csv", "revenue_subnational_root_2024.csv"]:
             self.assert_golden(name)
+        df = self.out("revenue_subnational_2024.csv").set_index("concept_code")
+        self.assertEqual(df.loc["1.1.01.01.200", ["econ_rev", "econ_rev_sub", "exclude_from_total"]].tolist(),
+                         ["Property Taxes", "Property Taxes (Immovable)", False])
+        self.assertEqual(df.loc["1.1.01.02.200", "econ_rev"], "Subnational Own Revenues")
 
     def test_non_territorial_entities_dropped(self):
         name, sheets = cuipo_files(2021, 2021)[0]
@@ -289,6 +295,50 @@ class ColombiaRevenueExtractTest(unittest.TestCase):
         with self.assertRaises(AssertionError) as ctx:
             self.run_nb()
         self.assertIn("2024 executed: leaf rows do not add up to the root rows", str(ctx.exception))
+
+
+def load_notebook_module():
+    spec = importlib.util.spec_from_file_location("col_revenue_extract", os.path.join(REPO_ROOT, NB))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)  # the notebook's I/O runs only under __main__
+    return module
+
+
+class ClassifySubnationalTest(unittest.TestCase):
+    PROPERTY = ("Property Taxes", "Property Taxes (Immovable)", False)
+    FUELS = ("Excises", "Excises (Fuels)", False)
+    TOBACCO = ("Excises", "Excises (Tobacco)", False)
+    ALCOHOL = ("Excises", "Excises (Alcohol)", False)
+    FEES = ("Permits and Fees", None, False)
+    OWN = ("Subnational Own Revenues", None, False)
+    EXCLUDED = (None, None, True)
+    CASES = [
+        ("1.1.01.01.200", PROPERTY), ("1.1.01.01.200.01", PROPERTY), ("TI.A.1.3", PROPERTY), ("TI.A.1.3.1", PROPERTY),
+        ("1.1.01.02.109", FUELS), ("TI.A.1.26", FUELS),
+        ("1.1.01.02.106", TOBACCO), ("TI.A.1.18", TOBACCO),
+        ("1.1.01.02.103", ALCOHOL), ("1.1.01.02.104", ALCOHOL), ("1.1.01.02.105", ALCOHOL),
+        ("TI.A.1.14", ALCOHOL), ("TI.A.1.15", ALCOHOL), ("TI.A.1.16", ALCOHOL), ("TI.A.1.17", ALCOHOL),
+        ("1.1.01.01.100", FEES), ("1.1.01.02.300", FEES), ("1.1.02.02.110", FEES), ("1.1.02.03.001", FEES),
+        ("TI.A.1.2", FEES), ("TI.A.1.28", FEES), ("TI.A.2.1.5", FEES), ("TI.A.2.2", FEES),
+        ("1.1.02.06.001", EXCLUDED), ("1.1.02.06.003.01", EXCLUDED), ("1.2.06", EXCLUDED), ("1.2.07.01", EXCLUDED),
+        ("1.2.08.06.001", EXCLUDED), ("1.2.10", EXCLUDED), ("1.2.12", EXCLUDED),
+        ("TI.A.2.6.1", EXCLUDED), ("TI.B.1.1", EXCLUDED), ("TI.B.4", EXCLUDED), ("TI.B.6", EXCLUDED), ("TI.B.10", EXCLUDED),
+        ("1.1.01.02.200", OWN), ("TI.A.1.5", OWN), ("1.2.05", OWN), ("TI.B.8", OWN),
+        ("1.1.01.01.2001", OWN), ("TI.A.1.30", OWN), ("TI.A.1.2.1", FEES), ("TI.A.1.20", OWN), ("TI.B.11", OWN),
+    ]
+
+    def test_classify_subnational(self):
+        m = load_notebook_module()
+        for code, expected in self.CASES:
+            with self.subTest(code=code):
+                self.assertEqual(m.classify_subnational(code), expected)
+
+    def test_predial_switch(self):
+        m = load_notebook_module()
+        with mock.patch.object(m, "PREDIAL_CATEGORY", ("Income Tax", None)):
+            self.assertEqual(m.classify_subnational("1.1.01.01.200"), ("Income Tax", None, False))
+            self.assertEqual(m.classify_subnational("TI.A.1.3"), ("Income Tax", None, False))
+
 
 
 if __name__ == "__main__":

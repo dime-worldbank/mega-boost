@@ -113,3 +113,11 @@ Both are single switches at the top of `extract_revenue_to_csv.py`.
   entity's FUT `TI.A.2` approved exceeds its children by 2.55 bn COP.
 - **Executed for FUT years is `Total Ingresos`** (`Recaudo` plus *sin situación de fondos*).
   It matches the workbook's earlier local totals; `Recaudo` alone is about 20% lower.
+- **Subnational categories come from concept codes** (`SUBNATIONAL_RULES`, longest prefix
+  wins), covering CUIPO (2021+) and FUT (2019–2020) codes. Lines with no specific category are
+  `Subnational Own Revenues`.
+- **Excluded from total revenue** (`exclude_from_total`): intergovernmental current transfers
+  (CUIPO `1.1.02.06`, all of it, including SGP; FUT `TI.A.2.6`), capital transfers and
+  cofinancing (`1.2.08`, `TI.B.1`), borrowing (`1.2.06`, `1.2.07`, `TI.B.4`), prior-year
+  balances (`1.2.10`, `TI.B.6`) and FONPET withdrawals (`1.2.12`, `TI.B.10`). Together that's
+  about 60% of subnational revenue. The rows are kept and flagged rather than dropped.

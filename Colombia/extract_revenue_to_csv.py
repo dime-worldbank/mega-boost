@@ -171,7 +171,7 @@ def tag_frozen(frozen, line_map):
 
 
 SUBNATIONAL_COLUMNS = ['year', 'codigo_fut', 'entity_name', 'concept_code', 'econ1', 'econ2', 'econ3', 'econ4',
-                       'approved', 'executed']
+                       'approved', 'executed', 'econ_rev', 'econ_rev_sub', 'exclude_from_total']
 SUBNATIONAL_ROOT_CODES = {'TI', '1'}
 SUBNATIONAL_FIRST_YEAR = 2019
 SUBNATIONAL_SHEETS = ['Raw', 'Ejecución de Ingresos', 'Programación de Ingresos']
@@ -186,6 +186,35 @@ ENTITY_HEADERS = ['codigofut', 'entidadterritorialid', 'nombreentidad']
 ENTITY_NAME_HEADERS = ['entidad', 'nombreentidad', 'entidadterritorialid', 'nombrefut']
 EXECUTED_HEADERS = ['totalrecaudo', 'totalingresos']  # FUT 'Total Ingresos' includes sin situación de fondos
 APPROVED_HEADERS = ['presupuestodefinitivo']
+
+
+PREDIAL = 'predial'
+EXCLUDED = 'excluded'
+# CUIPO (2021+) and FUT (2019-2020) concept code prefixes; the longest matching prefix wins
+SUBNATIONAL_RULES = {
+    '1.1.01.01.200': PREDIAL, 'TI.A.1.3': PREDIAL,
+    '1.1.01.02.109': ('Excises', 'Excises (Fuels)'), 'TI.A.1.26': ('Excises', 'Excises (Fuels)'),
+    '1.1.01.02.106': ('Excises', 'Excises (Tobacco)'), 'TI.A.1.18': ('Excises', 'Excises (Tobacco)'),
+    **{c: ('Excises', 'Excises (Alcohol)') for c in
+       ['1.1.01.02.103', '1.1.01.02.104', '1.1.01.02.105', 'TI.A.1.14', 'TI.A.1.15', 'TI.A.1.16', 'TI.A.1.17']},
+    **{c: ('Permits and Fees', None) for c in
+       ['1.1.01.01.100', '1.1.01.02.300', '1.1.02.02', '1.1.02.03', 'TI.A.1.2', 'TI.A.1.28', 'TI.A.2.1', 'TI.A.2.2']},
+    # Intergovernmental transfers and financing, kept out of total revenue to avoid double counting
+    **{c: EXCLUDED for c in
+       ['1.1.02.06', '1.2.06', '1.2.07', '1.2.08', '1.2.10', '1.2.12', 'TI.A.2.6', 'TI.B.1', 'TI.B.4', 'TI.B.6', 'TI.B.10']},
+}
+
+
+def classify_subnational(code):
+    matches = [p for p in SUBNATIONAL_RULES if code == p or code.startswith(p + '.')]
+    rule = SUBNATIONAL_RULES[max(matches, key=len)] if matches else None
+    if rule == EXCLUDED:
+        return None, None, True
+    if rule == PREDIAL:
+        return PREDIAL_CATEGORY[0], PREDIAL_CATEGORY[1], False
+    if rule is None:
+        return 'Subnational Own Revenues', None, False
+    return rule[0], rule[1], False
 
 
 def header_key(v):
@@ -261,6 +290,9 @@ def read_subnational(year, ejecucion_path, programacion_path):
     for i, depth in enumerate([2, 3, 4], start=1):
         df[f'econ{i}'] = df.concept_code.map(lambda c: labelled(c, depth) if len(c.split('.')) > depth else None)
     df['econ4'] = df.concept_code.map(lambda c: f'{c} {names.get(c, "")}'.strip())
+
+    df[['econ_rev', 'econ_rev_sub', 'exclude_from_total']] = pd.DataFrame(
+        df.concept_code.map(classify_subnational).tolist(), index=df.index)
 
     sums = df.groupby('codigo_fut')[['approved', 'executed']].sum(min_count=1)
     check = root.set_index('codigo_fut').join(sums, rsuffix='_leaves')
