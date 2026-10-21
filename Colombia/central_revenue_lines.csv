@@ -2,7 +2,7 @@ sheet,label,econ1,econ2,econ3,econ_rev,econ_rev_sub,is_subtotal
 *,impuesto sobre la renta y complementarios,,,,Income Tax,,0
 *,impuesto simple,,,,Income Tax,,0
 *,impuesto sobre las ventas,,,,VAT,,0
-*,impuesto sobre las ventas (iva externo),,,,VAT,,0
+*,impuesto sobre las ventas iva externo,,,,VAT,,0
 *,impuesto sobre aduanas y recargos,,,,Customs,,0
 *,impuesto nacional a la gasolina y al acpm,,,,Excises,Excises (Fuels),0
 *,impuesto nacional al carbono,,,,Excises,Excises (Fuels),0
@@ -23,9 +23,18 @@ C1,contribuciones parafiscales de los establecimientos publicos,,,,,,0
 C2,ingresos tributarios,Ingresos Corrientes,Ingresos Tributarios,,,,1
 C2,impuestos directos,,,Impuestos Directos,,,1
 C2,impuestos indirectos internos,,,Impuestos Indirectos Internos,,,1
-C2,impuestos indirectos externos (iva externo y aduanas y recargos),,,Impuestos Indirectos Externos,,,1
+C2,impuestos indirectos externos iva externo y aduanas y recargos,,,Impuestos Indirectos Externos,,,1
 C2,ingresos no tributarios,Ingresos Corrientes,Ingresos No Tributarios,,,,1
 C2,total ingresos corrientes de la nacion,,,,,,1
 C3,*,Recursos de Capital,,,,,0
 C4,*,Fondos Especiales,,,,,0
 C5,*,Contribuciones Parafiscales,,,,,0
+C2,impuesto a la riqueza,,,,,,0
+C2,impuesto de normalizacion tributaria,,,,,,0
+C2,gravamen a los movimientos financieros,,,,,,0
+C2,impuesto al turismo,,,,,,0
+C2,impuesto nacional al consumo,,,,,,0
+C2,impuesto a productos comestibles ultra procesados industrialmente,,,,,,0
+C2,impuesto a productos plasticos de un solo uso,,,,,,0
+C2,impuesto a las bebidas ultra procesadas azucaradas,,,,,,0
+C2,impuesto especial para el catatumbo,,,,,,0

@@ -95,3 +95,9 @@ Both are single switches at the top of `extract_revenue_to_csv.py`.
    consistency until answered.
 2. **Impuesto Predial** (`PREDIAL_CATEGORY`, default Property Taxes (Immovable)). The old
    workbook formula counted it under Income Tax in 2021–2022 only.
+- **Known break, VAT vs Customs:** in the 2019–2022 tables, *Impuesto sobre aduanas y
+  recargos* includes VAT on imports (IVA externo), roughly 24–44 tn COP a year. From 2024
+  MinHacienda reports IVA externo separately, and it's counted as VAT. So Customs drops to
+  about 5–6 tn and VAT rises by the same amount. The frozen years can't be split.
+- **C1 header layout varies:** "Concepto" sits on either header row depending on the year,
+  so the parser anchors on the column-number row `(3)=(1+2)` instead.

@@ -1,0 +1,4 @@
+year,econ1,econ2,econ3,econ4,approved,executed,econ_rev,econ_rev_sub,exclude_from_total
+2022,1.1 Ingresos Corrientes,01 Ingresos Tributarios,1 Impuestos Directos,01 Impuesto Sobre La Renta Y Complementarios,80,95,Income Tax,,False
+2022,1.1 Ingresos Corrientes,01 Ingresos Tributarios,2 Impuestos Indirectos,14 Impuesto Nacional Al Carbono,5,4,Excises,Excises (Fuels),False
+2022,1.2 Recursos De Capital,03 Recursos De Capital De La Nacion,,,70,73,,,False
