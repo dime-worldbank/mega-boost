@@ -244,7 +244,7 @@ def read_subnational_sheet(path):
                    .replace('', None))
     executed, approved = col(EXECUTED_HEADERS), col(APPROVED_HEADERS)
     return pd.DataFrame({
-        'codigo_fut': col(ENTITY_HEADERS).astype(str).str.strip().str[:9],
+        'codigo_fut': col(ENTITY_HEADERS).astype(str).str.extract(r'^\s*(\d+)', expand=False),
         'entity_name': entity_name, 'concept_code': code, 'concept_name': name,
         'executed': pd.to_numeric(executed, errors='coerce') if executed is not None else float('nan'),
         'approved': pd.to_numeric(approved, errors='coerce') if approved is not None else float('nan'),
@@ -272,7 +272,8 @@ def read_subnational(year, ejecucion_path, programacion_path):
     if programacion_path is not None:
         raw = pd.concat([raw.drop(columns='approved'), read_subnational_sheet(programacion_path).drop(columns='executed')])
     raw['year'] = year
-    raw = raw[raw.codigo_fut.str.startswith(TERRITORIAL_FUT_PREFIXES)]
+    # Territorial FUT codes have 9 digits; 2021's 8-digit '21…' codes are regional corporations
+    raw = raw[(raw.codigo_fut.str.len() == 9) & raw.codigo_fut.str.startswith(TERRITORIAL_FUT_PREFIXES)]
     names = raw.drop_duplicates('concept_code').set_index('concept_code').concept_name.to_dict()
     entity_names = raw.dropna(subset=['entity_name']).groupby('codigo_fut').entity_name.first()
     root = (raw[raw.concept_code.isin(SUBNATIONAL_ROOT_CODES)]

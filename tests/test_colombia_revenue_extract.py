@@ -286,6 +286,9 @@ class ColombiaRevenueExtractTest(unittest.TestCase):
     def test_non_territorial_entities_dropped(self):
         name, sheets = cuipo_files(2021, 2021)[0]
         sheets["Raw"] += [["923272791 ADRES", "923272791", "ADRES", c, n, "NULL", "NULL", v * 1000] for c, n, v in EJEC]
+        # 8-digit codes that start with 21 are regional environmental corporations, not municipalities
+        sheets["Raw"] += [["21017000 Corporación Autónoma Regional de Caldas", "21017000", "CORPOCALDAS", c, n, "NULL", "NULL", v]
+                          for c, n, v in EJEC]
         self.write_subnat([(name, sheets), cuipo_files(2021, 2021)[1]])
         self.run_nb()
         df = self.out("revenue_subnational_2021.csv")

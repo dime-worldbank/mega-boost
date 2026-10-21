@@ -21,36 +21,36 @@ GOLD_COLUMNS = ['country_name', 'year', 'admin0', 'admin1', 'admin2', 'geo1',
                 'econ_rev', 'econ_rev_sub', 'exclude_from_total', 'approved', 'executed']
 
 
-def read_csvs(pattern):
+# Explicit schemas: inference turns entity codes like 110505000 into doubles ("1.10505E8")
+CATEGORY_SCHEMA = "econ_rev STRING, econ_rev_sub STRING, exclude_from_total BOOLEAN"
+CENTRAL_SCHEMA = (f"year INT, econ1 STRING, econ2 STRING, econ3 STRING, econ4 STRING, "
+                  f"approved DOUBLE, executed DOUBLE, {CATEGORY_SCHEMA}")
+SUBNATIONAL_SCHEMA = (f"year INT, codigo_fut STRING, entity_name STRING, concept_code STRING, "
+                      f"econ1 STRING, econ2 STRING, econ3 STRING, econ4 STRING, "
+                      f"approved DOUBLE, executed DOUBLE, {CATEGORY_SCHEMA}")
+ROOT_SCHEMA = "year INT, codigo_fut STRING, approved DOUBLE, executed DOUBLE"
+
+
+def read_csvs(pattern, schema):
     return (spark.read
       .format("csv")
       .options(**CSV_READ_OPTIONS)
-      .option("inferSchema", "true")
+      .schema(schema)
       .load(f'{COUNTRY_MICRODATA_DIR}/{pattern}'))
-
-
-def with_measure_types(df):
-    return (df
-      .withColumn('year', col('year').cast('int'))
-      .withColumn('approved', col('approved').cast('double'))
-      .withColumn('executed', col('executed').cast('double'))
-      .withColumn('exclude_from_total', col('exclude_from_total').cast('boolean')))
 
 # COMMAND ----------
 
 @dlt.expect_or_drop("year_not_null", "year IS NOT NULL")
 @dlt.table(name='col_rev_central_bronze')
 def col_rev_central_bronze():
-    return with_measure_types(read_csvs('revenue_central_*.csv'))
+    return read_csvs('revenue_central_*.csv', CENTRAL_SCHEMA)
 
 
 @dlt.expect_or_drop("year_not_null", "year IS NOT NULL")
 @dlt.table(name='col_rev_subnat_bronze')
 def col_rev_subnat_bronze():
     # revenue_subnational_2*.csv leaves out the revenue_subnational_root_*.csv check files
-    return (with_measure_types(read_csvs('revenue_subnational_2*.csv'))
-      .withColumn('codigo_fut', col('codigo_fut').cast('string'))
-      .withColumn('concept_code', col('concept_code').cast('string')))
+    return read_csvs('revenue_subnational_2*.csv', SUBNATIONAL_SCHEMA)
 
 
 @dlt.table(name='col_rev_subnat_silver')
@@ -93,8 +93,7 @@ def col_boost_rev_gold():
 @dlt.expect_or_fail("every regional row has a department", "rows_without_admin1 = 0")
 @dlt.table(name='col_rev_quality')
 def col_rev_quality():
-    root = (read_csvs('revenue_subnational_root_*.csv')
-      .withColumn('year', col('year').cast('int'))
+    root = (read_csvs('revenue_subnational_root_*.csv', ROOT_SCHEMA)
       .groupBy('year')
       .agg(sum('executed').alias('executed_root')))
     leaves = (dlt.read('col_rev_subnat_silver')
