@@ -8,7 +8,7 @@ TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
 INPUT_DIR = f"{TOP_DIR}/Documents/input/Countries"
 WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
 COUNTRY = 'Paraguay'
-COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/microdata_csv/{COUNTRY}'
+COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/raw_microdata_csv/{COUNTRY}'  # written by PRY_extract_raw_microdata_excel_to_csv
 
 CSV_READ_OPTIONS = {
     "header": "true",
