@@ -80,6 +80,17 @@ econ_rev, econ_rev_sub, exclude_from_total, approved, executed`.
 - `geo1` is the department.
 - Total revenue = the sum of rows where `exclude_from_total` is false.
 
+### Quality checks
+
+- **Extract (fails the task):**
+  - each Cuadros sheet's lines equal its TOTAL row;
+  - subnational line items equal root rows per year, within 0.01%;
+  - every C2 label is in the map;
+  - header layouts are recognised.
+- **DLT `col_rev_quality` (`expect_or_fail`):**
+  - per year, subnational executed equals the root rows, within 0.01%;
+  - every subnational row has a department.
+
 ### Sources by year
 
 All raw files live in the BOOSTProcessed SharePoint under
@@ -92,6 +103,17 @@ All raw files live in the BOOSTProcessed SharePoint under
 | Central | 2024+ | `central/revenues/CUADROS EJECUCION INGRESOS PGN DICIEMBRE {year}.xlsx`, sheets C2–C5 plus the Establecimientos Públicos block of C1 | col 3 "Definitivo"/"Vigente" | col 4 "Recaudo"/"Recaudo Neto" |
 | Subnational | 2019–2020 | `subnational/ingresos/{year}_FUTIngresos.xlsx` | `Presupuesto Definitivo` | `Total Ingresos` |
 | Subnational | 2021+ | `subnational/ingresos/`: a file with "ejecucion" in its name (executed) and one with "programacion" or "approved" (approved) | `Presupuesto Definitivo` | `Total Recaudo` |
+
+### Adding a year
+
+1. Download the files listed under *Sources by year* into BOOSTProcessed (README sections
+   above give the download steps). Name subnational files with the year first and "ejecucion" /
+   "programacion" in the name.
+2. Run the Colombia job. If the extract fails on `Unmapped central revenue line in C2: …`, add
+   that label to `central_revenue_lines.csv` (normalized: lowercase, no accents or punctuation)
+   with its category, or leave the category blank. If it fails on a header layout, extend the
+   header detection and add a test fixture in that year's layout.
+3. If the workbook needs the new year, add its year column to the REV rows.
 
 ### Decisions: central
 
@@ -116,6 +138,11 @@ All raw files live in the BOOSTProcessed SharePoint under
 - **Central includes Establecimientos Públicos** (from sheet C1), matching the frozen
   2019–2022 line *Ingresos de los Establecimientos Públicos*. Central totals therefore equal
   MinHacienda's *TOTAL INGRESOS DEL PGN* (400.91 tn COP in 2024, 482.50 tn in 2025).
+- **Central borrowing is excluded from total revenue** (workbook author, 2026-10-21;
+  `EXCLUDE_CENTRAL_BORROWING = True`). C3's *Recursos de crédito interno/externo* get
+  `exclude_from_total`. This applies from 2024 only, because 2019–2022 central capital resources
+  are one undivided line that includes borrowing, so expect a step down in central total revenue
+  between 2022 and 2024.
 
 ### Decisions: subnational
 
@@ -138,17 +165,9 @@ All raw files live in the BOOSTProcessed SharePoint under
   cofinancing (`1.2.08`, `TI.B.1`), borrowing (`1.2.06`, `1.2.07`, `TI.B.4`), prior-year
   balances (`1.2.10`, `TI.B.6`) and FONPET withdrawals (`1.2.12`, `TI.B.10`). Together that's
   about 60% of subnational revenue. The rows are kept and flagged rather than dropped.
-
-### Decisions from the workbook author (2026-10-21)
-
-Both are single switches at the top of `extract_revenue_to_csv.py`.
-
-1. **Central borrowing is excluded from total revenue** (`EXCLUDE_CENTRAL_BORROWING = True`):
-   C3's *Recursos de crédito interno/externo* get `exclude_from_total`. This only applies to
-   2024 onward, because 2019–2022 central capital resources are one undivided line that
-   includes borrowing. Expect a step down in central total revenue between 2022 and 2024.
-2. **Impuesto Predial stays in Income Tax** (`PREDIAL_CATEGORY = ('Income Tax', None)`), now
-   for every year. The old workbook formula picked it up only in 2021–2022.
+- **Impuesto Predial stays in Income Tax** (workbook author, 2026-10-21;
+  `PREDIAL_CATEGORY = ('Income Tax', None)`), now for every year. The old workbook formula
+  picked it up only in 2021–2022.
 
 ### Known breaks and source quirks
 
@@ -156,31 +175,8 @@ Both are single switches at the top of `extract_revenue_to_csv.py`.
   on imports (IVA externo), roughly 24–44 tn COP a year. From 2024 MinHacienda reports IVA
   externo separately, and it's counted as VAT. So Customs drops to about 5–6 tn and VAT rises by
   the same amount. The frozen years can't be split.
-- **Central borrowing:** see decision 1 above.
 - **C1 header layout varies:** "Concepto" sits on either header row depending on the year, so
   the parser anchors on the column-number row `(3)=(1+2)` instead.
 - **Small root mismatches:** one 2019 entity's FUT `TI.A.2` approved exceeds its children by
   2.55 bn COP, and one 2022 entity has a rounding-sized executed gap. Both are within tolerance
   and are printed.
-
-### Quality checks
-
-- **Extract (fails the task):**
-  - each Cuadros sheet's lines equal its TOTAL row;
-  - subnational line items equal root rows per year, within 0.01%;
-  - every C2 label is in the map;
-  - header layouts are recognised.
-- **DLT `col_rev_quality` (`expect_or_fail`):**
-  - per year, subnational executed equals the root rows, within 0.01%;
-  - every subnational row has a department.
-
-### Adding a year
-
-1. Download the files listed under *Sources by year* into BOOSTProcessed (README sections
-   above give the download steps). Name subnational files with the year first and "ejecucion" /
-   "programacion" in the name.
-2. Run the Colombia job. If the extract fails on `Unmapped central revenue line in C2: …`, add
-   that label to `central_revenue_lines.csv` (normalized: lowercase, no accents or punctuation)
-   with its category, or leave the category blank. If it fails on a header layout, extend the
-   header detection and add a test fixture in that year's layout.
-3. If the workbook needs the new year, add its year column to the REV rows.
