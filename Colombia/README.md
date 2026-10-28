@@ -138,11 +138,10 @@ All raw files live in the BOOSTProcessed SharePoint under
 - **Central includes Establecimientos Públicos** (from sheet C1), matching the frozen
   2019–2022 line *Ingresos de los Establecimientos Públicos*. Central totals therefore equal
   MinHacienda's *TOTAL INGRESOS DEL PGN* (400.91 tn COP in 2024, 482.50 tn in 2025).
-- **Central borrowing is excluded from total revenue** (workbook author, 2026-10-21;
-  `EXCLUDE_CENTRAL_BORROWING = True`). C3's *Recursos de crédito interno/externo* get
-  `exclude_from_total`. This applies from 2024 only, because 2019–2022 central capital resources
-  are one undivided line that includes borrowing, so expect a step down in central total revenue
-  between 2022 and 2024.
+- **Central borrowing is excluded from total revenue** (workbook author, 2026-10-21). C3's
+  *Recursos de crédito interno/externo* get `exclude_from_total`. This applies from 2024 only,
+  because 2019–2022 central capital resources are one undivided line that includes borrowing,
+  so expect a step down in central total revenue between 2022 and 2024.
 
 ### Decisions: subnational
 

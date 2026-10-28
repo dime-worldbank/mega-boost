@@ -14,7 +14,6 @@ import pandas as pd
 IS_DATABRICKS = "DATABRICKS_RUNTIME_VERSION" in os.environ
 COUNTRY = 'Colombia'
 
-EXCLUDE_CENTRAL_BORROWING = True
 PREDIAL_CATEGORY = ('Income Tax', None)
 
 CUADROS_UNIT = 1e9  # MinHacienda Cuadros are in miles de millones de pesos
@@ -68,7 +67,7 @@ def lookup_line(line_map, sheet, label):
 
 
 def exclude_from_total(label):
-    return EXCLUDE_CENTRAL_BORROWING and label in CENTRAL_BORROWING_LINES
+    return label in CENTRAL_BORROWING_LINES
 
 
 def read_cuadros_sheet(path, sheet_name):
