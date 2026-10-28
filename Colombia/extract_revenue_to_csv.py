@@ -248,20 +248,21 @@ def read_subnational_sheet(path):
     })
 
 
-def leaf_rows(df):
-    df = df[df.concept_code != 'VAL']
-    df = df[~df.concept_code.isin(SUBNATIONAL_ROOT_CODES)]
+def leaf_rows(df, measure):
+    df = df[df[measure].notna() & (df.concept_code != 'VAL') & ~df.concept_code.isin(SUBNATIONAL_ROOT_CODES)]
     parents = set()
     for (year, entity), codes in df.groupby(['year', 'codigo_fut']).concept_code:
         for c in set(codes):
             parts = c.split('.')
             parents.update((year, entity, '.'.join(parts[:i])) for i in range(1, len(parts)))
-    is_parent = [(y, e, c) in parents for y, e, c in zip(df.year, df.codigo_fut, df.concept_code)]
-    leaves = df[[not p for p in is_parent]]
-    return (leaves.groupby(['year', 'codigo_fut', 'concept_code'], as_index=False)
-            .agg(entity_name=('entity_name', 'first'),
-                 approved=('approved', lambda s: s.sum(min_count=1)),
-                 executed=('executed', lambda s: s.sum(min_count=1))))
+    is_leaf = pd.Series([(y, e, c) not in parents for y, e, c in zip(df.year, df.codigo_fut, df.concept_code)],
+                        index=df.index, dtype=bool)
+    return df[is_leaf].groupby(['year', 'codigo_fut', 'concept_code'], as_index=False)[measure].sum()
+
+
+def leaf_rows_both(df):
+    # Leaves per measure: approved can be budgeted one level above where it's collected
+    return leaf_rows(df, 'approved').merge(leaf_rows(df, 'executed'), on=['year', 'codigo_fut', 'concept_code'], how='outer')
 
 
 def read_subnational(year, ejecucion_path, programacion_path):
@@ -275,7 +276,7 @@ def read_subnational(year, ejecucion_path, programacion_path):
     entity_names = raw.dropna(subset=['entity_name']).groupby('codigo_fut').entity_name.first()
     root = (raw[raw.concept_code.isin(SUBNATIONAL_ROOT_CODES)]
             .groupby(['year', 'codigo_fut'], as_index=False)[['approved', 'executed']].sum(min_count=1))
-    df = leaf_rows(raw)
+    df = leaf_rows_both(raw)
     df['entity_name'] = df.codigo_fut.map(entity_names)
 
     def labelled(code, depth):
@@ -295,7 +296,7 @@ def read_subnational(year, ejecucion_path, programacion_path):
     sums = df.groupby('codigo_fut')[['approved', 'executed']].sum(min_count=1)
     check = root.drop(columns='year').set_index('codigo_fut').join(sums, rsuffix='_leaves')
     for measure in ['approved', 'executed']:
-        gap = (check[measure] - check[f'{measure}_leaves']).fillna(0)
+        gap = check[measure].fillna(0) - check[f'{measure}_leaves'].fillna(0)
         mismatched = check[gap.abs() > 1e3]
         if not mismatched.empty:
             print(f'{year} {measure}: {len(mismatched)} entities whose leaf rows differ from their root row\n{mismatched}')
@@ -320,8 +321,11 @@ def subnational_files(ingresos_dir):
         elif 'programacion' in name or 'approved' in name:
             prog = path
         files[year] = (ejec, prog)
-    for year, (ejec, _) in files.items():
+    for year, (ejec, prog) in files.items():
         assert ejec is not None, f'No ejecución file found for subnational {year} in {ingresos_dir}'
+        # FUT years carry both measures in one file; CUIPO years need the programación file too
+        is_fut = 'futingresos' in normalize_label(Path(ejec).stem).replace(' ', '')
+        assert is_fut or prog is not None, f'No programación file found for subnational {year} in {ingresos_dir}'
     return files
 
 

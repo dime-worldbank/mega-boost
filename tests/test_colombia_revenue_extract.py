@@ -101,8 +101,9 @@ PROG = [("1", "INGRESOS", 170), ("1.1", "INGRESOS CORRIENTES", 170), ("1.1.01", 
 TITLE_BLOCK = [["Categoría", "CUIPO"], ["Formulario", "CUIPOB_EJECUCION_DE_INGRESOS"]] + [[None]] * 15
 
 
-def cuipo_files(style, year):
+def cuipo_files(style, year, ejec=None, prog=None):
     """(filename, sheets) pairs for one year of CUIPO ingresos in the given year-style layout."""
+    EJEC, PROG = ejec or globals()["EJEC"], prog or globals()["PROG"]
     if style == 2021:
         ejec = {"Reduced": [["x"]], "Raw": [
             ["EntidadTerritorialID", "EntidadTerritorialID", "NombreFUT", "CodigoConcepto", "Nombre", "CPC", "Nombre", "TotalRecaudo"],
@@ -300,6 +301,31 @@ class ColombiaRevenueExtractTest(unittest.TestCase):
         with self.assertRaises(AssertionError) as ctx:
             self.run_nb()
         self.assertIn("2024 executed: leaf rows do not add up to the root rows", str(ctx.exception))
+
+    def test_approved_only_parent_kept_when_executed_has_children(self):
+        ejec = [("1", "INGRESOS", 5), ("1.1", "INGRESOS CORRIENTES", 5), ("1.1.02", "INGRESOS NO TRIBUTARIOS", 5),
+                ("1.1.02.03", "MULTAS", 5), ("1.1.02.03.001", "MULTAS Y SANCIONES", 5)]
+        prog = [("1", "INGRESOS", 10), ("1.1", "INGRESOS CORRIENTES", 10), ("1.1.02", "INGRESOS NO TRIBUTARIOS", 10),
+                ("1.1.02.03", "MULTAS", 10)]  # budgeted one level above where it was collected
+        self.write_subnat(cuipo_files(2024, 2024, ejec=ejec, prog=prog))
+        self.run_nb()
+        df = self.out("revenue_subnational_2024.csv").set_index("concept_code")
+        self.assertEqual(df.loc["1.1.02.03", "approved"], 10)
+        self.assertEqual(df.loc["1.1.02.03.001", "executed"], 5)
+        self.assertEqual(df.approved.sum(), 10)
+
+    def test_root_gap_fails_when_entity_has_no_approved_leaves(self):
+        prog = [("1", "INGRESOS", 170)]  # root only: every approved line item is missing
+        self.write_subnat(cuipo_files(2024, 2024, prog=prog))
+        with self.assertRaises(AssertionError) as ctx:
+            self.run_nb()
+        self.assertIn("2024 approved: leaf rows do not add up to the root rows", str(ctx.exception))
+
+    def test_cuipo_year_requires_programacion(self):
+        self.write_subnat(cuipo_files(2024, 2024)[:1])
+        with self.assertRaises(AssertionError) as ctx:
+            self.run_nb()
+        self.assertIn("No programación file found for subnational 2024", str(ctx.exception))
 
 
 def load_notebook_module():
