@@ -321,6 +321,15 @@ class ColombiaRevenueExtractTest(unittest.TestCase):
             self.run_nb()
         self.assertIn("2024 approved: leaf rows do not add up to the root rows", str(ctx.exception))
 
+    def test_unrecognised_approved_header_fails(self):
+        files = cuipo_files(2024, 2024)
+        name, sheets = files[1]
+        sheets["Hoja1"][17] = [h.replace("Presupuesto Definitivo", "Presupuesto Final") for h in sheets["Hoja1"][17]]
+        self.write_subnat([files[0], (name, sheets)])
+        with self.assertRaises(AssertionError) as ctx:
+            self.run_nb()
+        self.assertIn("2024: no numeric approved values", str(ctx.exception))
+
     def test_cuipo_year_requires_programacion(self):
         self.write_subnat(cuipo_files(2024, 2024)[:1])
         with self.assertRaises(AssertionError) as ctx:

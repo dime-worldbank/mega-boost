@@ -272,6 +272,9 @@ def read_subnational(year, ejecucion_path, programacion_path):
     raw['year'] = year
     # 2021's 8-digit '21…' codes are regional corporations, not municipalities
     raw = raw[(raw.codigo_fut.str.len() == 9) & raw.codigo_fut.str.startswith(TERRITORIAL_FUT_PREFIXES)]
+    for measure in ['approved', 'executed']:
+        # An unrecognised header leaves a measure all-NaN, which the root check can't see
+        assert raw[measure].notna().any(), f'{year}: no numeric {measure} values; check the source headers'
     names = raw.drop_duplicates('concept_code').set_index('concept_code').concept_name.to_dict()
     entity_names = raw.dropna(subset=['entity_name']).groupby('codigo_fut').entity_name.first()
     root = (raw[raw.concept_code.isin(SUBNATIONAL_ROOT_CODES)]
