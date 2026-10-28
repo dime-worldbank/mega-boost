@@ -222,7 +222,6 @@ class ColombiaRevenueExtractTest(unittest.TestCase):
         self.assertEqual(df.loc["Otras Tasas, Multas y Otras Contribuciones", "econ2"], "Ingresos No Tributarios")
         self.assertTrue(pd.isna(df.loc["Otras Tasas, Multas y Otras Contribuciones", "econ3"]))
         self.assertEqual(df.loc["Recursos de crédito interno", "econ1"], "Recursos de Capital")
-        # Author decision 2026-10-21: borrowing is financing, not revenue
         self.assertTrue(df.loc["Recursos de crédito interno", "exclude_from_total"])
         self.assertFalse(df.drop(index="Recursos de crédito interno").exclude_from_total.any())
 
@@ -311,7 +310,7 @@ def load_notebook_module():
 
 
 class ClassifySubnationalTest(unittest.TestCase):
-    PREDIAL = ("Income Tax", None, False)  # author decision 2026-10-21
+    PREDIAL = ("Income Tax", None, False)
     FUELS = ("Excises", "Excises (Fuels)", False)
     TOBACCO = ("Excises", "Excises (Tobacco)", False)
     ALCOHOL = ("Excises", "Excises (Alcohol)", False)

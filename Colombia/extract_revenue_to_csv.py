@@ -14,7 +14,6 @@ import pandas as pd
 IS_DATABRICKS = "DATABRICKS_RUNTIME_VERSION" in os.environ
 COUNTRY = 'Colombia'
 
-# Workbook author decisions (2026-10-21); see README
 EXCLUDE_CENTRAL_BORROWING = True
 PREDIAL_CATEGORY = ('Income Tax', None)
 
