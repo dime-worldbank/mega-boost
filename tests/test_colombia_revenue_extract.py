@@ -91,8 +91,7 @@ FROZEN = pd.DataFrame([
 ], columns=["year", "admin0", "econ1", "econ2", "econ3", "econ4", "approved", "executed"])
 
 
-# One entity, executed (code, name, amount) and approved (code, name, amount) lines. Executed
-# repeats 1.1.01.01.200 (CUIPO splits a concept by financing source); 1.1.02.03.001 is approved only.
+# One entity: 1.1.01.01.200 repeats (CUIPO splits by financing source); 1.1.02.03.001 is approved only.
 EJEC = [("1", "INGRESOS", 180), ("1.1", "INGRESOS CORRIENTES", 180), ("1.1.01", "INGRESOS TRIBUTARIOS", 180),
         ("1.1.01.01.200", "IMPUESTO PREDIAL UNIFICADO", 100), ("1.1.01.01.200", "IMPUESTO PREDIAL UNIFICADO", 50),
         ("1.1.01.02.200", "IMPUESTO DE INDUSTRIA Y COMERCIO", 30)]
@@ -223,7 +222,7 @@ class ColombiaRevenueExtractTest(unittest.TestCase):
         self.assertEqual(df.loc["Otras Tasas, Multas y Otras Contribuciones", "econ2"], "Ingresos No Tributarios")
         self.assertTrue(pd.isna(df.loc["Otras Tasas, Multas y Otras Contribuciones", "econ3"]))
         self.assertEqual(df.loc["Recursos de crédito interno", "econ1"], "Recursos de Capital")
-        # Borrowing is financing, not revenue (decided by the workbook author, 2026-10-21)
+        # Author decision 2026-10-21: borrowing is financing, not revenue
         self.assertTrue(df.loc["Recursos de crédito interno", "exclude_from_total"])
         self.assertFalse(df.drop(index="Recursos de crédito interno").exclude_from_total.any())
 
@@ -286,7 +285,7 @@ class ColombiaRevenueExtractTest(unittest.TestCase):
     def test_non_territorial_entities_dropped(self):
         name, sheets = cuipo_files(2021, 2021)[0]
         sheets["Raw"] += [["923272791 ADRES", "923272791", "ADRES", c, n, "NULL", "NULL", v * 1000] for c, n, v in EJEC]
-        # 8-digit codes that start with 21 are regional environmental corporations, not municipalities
+        # 8-digit 21… codes are regional environmental corporations
         sheets["Raw"] += [["21017000 Corporación Autónoma Regional de Caldas", "21017000", "CORPOCALDAS", c, n, "NULL", "NULL", v]
                           for c, n, v in EJEC]
         self.write_subnat([(name, sheets), cuipo_files(2021, 2021)[1]])
@@ -312,7 +311,7 @@ def load_notebook_module():
 
 
 class ClassifySubnationalTest(unittest.TestCase):
-    PREDIAL = ("Income Tax", None, False)  # kept in Income Tax (workbook author, 2026-10-21)
+    PREDIAL = ("Income Tax", None, False)  # author decision 2026-10-21
     FUELS = ("Excises", "Excises (Fuels)", False)
     TOBACCO = ("Excises", "Excises (Tobacco)", False)
     ALCOHOL = ("Excises", "Excises (Alcohol)", False)

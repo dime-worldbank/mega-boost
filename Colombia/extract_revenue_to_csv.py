@@ -14,7 +14,7 @@ import pandas as pd
 IS_DATABRICKS = "DATABRICKS_RUNTIME_VERSION" in os.environ
 COUNTRY = 'Colombia'
 
-# Decided by the workbook author (2026-10-21); see Colombia/README.md "Revenue pipeline"
+# Workbook author decisions (2026-10-21); see README
 EXCLUDE_CENTRAL_BORROWING = True
 PREDIAL_CATEGORY = ('Income Tax', None)
 
@@ -23,10 +23,10 @@ CUADROS_APPROVED_COL, CUADROS_EXECUTED_COL = 3, 4
 CUADROS_SHEETS = ['C1', 'C2', 'C3', 'C4', 'C5']
 TOTAL_TOLERANCE = 1e6
 CENTRAL_BORROWING_LINES = {'recursos de credito interno', 'recursos de credito externo'}
-# C1 is only read for this block; the Nación rows come from C2-C5
+# Only this C1 block is read; Nación rows come from C2-C5
 C1_BLOCK = 'ingresos de los establecimientos publicos'
 
-# The frozen 2019-2022 central lines were OCR'd from a scanned PDF
+# Frozen 2019-2022 labels were OCR'd from a scanned PDF
 OCR_WORD_FIXES = {'Oe': 'De', 'Naclonal': 'Nacional', 'Pijblicos': 'Públicos',
                   'Rjqljeza': 'Riqueza', 'O8': '08', 'PatriMonio': 'Patrimonio'}
 OCR_TRUNCATED_ENDINGS = {'Aduanas Y': 'Aduanas Y Recargos'}
@@ -50,8 +50,7 @@ def load_line_map(path='./central_revenue_lines.csv'):
 
 
 def lookup_line(line_map, sheet, label):
-    """Resolve a central line: sheet-specific row, then a '*'-sheet row for the label,
-    then the sheet's '*' default. Returns None when nothing matches."""
+    """Precedence: (sheet, label), then ('*', label), then (sheet, '*'); None if unmatched."""
     def row(s, l):
         hit = line_map[(line_map.sheet == s) & (line_map.label == l)]
         return hit.iloc[0] if len(hit) else None
@@ -76,7 +75,7 @@ def exclude_from_total(label):
 def read_cuadros_sheet(path, sheet_name):
     df = pd.read_excel(path, sheet_name=sheet_name, header=None)
     labels = df[0].map(lambda v: normalize_label(v) if isinstance(v, str) else '')
-    # "Concepto" moves between the two header rows across years; the column-number row doesn't
+    # "Concepto" moves between header rows across years; the column-number row is stable
     numbers_row = df[df[CUADROS_APPROVED_COL].astype(str).str.replace(' ', '') == '(3)=(1+2)'].index[0]
     approved_hdr = normalize_label(df.iloc[numbers_row - 1, CUADROS_APPROVED_COL])
     executed_hdr = normalize_label(df.iloc[numbers_row - 2, CUADROS_EXECUTED_COL])
@@ -176,21 +175,21 @@ SUBNATIONAL_ROOT_CODES = {'TI', '1'}
 SUBNATIONAL_FIRST_YEAR = 2019
 SUBNATIONAL_SHEETS = ['Raw', 'Ejecución de Ingresos', 'Programación de Ingresos']
 SUBNATIONAL_RELATIVE_TOLERANCE = 1e-4
-# Departments (11…) and municipalities (21…); 2021 files also list every other public entity
+# Departments (11…) and municipalities (21…); 2021 files list every public entity
 TERRITORIAL_FUT_PREFIXES = ('11', '21')
-# Header keys after header_key(); several layouts across 2019-2024
+# Header names vary across the 2019-2024 layouts
 CODE_HEADERS = {'codigoconcepto', 'conceptocod', 'codigoconceptocod'}
 NAME_HEADERS = ['concepto', 'nombreconcepto']
 ENTITY_HEADERS = ['codigofut', 'entidadterritorialid', 'nombreentidad']
-# 2021's 'EntidadTerritorialID' carries '110505000 Antioquia', matching the short names of later years
+# 2021's EntidadTerritorialID holds '110505000 Antioquia', the short name used in later years
 ENTITY_NAME_HEADERS = ['entidad', 'nombreentidad', 'entidadterritorialid', 'nombrefut']
-EXECUTED_HEADERS = ['totalrecaudo', 'totalingresos']  # FUT 'Total Ingresos' includes sin situación de fondos
+EXECUTED_HEADERS = ['totalrecaudo', 'totalingresos']  # FUT Total Ingresos includes sin situación de fondos
 APPROVED_HEADERS = ['presupuestodefinitivo']
 
 
 PREDIAL = 'predial'
 EXCLUDED = 'excluded'
-# CUIPO (2021+) and FUT (2019-2020) concept code prefixes; the longest matching prefix wins
+# CUIPO (2021+) and FUT (2019-2020) code prefixes; longest match wins
 SUBNATIONAL_RULES = {
     '1.1.01.01.200': PREDIAL, 'TI.A.1.3': PREDIAL,
     '1.1.01.02.109': ('Excises', 'Excises (Fuels)'), 'TI.A.1.26': ('Excises', 'Excises (Fuels)'),
@@ -199,7 +198,7 @@ SUBNATIONAL_RULES = {
        ['1.1.01.02.103', '1.1.01.02.104', '1.1.01.02.105', 'TI.A.1.14', 'TI.A.1.15', 'TI.A.1.16', 'TI.A.1.17']},
     **{c: ('Permits and Fees', None) for c in
        ['1.1.01.01.100', '1.1.01.02.300', '1.1.02.02', '1.1.02.03', 'TI.A.1.2', 'TI.A.1.28', 'TI.A.2.1', 'TI.A.2.2']},
-    # Intergovernmental transfers and financing, kept out of total revenue to avoid double counting
+    # Transfers and financing: out of total revenue to avoid double counting
     **{c: EXCLUDED for c in
        ['1.1.02.06', '1.2.06', '1.2.07', '1.2.08', '1.2.10', '1.2.12', 'TI.A.2.6', 'TI.B.1', 'TI.B.4', 'TI.B.6', 'TI.B.10']},
 }
@@ -233,7 +232,7 @@ def read_subnational_sheet(path):
         for cand in candidates:
             if cand in keys:
                 return df.iloc[:, keys.index(cand)]
-        # 2021 labels the concept name column just 'Nombre', right after the code column
+        # 2021 names the concept column just 'Nombre', right after the code
         return df.iloc[:, after + 1] if after is not None else None
 
     code_idx = next(i for i, k in enumerate(keys) if k in CODE_HEADERS)
@@ -272,7 +271,7 @@ def read_subnational(year, ejecucion_path, programacion_path):
     if programacion_path is not None:
         raw = pd.concat([raw.drop(columns='approved'), read_subnational_sheet(programacion_path).drop(columns='executed')])
     raw['year'] = year
-    # Territorial FUT codes have 9 digits; 2021's 8-digit '21…' codes are regional corporations
+    # 2021's 8-digit '21…' codes are regional corporations, not municipalities
     raw = raw[(raw.codigo_fut.str.len() == 9) & raw.codigo_fut.str.startswith(TERRITORIAL_FUT_PREFIXES)]
     names = raw.drop_duplicates('concept_code').set_index('concept_code').concept_name.to_dict()
     entity_names = raw.dropna(subset=['entity_name']).groupby('codigo_fut').entity_name.first()

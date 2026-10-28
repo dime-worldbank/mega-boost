@@ -1,6 +1,6 @@
 # Databricks notebook source
 import dlt
-from pyspark.sql.functions import col, lit, when, expr, sum, count, abs as spark_abs
+from pyspark.sql.functions import col, lit, when, expr, sum, abs as spark_abs
 
 TOP_DIR = "/Volumes/prd_mega/sboost4/vboost4"
 WORKSPACE_DIR = f"{TOP_DIR}/Workspace"
@@ -13,7 +13,7 @@ CSV_READ_OPTIONS = {
     "quote": '"',
     "escape": '"',
 }
-# Same tolerance as the extract's root check (Colombia/extract_revenue_to_csv.py)
+# Matches the extract's root check
 ROOT_RELATIVE_TOLERANCE = 1e-4
 
 GOLD_COLUMNS = ['country_name', 'year', 'admin0', 'admin1', 'admin2', 'geo1',
@@ -21,7 +21,7 @@ GOLD_COLUMNS = ['country_name', 'year', 'admin0', 'admin1', 'admin2', 'geo1',
                 'econ_rev', 'econ_rev_sub', 'exclude_from_total', 'approved', 'executed']
 
 
-# Explicit schemas: inference turns entity codes like 110505000 into doubles ("1.10505E8")
+# Inference would read entity codes like 110505000 as doubles ("1.10505E8")
 CATEGORY_SCHEMA = "econ_rev STRING, econ_rev_sub STRING, exclude_from_total BOOLEAN"
 CENTRAL_SCHEMA = (f"year INT, econ1 STRING, econ2 STRING, econ3 STRING, econ4 STRING, "
                   f"approved DOUBLE, executed DOUBLE, {CATEGORY_SCHEMA}")
@@ -49,13 +49,13 @@ def col_rev_central_bronze():
 @dlt.expect_or_drop("year_not_null", "year IS NOT NULL")
 @dlt.table(name='col_rev_subnat_bronze')
 def col_rev_subnat_bronze():
-    # revenue_subnational_2*.csv leaves out the revenue_subnational_root_*.csv check files
+    # "2*" skips the revenue_subnational_root_* check files
     return read_csvs('revenue_subnational_2*.csv', SUBNATIONAL_SCHEMA)
 
 
 @dlt.table(name='col_rev_subnat_silver')
 def col_rev_subnat_silver():
-    # Same FUT code → DANE nso_code rule as expenditure (transform_load_raw_dlt.py)
+    # Same FUT code → DANE nso_code rule as transform_load_raw_dlt.py
     adm_lookup = spark.table('indicator_intermediate.col_subnational_adm2_adm1_lookup')
     return (dlt.read('col_rev_subnat_bronze')
       .withColumn("nso_code_padded", expr("substring(codigo_fut, length(codigo_fut)-4, 5)").cast('integer'))
