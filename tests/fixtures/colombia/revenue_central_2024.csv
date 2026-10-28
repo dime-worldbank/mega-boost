@@ -1,0 +1,11 @@
+year,econ1,econ2,econ3,econ4,approved,executed,econ_rev,econ_rev_sub,exclude_from_total
+2024,Ingresos de los Establecimientos Públicos,,,Ingresos Corrientes,3000000000.0,2500000000.0,,,False
+2024,Ingresos de los Establecimientos Públicos,,,Recursos de Capital,1000000000.0,1000000000.0,,,False
+2024,Ingresos Corrientes,Ingresos Tributarios,Impuestos Directos,Impuesto sobre la Renta y Complementarios,100000000000.0,90000000000.0,Income Tax,,False
+2024,Ingresos Corrientes,Ingresos Tributarios,Impuestos Directos,Impuesto simple,1500000000.0,1500000000.0,Income Tax,,False
+2024,Ingresos Corrientes,Ingresos Tributarios,Impuestos Indirectos Internos,Impuesto Sobre las Ventas,50000000000.0,40000000000.0,VAT,,False
+2024,Ingresos Corrientes,Ingresos No Tributarios,,"Otras Tasas, Multas y Otras Contribuciones",2000000000.0,2000000000.0,Permits and Fees,,False
+2024,Recursos de Capital,,,Recursos de crédito interno,10000000000.0,8000000000.0,,,True
+2024,Recursos de Capital,,,Excedentes financieros,1000000000.0,1000000000.0,,,False
+2024,Fondos Especiales,,,Fondo de recursos SOAT y FONSAT,2000000000.0,1500000000.0,,,False
+2024,Contribuciones Parafiscales,,,Fondo de Prestaciones Sociales del Magisterio,3000000000.0,3500000000.0,,,False

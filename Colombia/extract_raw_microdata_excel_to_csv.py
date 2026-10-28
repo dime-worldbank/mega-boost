@@ -148,3 +148,7 @@ for filename in earlier_filenames + recent_filenames:
 # Copy all auxiliary files into csv folder for DLT consumption
 dbutils.fs.cp(f'{RAW_INPUT_DIR}/{COUNTRY}/auxiliary'.replace('/dbfs', ''),       
               microdata_csv_dir.replace('/dbfs', ''), recurse=True)
+
+# COMMAND ----------
+
+# MAGIC %run ./extract_revenue_to_csv
