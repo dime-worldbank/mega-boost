@@ -62,7 +62,7 @@ MUNICIPAL_COLUMNS = {
     'Grupo Objeto del Gasto': 'ECON4',
     'Sub-Grupo Objeto del Gasto': 'ECON5',
     'Presupuesto Vigente (millones de guaraníes)': 'MODIFIED',
-    'Ejecutado (millones de guaraníes)': 'COMMITTED',
+    'Ejecutado (millones de guaraníes)': 'COMMITTED', # Ejecutado corresponds to the executed budget for municipalities
     'Pagado (millones de guaraníes)': 'PAID',
 }
 FIRST_YEAR = 2006  # the CCI workbook covers 2006 onward; the ministry file also holds 2003-2005

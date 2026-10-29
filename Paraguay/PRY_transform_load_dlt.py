@@ -64,14 +64,20 @@ def boost_bronze_cen():
                 .when(col('FUNCTION2').startswith('210'), 'Defence')
                 .when(col('FUNCTION2').startswith('440'), 'Environmental protection') # env needs to be before economic affairs due to overlap
                 .when(col('FUNCTION2').startswith('310'), 'Health')
-                .when((lower(col('FUNCTION3')).startswith('344 - cultura') | lower(col('FUNCTION3')).startswith('345 - deporte y recreacion')), 'Recreation, culture and religion')
-                .when(lower(col('FUNCTION2')).startswith('340'), 'Education')
+                # function 340 split by sub-function (agreed with the expert): 344 culture and 345 sport vs 341/342/343/349 education
+                .when((col('FUNCTION3').startswith('344') | col('FUNCTION3').startswith('345')), 'Recreation, culture and religion')
+                .when((col('FUNCTION3').startswith('341') | col('FUNCTION3').startswith('342') |
+                       col('FUNCTION3').startswith('343') | col('FUNCTION3').startswith('349')), 'Education')
                 .when((col('FUNCTION2').startswith('370') | col('FUNCTION2').startswith('380') | col('FUNCTION2').startswith('630')), 'Housing and community amenities')
                 .when((col('FUNCTION2').startswith('320') | col('FUNCTION2').startswith('330') | lower(col('FUNCTION2')).startswith('390 - otros servicios sociales')), 'Social protection')
                 .when((col('FUNCTION1').startswith('400') | col('FUNCTION1').startswith('600')), 'Economic affairs')
                 .otherwise('General public services')
             ).withColumn('econ_sub',
-                when((~col('is_transfer')) & col('FUNCTION2').startswith('320') , 'Social Assistance')
+                # Social assistance = function 320 minus the lines that belong to another category (agreed with the expert):
+                # pensions (ECON5 820), personnel (ECON4 100) and capital transfers to the private sector (ECON6 871/876/879)
+                when((~col('is_transfer')) & col('FUNCTION2').startswith('320') &
+                     (~col('ECON5').startswith('820')) & (~col('ECON4').startswith('100')) &
+                     (~col('ECON6').startswith('871')) & (~col('ECON6').startswith('876')) & (~col('ECON6').startswith('879')), 'Social Assistance')
                 .when((~col('is_transfer')) & col('ECON5').startswith('820'), 'Pensions')
                 .when((~col('is_transfer')) & col('ECON4').startswith('100') & 
                       (col('ECON5').startswith('100') | col('ECON5').startswith('110') |
@@ -126,9 +132,9 @@ def boost_bronze_municipal():
                     ~col('ECON5').startswith('730') &
                     ~col('ECON5').startswith('740')
             ).withColumn('admin0', lit('Regional')
-            ).withColumn('admin1', initcap(trim(regexp_replace('geo', "^[\d\s-]+", '')))
-            ).withColumn('admin2', col('admin1')
-            ).withColumn('geo1', col('admin1')
+            ).withColumn('admin1', initcap(trim(regexp_replace('geo', "^[\d\s-]+", '')))  # department of the municipality
+            ).withColumn('admin2', initcap(trim(regexp_replace('ADMIN2', "^[\d\.\s-]+", '')))  # the municipality that spends
+            ).withColumn('geo1', col('admin1')  # no location reported for municipalities: inferred from admin1
             ).withColumnRenamed("approved", "APPROVED"
             ).withColumn('econ_sub',
                 when(col('ECON5').startswith('210'), 'Basic Services')
@@ -166,9 +172,9 @@ def boost_bronze_municipal():
             ).withColumn('hospital', lit(None).cast("string")
             ).select(
                 col('YEAR').alias('year'),
-                col('approved').cast(DoubleType()),
+                col('MODIFIED').alias('approved').cast(DoubleType()),  # no initial budget for municipalities: Presupuesto Vigente (the workbook's Approved sheet sums Ejecutado instead)
                 col('MODIFIED').alias('revised').cast(DoubleType()),
-                col('PAID').alias('executed').cast(DoubleType()),
+                col('COMMITTED').alias('executed').cast(DoubleType()),  # Ejecutado, as the BOOST Executed sheet (Municipalidades!$J:$J)
                 'geo1',
                 'is_transfer', 'is_foreign', 'admin0', 'admin1', 'admin2', 'ECON1', 'ECON2', 'ECON4', 'ECON5', 'ECON6', 'FUNCTION2', 'FUNCTION3','PROGRAM1', 'hospital',  'func', 'func_sub', 'econ', 'econ_sub', 'sheet'             
             )
