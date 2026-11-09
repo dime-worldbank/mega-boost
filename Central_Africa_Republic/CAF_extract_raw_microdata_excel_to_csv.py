@@ -20,6 +20,9 @@
 # MAGIC | SSSSSS service | kept in `Code` only | |
 # MAGIC | T titre | ECON1T | `CAF_econ_mapping.json` (equals the titre digit) |
 # MAGIC | EEEE compte | ECON2T, ECON3T | `CAF_econ_mapping.json`; ECON4T = compte + the line's own label |
+# MAGIC
+# MAGIC `CAF_econ_mapping.json` (compte → econ1-econ3 labels, the economic block of the 2022 conversion's bridge table) is
+# MAGIC kept on the volume under `Documents/input/Auxiliary`, next to Albania's project labels, not in the repo.
 # MAGIC | FF source | not carried over, as in the 2022 conversion | |
 # MAGIC
 # MAGIC FUNCTION1, SOURCE_FIN, Source2, road_m and road are empty for these years, as in the sheet. Amounts, x1000:
@@ -51,11 +54,13 @@ import pandas as pd
 IS_DATABRICKS = "DATABRICKS_RUNTIME_VERSION" in os.environ
 COUNTRY = 'Central African Republic'
 if IS_DATABRICKS:
-    # RAW_INPUT_DIR and prepare_raw_microdata_csv_dir come from %run ../utils
+    # TOP_DIR, RAW_INPUT_DIR and prepare_raw_microdata_csv_dir come from %run ../utils
     raw_microdata_csv_dir = prepare_raw_microdata_csv_dir(COUNTRY)
+    econ_mapping_file = f"{TOP_DIR}/Documents/input/Auxiliary/CAF_econ_mapping.json"
 else:
     RAW_INPUT_DIR = os.environ.get('RAW_INPUT_DIR') or input(f"Enter the raw input directory (containing {COUNTRY}/ with the DGB workbook): ").strip()
     raw_microdata_csv_dir = os.environ.get('OUTPUT_DIR') or input("Enter the output directory: ").strip()
+    econ_mapping_file = os.environ.get('ECON_MAPPING_FILE') or input("Enter the path to CAF_econ_mapping.json: ").strip()
     Path(raw_microdata_csv_dir).mkdir(parents=True, exist_ok=True)
 
 # 2022 is the SIM_ba transition year and is left empty on purpose; earlier years stay as delivered in BOOST 2.0.xlsx
@@ -63,7 +68,7 @@ RAW_DATA_START_YEAR = 2023
 
 # compte (4 digits) -> econ1, econ2, econ3 labels: the economic block (columns A:E) of the 2022 conversion's bridge
 # table, first row per compte as its VLOOKUPs return it. Compte 2452 has no econ2/econ3 there.
-with open('./CAF_econ_mapping.json', encoding='utf-8') as json_file:
+with open(econ_mapping_file, encoding='utf-8') as json_file:
     econ_mapping = json.load(json_file)
 
 # a few 2024-25 lines carry a 5-digit compte (60333) or a 1-digit source
