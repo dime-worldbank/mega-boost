@@ -1,4 +1,8 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "6"
+# ///
 # MAGIC %run ../utils
 
 # COMMAND ----------
@@ -56,7 +60,7 @@ COUNTRY = 'Central African Republic'
 if IS_DATABRICKS:
     # TOP_DIR, RAW_INPUT_DIR and prepare_raw_microdata_csv_dir come from %run ../utils
     raw_microdata_csv_dir = prepare_raw_microdata_csv_dir(COUNTRY)
-    econ_mapping_file = f"{TOP_DIR}/Documents/input/Auxiliary/CAF_econ_mapping.json"
+    econ_mapping_file = f"{RAW_INPUT_DIR}/{COUNTRY}/CAF_econ_mapping.json"
 else:
     RAW_INPUT_DIR = os.environ.get('RAW_INPUT_DIR') or input(f"Enter the raw input directory (containing {COUNTRY}/ with the DGB workbook): ").strip()
     raw_microdata_csv_dir = os.environ.get('OUTPUT_DIR') or input("Enter the output directory: ").strip()

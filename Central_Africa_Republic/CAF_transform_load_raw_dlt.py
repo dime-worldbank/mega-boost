@@ -42,11 +42,6 @@ def boost_2023_onward_bronze():
     )
 
 
-@dlt.table(name='caf_revenue_bronze')
-def revenue_bronze():
-    return (spark.read.format("csv").options(**CSV_READ_OPTIONS).option("inferSchema", "true")
-        .load(f'{COUNTRY_MICRODATA_DIR}/revenue.csv')
-    )
 
 # COMMAND ----------
 

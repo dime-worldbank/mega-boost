@@ -1,4 +1,8 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "6"
+# ///
 # MAGIC %run ../utils
 
 # COMMAND ----------
@@ -34,7 +38,7 @@ import pandas as pd
 IS_DATABRICKS = "DATABRICKS_RUNTIME_VERSION" in os.environ
 
 COUNTRY = 'Central African Republic'
-RAW_SHEETS = ['Expenditure', 'revenue']
+RAW_SHEETS = ['Expenditure']
 
 
 def _is_named_column(c):
