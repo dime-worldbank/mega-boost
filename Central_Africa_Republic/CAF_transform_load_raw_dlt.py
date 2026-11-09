@@ -11,10 +11,11 @@ RAW_COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/raw_microdata_csv/{COUNTRY}'  # DG
 RAW_DATA_START_YEAR = 2023
 
 CSV_READ_OPTIONS = {"header": "true", "multiline": "true", "quote": '"', "escape": '"'}
-# the Expenditure sheet's columns, which CAF_extract_raw_microdata_excel_to_csv.py reproduces (plus the SIM_ba Code)
-EXPENDITURE_SCHEMA = ('YEAR double, ADMIN1 string, `PROGRAM 1` string, ADMIN2 string, FUNCTION1 string, '
+# the Expenditure sheet's columns, which CAF_extract_raw_microdata_excel_to_csv.py reproduces (plus the SIM_ba Code);
+# applied by position, so `PROGRAM 1` and `Ord. PEC` get names Delta accepts (no space)
+EXPENDITURE_SCHEMA = ('YEAR double, ADMIN1 string, PROGRAM1 string, ADMIN2 string, FUNCTION1 string, '
                       'ECON1T string, ECON2T string, ECON3T string, ECON4T string, SOURCE_FIN string, Source2 string, '
-                      'Dotation double, `Engagé` double, `Liquidé` double, `Ordonnancé` double, `Ord. PEC` double, '
+                      'Dotation double, `Engagé` double, `Liquidé` double, `Ordonnancé` double, ORD_PEC double, '
                       'road_m string, road string')
 # EXP_FUNC_AIR_TRA: the airport projects (admin2) of the public works ministry
 AIRPORT_PROJECTS = ["Réhabilitation de la piste d'attérissage de l'Aéroport de Bangui-M'Poko",
@@ -58,7 +59,7 @@ def expenditure_silver():
         # 2022, the SIM_ba transition year, has no formula in the workbook ('..')
         ).filter(col('YEAR') != 2022
         # blank labels become '' so that a negated criterion is true for them, as Excel's "<>" is
-        ).na.fill('', subset=['ADMIN2', 'PROGRAM 1', 'ECON3T']
+        ).na.fill('', subset=['ADMIN2', 'PROGRAM1', 'ECON3T']
         # the workbook's total expenditure is SUMIFS(econ3, "<>pri*"): debt principal is out of scope
         ).filter(~col('ECON3T').startswith('Pri')
         ).withColumn('econ_sub',
@@ -114,7 +115,7 @@ def expenditure_silver():
                   & ~col('ADMIN1').isin("96 MINISTERE DES EAUX, FORETS, CHASSE ET PECHE",
                                         "84 MINISTERE DU DEVELOPPEMENT DE L'ENERGIE ET DES RESSOURCES HYDRAULIQUES"), 'N.E.C')
             # water supply (WAT_SAN): the water and sanitation programmes
-            .when(col('PROGRAM 1').isin("Appui à l'Agence Nationale de l'Eau et de l'Assainissement (ANEA)",
+            .when(col('PROGRAM1').isin("Appui à l'Agence Nationale de l'Eau et de l'Assainissement (ANEA)",
                                         "Programme approvisionnement en eau et assainissement en milieu rural",
                                         "Développement du système d'information sur l'eau et l'assainissement",
                                         "Appui à l'Agence de Régulation du Secteur de l'Eau et d'Assainissement (ARSEA)",
@@ -146,7 +147,7 @@ def expenditure_silver():
             # economic affairs: transport (TRA; chapter 99 in 2016 only) and energy (ENE) outside the water programme
             .when(col('ADMIN1').substr(1, 2).isin(['80', '81'])
                   | ((col('YEAR') == 2016) & col('ADMIN1').startswith('99'))
-                  | ((col('PROGRAM 1') != 'eau')
+                  | ((col('PROGRAM1') != 'eau')
                      & (col('ADMIN1').startswith('85')
                         | col('ADMIN1').isin("84 MINISTERE DU DEVELOPPEMENT DE L'ENERGIE ET DES RESSOURCES HYDRAULIQUES",
                                              "MINISTERE\xa0DE\xa0L'ENERGIE\xa0ET\xa0DE L'HYDRAULIQUE",
