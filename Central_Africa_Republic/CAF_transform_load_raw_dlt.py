@@ -17,6 +17,7 @@ EXPENDITURE_SCHEMA = ('YEAR double, ADMIN1 string, PROGRAM1 string, ADMIN2 strin
                       'ECON1T string, ECON2T string, ECON3T string, ECON4T string, SOURCE_FIN string, Source2 string, '
                       'Dotation double, `Engagé` double, `Liquidé` double, `Ordonnancé` double, ORD_PEC double, '
                       'road_m string, road string')
+AMOUNT_COLUMNS = ['Dotation', 'Engagé', 'Liquidé', 'Ordonnancé', 'ORD_PEC']
 # EXP_FUNC_AIR_TRA: the airport projects (admin2) of the public works ministry
 AIRPORT_PROJECTS = ["Réhabilitation de la piste d'attérissage de l'Aéroport de Bangui-M'Poko",
                     "Réhabilitation de la route de l'Aéroport Bangui M'Poko-PK0",
@@ -46,22 +47,22 @@ def boost_2023_onward_bronze():
 
 # COMMAND ----------
 
-@dlt.table(name='caf_expenditure_silver')
-def expenditure_silver():
-    # Every category is the SUMIFS criterion of the workbook's Executed sheet (the EXP_* code in the comment), on the
-    # labels as written there (Excel compares text case-insensitively; the data is consistent). Sub-categories come
-    # first and then the sheet order, so a line takes the first category that fits; a residual the sheet defines by
-    # subtraction (transport, primary and secondary education, other expenses, general public services) comes after
-    # what it is net of. For 2016-2021 the workbook also adds 6% (WAG_BIL, USE_GOO_SER) and 88% (CAP_EXP) of the
-    # foreign-funded lines (source <> treasury) to those totals; a share cannot be given to whole lines and is not
-    # reproduced.
-    return (dlt.read('caf_2022_and_before_boost_bronze')
-        .unionByName(dlt.read('caf_2023_onward_boost_bronze'), allowMissingColumns=True)
+# Every category is the SUMIFS criterion of the workbook's Executed sheet for the years of the table (the EXP_* code in
+# the comment), on the labels as written there (Excel compares text case-insensitively; the data is consistent).
+# Sub-categories come first and then the sheet order, so a line takes the first category that fits; a residual the
+# sheet defines by subtraction (transport, primary and secondary education, other expenses, general public services)
+# comes after what it is net of. The workbook's formulas differ between 2016-2021 and 2023-2025, and several criteria
+# match nothing in one era or in either (the unnumbered energy ministry labels, the bare "88", the programme "eau"):
+# each table carries only what matches in its years.
+
+@dlt.table(name='caf_2022_and_before_boost_silver')
+def boost_2022_and_before_silver():
+    silver = (dlt.read('caf_2022_and_before_boost_bronze')
         .withColumn('YEAR', col('YEAR').cast(IntegerType())
         # 2022, the SIM_ba transition year, has no formula in the workbook ('..')
         ).filter(col('YEAR') != 2022
         # blank labels become '' so that a negated criterion is true for them, as Excel's "<>" is
-        ).na.fill('', subset=['ADMIN2', 'PROGRAM1', 'ECON3T']
+        ).na.fill('', subset=['ADMIN2', 'PROGRAM1', 'ECON3T', 'SOURCE_FIN']
         # the workbook's total expenditure is SUMIFS(econ3, "<>pri*"): debt principal is out of scope
         ).filter(~col('ECON3T').startswith('Pri')
         ).withColumn('econ_sub',
@@ -115,21 +116,16 @@ def expenditure_silver():
             # transport (TRA; chapter 99 in 2016 only): what is left of it after roads and air transport
             .when(col('ADMIN1').substr(1, 2).isin(['80', '81'])
                   | ((col('YEAR') == 2016) & col('ADMIN1').startswith('99')), 'Transport')
-            # energy (ENE): the energy ministries, outside the water programme
-            .when((col('PROGRAM1') != 'eau')
-                  & (col('ADMIN1').startswith('85')
-                     | col('ADMIN1').isin("84 MINISTERE DU DEVELOPPEMENT DE L'ENERGIE ET DES RESSOURCES HYDRAULIQUES",
-                                          "MINISTERE\xa0DE\xa0L'ENERGIE\xa0ET\xa0DE L'HYDRAULIQUE",
-                                          "MINISTRE DES MINES, DE L'ENERGIE ET DE L'HYDRALIQUE",
-                                          "MINISTRE DU DEVELOPPEMENT DE L'ENERGIE ET DES RESSOURCES HYDRAULIQUES")), 'Energy')
+            # energy (ENE): the energy ministries
+            .when(col('ADMIN1').startswith('85')
+                  | (col('ADMIN1') == "84 MINISTERE DU DEVELOPPEMENT DE L'ENERGIE ET DES RESSOURCES HYDRAULIQUES"), 'Energy')
             # telecom (TEL)
-            .when(col('ADMIN1').substr(1, 2).isin(['50', '52']) | (col('ADMIN1') == '88'), 'Telecom')
+            .when(col('ADMIN1').substr(1, 2).isin(['50', '52']), 'Telecom')
             # water supply (WAT_SAN): the water and sanitation programmes
             .when(col('PROGRAM1').isin("Appui à l'Agence Nationale de l'Eau et de l'Assainissement (ANEA)",
                                         "Programme approvisionnement en eau et assainissement en milieu rural",
                                         "Développement du système d'information sur l'eau et l'assainissement",
-                                        "Appui à l'Agence de Régulation du Secteur de l'Eau et d'Assainissement (ARSEA)",
-                                        "eau"), 'Water Supply')
+                                        "Appui à l'Agence de Régulation du Secteur de l'Eau et d'Assainissement (ARSEA)"), 'Water Supply')
             # tertiary education (TER_EDU): the higher education ministry, or the university services of the joint ministry
             .when((col('ADMIN1') == "40 MINISTERE DE L'ENSEIGNEMENT SUPERIEUR ET DE LA RECHERCHE SCIENTIFIQUE")
                   | col('ADMIN1').startswith('46')
@@ -177,13 +173,104 @@ def expenditure_silver():
             .otherwise('General public services')
         )
     )
+    # The foreign-funded lines (source <> treasury) carry no economic code. The workbook gives each of them three
+    # economic codes at once: 6% to the wage bill (WAG_BIL), 6% to goods and services (USE_GOO_SER) and 88% to
+    # capital expenditures (CAP_EXP); so each becomes three lines, one per share.
+    foreign = silver.filter(col('SOURCE_FIN') != 'Treasury')
+    return (silver.filter(col('SOURCE_FIN') == 'Treasury')
+        .unionByName(foreign.withColumn('econ', lit('Wage bill')).withColumns({c: col(c) * 0.06 for c in AMOUNT_COLUMNS}))
+        .unionByName(foreign.withColumn('econ', lit('Goods and services')).withColumns({c: col(c) * 0.06 for c in AMOUNT_COLUMNS}))
+        .unionByName(foreign.withColumn('econ', lit('Capital expenditures')).withColumns({c: col(c) * 0.88 for c in AMOUNT_COLUMNS}))
+    )
+
+
+@dlt.table(name='caf_2023_onward_boost_silver')
+def boost_2023_onward_silver():
+    # From 2023 the statement carries no programme, source of funds or road flag, no debt principal, no pension
+    # contributions (664) and no interest line the workbook's "Int*" matches (they read "671 Intérêts…"), the "643"
+    # label has a double space, and the airport, water, higher education and housing labels of 2016-2021 are gone:
+    # those categories are empty in the workbook for these years and have no rule here.
+    return (dlt.read('caf_2023_onward_boost_bronze')
+        .withColumn('YEAR', col('YEAR').cast(IntegerType())
+        ).filter(col('YEAR') >= RAW_DATA_START_YEAR
+        ).withColumn('econ_sub',
+            # basic services (GOO_SER_BAS_SER)
+            when((col('ECON1T') == "3 Depenses de biens et services")
+                 & (col('ECON3T') == "605 Eau, Electricité, Gaz et autres sources d’énergies "), 'Basic Services')
+            # employment contracts (GOO_SER_EMP_CON)
+            .when((col('ECON1T') == "3 Depenses de biens et services")
+                  & (col('ECON3T') == "613 Honoraires et études "), 'Employment Contracts')
+            # recurrent maintenance (REC_MAI)
+            .when(col('ECON3T').startswith("614 Entretien et maintenance"), 'Recurrent Maintenance')
+            # social assistance (SOC_ASS)
+            .when(col('ECON3T') == "645 Transferts aux ménages", 'Social Assistance')
+            # pensions (SOC_BEN_PEN)
+            .when(col('ECON3T') == "648 Pensions de retraite des fonctionnaires et agents de l'Etat", 'Pensions')
+        ).withColumn('econ',
+            # social benefits (SOC_BEN = SOC_ASS + SOC_BEN_PEN)
+            when(col('econ_sub').isin('Social Assistance', 'Pensions'), 'Social benefits')
+            # goods and services (USE_GOO_SER, REC_MAI)
+            .when((col('ECON1T') == "3 Depenses de biens et services") | (col('econ_sub') == 'Recurrent Maintenance'), 'Goods and services')
+            # wage bill (WAG_BIL)
+            .when(col('ECON1T') == "2 Depenses de Personnel", 'Wage bill')
+            # capital expenditures (CAP_EXP)
+            .when(col('ECON1T') == "5 Depenses d'investissement", 'Capital expenditures')
+            # subsidies (SUB)
+            .when(col('ECON2T') == "63 SUBVENTIONS", 'Subsidies')
+            # other expenses (OTH_EXP): what is left of total expenditure after the categories above, interest included
+            .otherwise('Other expenses')
+        ).withColumn('func_sub',
+            # judiciary (JUD)
+            when(col('ADMIN1').substr(1, 2).isin(['04', '08', '13']), 'Judiciary')
+            # public safety (PUB_SAF)
+            .when(col('ADMIN1').substr(1, 2).isin(['23', '25']), 'Public Safety')
+            # agriculture (AGR)
+            .when(col('ADMIN1').substr(1, 2).isin(['92', '93'])
+                  | (col('ADMIN1') == "94 MINISTERE DES EAUX, FORETS, CHASSE ET PECHE"), 'Agriculture')
+            # transport (TRA): chapters 80 and 81 (public works; urban planning and housing from 2023)
+            .when(col('ADMIN1').substr(1, 2).isin(['80', '81']), 'Transport')
+            # energy (ENE): chapter 85 (posts and telecommunications from 2023) and the energy ministry
+            .when(col('ADMIN1').startswith('85')
+                  | (col('ADMIN1') == "84 MINISTERE DU DEVELOPPEMENT DE L'ENERGIE ET DES RESSOURCES HYDRAULIQUES"), 'Energy')
+            # telecom (TEL)
+            .when(col('ADMIN1').substr(1, 2).isin(['50', '52']), 'Telecom')
+            # primary and secondary education (PRI_SEC_EDU = EDU - TER_EDU, and TER_EDU is empty): the education chapters
+            .when(col('ADMIN1').startswith('4'), 'Primary and Secondary education')
+        ).withColumn('func',
+            # public order and safety (PUB_ORD_SAF = JUD + PUB_SAF)
+            when(col('func_sub').isin('Judiciary', 'Public Safety'), 'Public order and safety')
+            # economic affairs (AGR, TRA, ENE, TEL)
+            .when(col('func_sub').isin('Agriculture', 'Transport', 'Energy', 'Telecom'), 'Economic affairs')
+            # education (PRI_SEC_EDU)
+            .when(col('func_sub') == 'Primary and Secondary education', 'Education')
+            # defence (DEF)
+            .when(col('ADMIN1').startswith('21'), 'Defence')
+            # economic affairs (ECO_REL): chapters 90-93, 8x, 50 and 52, except 82 and 84
+            .when((col('ADMIN1').substr(1, 2).isin(['90', '91', '92', '93', '50', '52']) | col('ADMIN1').startswith('8'))
+                  & ~col('ADMIN1').substr(1, 2).isin(['82', '84']), 'Economic affairs')
+            # environmental protection (ENV_PRO = ENV_PRO_NEC): chapter 96 (transport and civil aviation from 2023) and the environment ministry
+            .when(col('ADMIN1').startswith('96')
+                  | (col('ADMIN1') == "82 MINISTERE DE L'ENVIRONNEMENT ET DU DEVELOPPEMENT DURABLE"), 'Environmental protection')
+            # health (HEA)
+            .when(col('ADMIN1').startswith('6'), 'Health')
+            # recreation, culture and religion (REV_CUS_EXC)
+            .when((col('ADMIN1').startswith('98') | col('ADMIN1').startswith('5'))
+                  & ~col('ADMIN1').substr(1, 2).isin(['50', '52']), 'Recreation, culture and religion')
+            # social protection (SOC_PRO)
+            .when(col('ADMIN1').startswith('7')
+                  | (col('ECON3T') == "648 Pensions de retraite des fonctionnaires et agents de l'Etat"), 'Social protection')
+            # general public services (GEN_PUB_SER): what is left of total expenditure after the functions above
+            .otherwise('General public services')
+        )
+    )
 
 # COMMAND ----------
 
 @dlt.table(name='caf_boost_gold')
 def boost_gold():
     # all central government, as Burkina Faso: the budget chapter (ministry) is admin2
-    return (dlt.read('caf_expenditure_silver')
+    return (dlt.read('caf_2022_and_before_boost_silver')
+        .unionByName(dlt.read('caf_2023_onward_boost_silver'), allowMissingColumns=True)
         .select(lit(COUNTRY).alias('country_name'),
                 col('YEAR').alias('year'),
                 lit('Central').alias('admin0'),
