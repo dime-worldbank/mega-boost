@@ -15,6 +15,7 @@ COUNTRY = 'Albania'
 COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/microdata_csv/{COUNTRY}'
 RAW_COUNTRY_MICRODATA_DIR = f'{WORKSPACE_DIR}/raw_microdata_csv/{COUNTRY}'
 RAW_INPUT_DIR = f"{TOP_DIR}/Documents/input/Data from authorities/"
+INPUT_AUXI_DIR = f"{TOP_DIR}/Documents/input/Auxiliary"  # project_labels.json is too large to git-track; kept in Auxiliary
 ADMIN2_PAD_LENGTH = 3
 
 CSV_READ_OPTIONS = {
@@ -27,7 +28,7 @@ CSV_READ_OPTIONS = {
 with open(f"./labels_en_v01_overall.json", 'r') as json_file:
     labels = json.load(json_file)
 
-with open(f"{RAW_INPUT_DIR}/{COUNTRY}/project_labels.json", 'r') as json_file:
+with open(f"{INPUT_AUXI_DIR}/{COUNTRY}_project_labels.json", 'r') as json_file:
     project_description_map = json.load(json_file)['project']
 project_map = create_map([lit(x) for x in chain(*project_description_map.items())])
 
