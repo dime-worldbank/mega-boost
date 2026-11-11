@@ -613,6 +613,9 @@ def quality_boost_econ_sub_unknown():
 def quality_boost_foreign():
     boost_countries = dlt.read('quality_boost_country').select('country_name').distinct()
     quality_cci_foreign = (spark.table(f'{catalog}.{quality_source_schema}.quality_total_foreign_gold')
+        # Liberia's workbook now has hardcoded foreign spending figures that cannot be
+        # derived from the microdata, so the pipeline has no foreign agg to compare against
+        .filter(F.col('country_name') != 'Liberia')
         .groupBy('country_name')
         .agg(F.count('*').alias('cci_row_count'))
         .join(boost_countries, on=['country_name'], how="inner")
