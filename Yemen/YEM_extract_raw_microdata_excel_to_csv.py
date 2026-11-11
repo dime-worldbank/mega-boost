@@ -14,8 +14,7 @@
 # MAGIC As in the `BOOST` tab: the Electricity sector is counted under *Economic Affairs*; the *Unclassified Expenditures*
 # MAGIC column (chapter 99) is not carried over; a unit appears under a sector only in the years it has spending there,
 # MAGIC and then with all eighteen chapters, zeros included (the tab also lists seven units with no spending at all;
-# MAGIC those zero rows are not reproduced). This notebook writes the CSVs but does not reconcile them against
-# MAGIC the per-file summary sheets or the delivered workbook's `BOOST` tab.
+
 
 # COMMAND ----------
 

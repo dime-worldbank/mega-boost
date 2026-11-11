@@ -34,10 +34,6 @@ def boost_bronze():
 
 @dlt.table(name='yem_boost_silver')
 def boost_silver():
-    # Every category below is the workbook's Executed-sheet SUMIFS criterion (the EXP_* code in the comment)
-    # applied to the BOOST-tab labels. Every formula is SUM(SUMIFS(Executed, Year, <col>$1, ...)); only the
-    # criteria are quoted. Excel text criteria are case-insensitive, so "wage*" is written in the label's
-    # own case, 'Wage'. See verification.md for the one overlap found and the decisions left to the expert.
     return (dlt.read('yem_boost_bronze')
         # the raw unit column; Spark column names are case-insensitive, so admin1 below would overwrite it
         .withColumnRenamed('Admin1', 'admin1_tmp')
