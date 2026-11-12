@@ -7,7 +7,7 @@ COUNTRY = 'Congo'
 microdata_csv_dir = prepare_microdata_csv_dir(COUNTRY)
 filename = input_excel_filename(COUNTRY)
 
-disaggregated_data_sheets = ['BOOST 2012-2021']
+disaggregated_data_sheets = ['Expenditure']
 
 for sheet in tqdm(disaggregated_data_sheets):
     csv_file_path = f'{microdata_csv_dir}/{sheet}.csv'

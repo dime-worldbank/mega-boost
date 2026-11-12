@@ -149,7 +149,7 @@ def boost_gold():
     return (dlt.read(f'cod_boost_silver')
             .withColumn('country_name', lit('Congo, Dem. Rep.'))
             .select('country_name',
-                    col('Exercice').alias('year'),
+                    col('Exercice').alias('year').cast("int"),
                     col('Montant_Vote').alias('approved'),
                     col('Montant_Engage').alias('revised'),
                     col('Montant_Paye').alias('executed'),
