@@ -74,7 +74,8 @@ them. 2022 moves from the workbook to the raw export and loses its approved figu
      Education`, railway/telecom units).
 4. Any code still unmapped after the fallback → raise with the distinct values and their
    executed totals.
-5. Write `Workspace/raw_microdata_csv/Bangladesh/<year>.csv` (skip if it exists, as today).
+5. Write `Workspace/raw_microdata_csv/Bangladesh/<year>.csv` only when it is missing or older than
+   the Keys file or that year's export. The existing extract notebook runs this one with `%run`.
 
 ### Transform — `bgd_2022_onward_boost_bronze` / `_silver` in `BGD_transform_load_dlt.py`
 
@@ -92,7 +93,9 @@ Same rules as `bgd_2019_onward_boost_silver`, matching econ labels by numeric co
   test.
 - `approved`, `revised` = null
 
-`bgd_2019_onward_boost_bronze` is limited to 2019–2021; gold unions the new silver.
+`bgd_2019_onward_boost_bronze` is limited to 2019–2021; gold unions the new silver. Bangladesh 2022
+is added to `excluded_country_year_conditions` in `cross_country_aggregate_dlt.py`, since the quality
+checks fail on a null budget where the CCI has an approved figure.
 
 ### Checks
 
