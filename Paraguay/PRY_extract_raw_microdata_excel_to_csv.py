@@ -15,7 +15,7 @@ COUNTRY = 'Paraguay'
 if IS_DATABRICKS:
     # TOP_DIR, RAW_INPUT_DIR, prepare_raw_microdata_csv_dir, normalize_cell and is_named_column come from %run ../utils
     raw_microdata_csv_dir = prepare_raw_microdata_csv_dir(COUNTRY)
-    AUXILIARY_DIR = f'{TOP_DIR}/Documents/input/Auxiliary/{COUNTRY}'  # our reviewed mapping files
+    AUXILIARY_DIR = f'{TOP_DIR}/Documents/input/Auxiliary/{COUNTRY}'  # mapping files
 else:
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # utils.py sits at the repo root
@@ -73,8 +73,8 @@ FIRST_YEAR = 2006  # the CCI workbook covers 2006 onward; the ministry file also
 # Manual (User Manual - PAR.docx) describes the first three.
 # TRANSFERS TO MUNICIPALITIES: "Objeto del Gasto" (ECON6) codes
 TRANSFER_ECON6_CODES = ['833', '836', '893', '896']
-# FOREIGN FUNDED EXPENSES: "Origen de Financiamiento" (FIN_SOURCE2) codes listed in the manual; Paraguay BOOST.xlsx
-# flags exactly these (including 815/816, LEY 5074/2013 contributions). Review when a new foreign source appears.
+# FOREIGN FUNDED EXPENSES: "Origen de Financiamiento" (FIN_SOURCE2) codes listed in the manual. Review when a new
+# foreign source appears.
 FOREIGN_FIN_SOURCE2_CODES = [
     '302', '303', '359',
     '401', '402', '403', '404', '405', '406', '409',
@@ -83,33 +83,26 @@ FOREIGN_FIN_SOURCE2_CODES = [
     '653', '654', '655', '659',
     '815', '816',
 ]
-# ROAD TRANSPORTATION: the manual says to filter "Proyecto" (PROJECT1) by the key words ruta, camino, corredor
-# outside sub-function 431 - TRANSPORTE TERRESTRE. "vial" is added because it carries a quarter of road spending
-# (obras viales, red vial, accesos viales). Whole words only, so "piedra bruta" and "fluviales" do not match.
+# ROAD TRANSPORTATION: "Proyecto" (PROJECT1) names containing ruta, camino, corredor or vial as whole words, outside
+# sub-function 431 - TRANSPORTE TERRESTRE.
 ROAD_PROJECT_KEYWORDS = r'\b(RUTAS?|CAMINOS?|CORREDOR(ES)?|CORRIDORS?|VIAL(ES|IDAD)?)\b'
 ROAD_FUNCTION3_CODE = '431'
-# Reviewed project names, kept in the auxiliary folder on the volume: road = y flags a name the key words miss,
-# road = n removes a false positive. Each run prints the matched names that are not reviewed yet; add them to the
-# file with a decision.
+# Reviewed project names: road = y flags a name the key words miss, road = n removes a false positive. Each run
+# prints the matched names that are not reviewed yet; add them to the file with a decision.
 PROJECT_MAPPING_FILE = f'{AUXILIARY_DIR}/PRY_project_mapping.csv'
-# hospital is not in the manual: the workbook flags the sub-programmes (PROGRAM2) whose name contains HOSPITAL.
-# Whole words only (hospital, hospitales, hospitalario/a), so "extrahospitalaria" (pre-hospital emergency care) and
-# "hospitalidad" (a hospitality degree) do not match.
+# HOSPITAL: sub-programmes (PROGRAM2) whose name contains hospital, hospitales or hospitalario/a as a whole word.
 HOSPITAL_PROGRAM2_KEYWORDS = r'\bHOSPITAL(ES|ARIOS?|ARIAS?)?\b'
 
 # COMMAND ----------
 
-# Department of each municipality, by entity code (30.001 - ASUNCION -> 30.001): the ministry file has no department
-# column. Kept in the auxiliary folder on the volume (admin2_code, municipality, department); built from the
-# consistent years of Paraguay BOOST.xlsx (2012 onward), Chaco set to the official codes 16 Boqueron / 17 Alto
-# Paraguay. A municipality created later gets a new code and must be added to the file.
+# Department of each municipality, by entity code (30.001 - ASUNCION -> 30.001), since the ministry file has no
+# department column. A new municipality gets a new code and must be added to the file.
 ADMIN_MAPPING_FILE = f'{AUXILIARY_DIR}/PRY_admin_mapping.csv'
 
 # COMMAND ----------
 
-# TODO: generalize when the year coverage is updated. This reads the only delivery we have so far (one file per tier,
-# all years in a single "Database" sheet with these headers); later deliveries may come as yearly files, extra
-# sheets or renamed columns, so adapt the file pattern, sheet and column mapping once a new delivery arrives.
+# TODO: generalize when the year coverage is updated. This reads one file per tier with all years in a single
+# "Database" sheet; later deliveries may come as yearly files, extra sheets or renamed columns.
 def read_database(pattern, columns):
     """Read the ministry's single-sheet file, keep the named columns, rename them to the BOOST names, normalize cells."""
     files = glob(f'{RAW_INPUT_DIR}/{COUNTRY}/{pattern}')
