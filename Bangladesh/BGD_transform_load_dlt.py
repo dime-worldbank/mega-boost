@@ -17,8 +17,8 @@ CSV_READ_OPTIONS = {
     "escape": '"',
 }
 @dlt.expect_or_drop("year_not_null", "Year IS NOT NULL")
-@dlt.table(name=f'bgd_2019_onward_boost_bronze')
-def boost_2019_onward_bronze():
+@dlt.table(name=f'bgd_2019_to_2021_boost_bronze')
+def boost_2019_to_2021_bronze():
     # 2022 onward comes from the raw iBAS exports (bgd_2022_onward_boost_bronze)
     file_paths = [f"{COUNTRY_MICRODATA_DIR}/{year}.csv" for year in (2019, 2020, 2021)]
 
@@ -31,9 +31,9 @@ def boost_2019_onward_bronze():
     bronze_df = bronze_df.dropna(how='all')
     return bronze_df
 
-@dlt.table(name=f'bgd_2019_onward_boost_silver')
-def boost_2019_onward_silver():
-    return (dlt.read(f'bgd_2019_onward_boost_bronze')
+@dlt.table(name=f'bgd_2019_to_2021_boost_silver')
+def boost_2019_to_2021_silver():
+    return (dlt.read(f'bgd_2019_to_2021_boost_bronze')
         .filter(col('ECON1').isin(['3 - Recurrent Expenditure', '4 - Capital Expenditure']))
         .withColumn(
             'geo1',
@@ -141,7 +141,7 @@ def boost_2022_onward_bronze():
             .load(f"{RAW_MICRODATA_DIR}/*.csv")
             .withColumn('year', col('year').cast('int')))
 
-# Same rules as bgd_2019_onward_boost_silver (CCI 2019+ formula set), on the raw export columns
+# Same rules as bgd_2019_to_2021_boost_silver (CCI 2019+ formula set), on the raw export columns
 @dlt.table(name=f'bgd_2022_onward_boost_silver')
 def boost_2022_onward_silver():
     return (dlt.read(f'bgd_2022_onward_boost_bronze')
@@ -582,7 +582,7 @@ def boost_gold():
         dlt.read(f'bgd_2022_onward_boost_silver')
         .select(*gold_cols)
         .union(
-            dlt.read(f'bgd_2019_onward_boost_silver')
+            dlt.read(f'bgd_2019_to_2021_boost_silver')
             .select(*gold_cols)
         )
         .union(
