@@ -86,7 +86,10 @@ Same rules as `bgd_2019_onward_boost_silver`, matching econ labels by numeric co
 - `econ` / `econ_sub` from `ECON 1..5`; **Basic Services** from the 7-digit `ECON6` prefixes
   `3211113/14/15/20/22/29` (the CCI's `Old_ECON3` is this same 7-digit code)
 - `geo1` from `GEO1` with the numeric prefix stripped (`30-Dhaka` → `Dhaka`)
-- `admin0`: see open question 1
+- `admin0` = Regional when `ADMIN1` starts with `CAFO` or `DAFO`, else Central. This is what the
+  CCI does: its 2019–2022 sheets fill `ADMIN0` with the `ADMIN1` office prefix (`CAFO`, `DAFO`,
+  `UAO`, blank) and count `*CAFO` + `*DAFO` as subnational; today's 2019–2021 silver uses the same
+  test.
 - `approved`, `revised` = null
 
 `bgd_2019_onward_boost_bronze` is limited to 2019–2021; gold unions the new silver.
@@ -101,15 +104,32 @@ Same rules as `bgd_2019_onward_boost_silver`, matching econ labels by numeric co
 - After deploy: compare 2022 gold vs the CCI Executed column for 2022 (total, wage bill, capex,
   goods & services, functions).
 
+## Consistency check against the CCI (done while designing)
+
+The planned mapping was run on `EXP_2021_22` and compared with the CCI Executed 2022 column
+(2019+ formula set), in bn BDT:
+
+- Within ~1%: total (5195 vs 5178), wage bill, basic wages, goods & services, subsidies, social
+  assistance, pensions, interest, defence, public safety, agriculture, energy, environment,
+  primary and secondary education, social protection, subnational (3425 vs 3416).
+- Capex +3.3%, allowances +1.4%, basic services +6% (1 bn): small data-version differences
+  between the export and the sheet the CCI was built from; to break down in the reconciliation.
+- Functional misses (judiciary −55, public order −55, health −16, recreation +6, economic
+  relations +60) are entirely three FY22 rows in Massimo's keyed data that `BT-ADM` has since
+  corrected: `159-Bridges Division` keyed as Public Order (BT-ADM: Transport), `128-ICT Division`
+  keyed as Health (BT-ADM: Education and Technology), `134-Ministry of Cultural Affairs` keyed
+  `Public Sector` (BT-ADM: Recreation, Culture and Religious Affairs). Keyed FY23 and FY24 agree
+  with `BT-ADM` for every ministry. We follow `BT-ADM`; 2022 will therefore differ from the CCI on
+  those functions until the CCI is refreshed.
+- Debt repayment (econ1 8): the export has no liabilities rows while the CCI shows 1856 bn. Out
+  of gold scope (gold keeps econ1 3 and 4 only).
+
 ## Open questions
 
-1. **Central vs regional (`admin0`).** The CCI's 2019+ subnational formulas test `admin0` for
-   `*CAFO`/`*DAFO`, but `ADMIN0` is empty in the 2019+ sheets, so today's 2019–2021 gold is all
-   "Central". The exports have the office in `ADMIN1` (`CAFO …` ministry finance offices,
-   `DAFO …`/`UAO …`/`DCA …` field offices, plus many self-accounting entities). Proposal:
-   Regional = `ADMIN1` starts with `DAFO`, `UAO`, `DCA`, `DAO`; everything else Central (same
-   meaning as the 2015–18 `DAO`/`UAO` rule). To confirm with Massimo.
-2. Budget source for FY22+ (Massimo).
+1. Budget source for FY22+ (Massimo).
+2. For Massimo, not blocking: the CCI counts `CAFO` (ministry-level finance offices) as
+   subnational and `UAO` (upazila offices) as central, which reads inverted. We stay consistent
+   with the CCI.
 
 ## Left to the builder
 
