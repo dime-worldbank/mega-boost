@@ -39,3 +39,7 @@ for sheet_name in workbook.sheetnames:
     df.to_csv(csv_file_path, index=False, encoding='utf-8')
 
 workbook.close()
+
+# COMMAND ----------
+
+# MAGIC %run ./BGD_extract_raw_microdata_excel_to_csv
