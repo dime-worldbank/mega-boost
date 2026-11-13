@@ -87,8 +87,8 @@ FOREIGN_FIN_SOURCE2_CODES = [
 # sub-function 431 - TRANSPORTE TERRESTRE.
 ROAD_PROJECT_KEYWORDS = r'\b(RUTAS?|CAMINOS?|CORREDOR(ES)?|CORRIDORS?|VIAL(ES|IDAD)?)\b'
 ROAD_FUNCTION3_CODE = '431'
-# Reviewed project names: road = y flags a name the key words miss, road = n removes a false positive. Each run
-# prints the matched names that are not reviewed yet; add them to the file with a decision.
+# Reviewed project names: road = y flags a name the key words miss, road = n removes a false positive. The run
+# stops when a name matches the key words but is not in the file; add it with a decision.
 PROJECT_MAPPING_FILE = f'{AUXILIARY_DIR}/PRY_project_mapping.csv'
 # HOSPITAL: sub-programmes (PROGRAM2) whose name contains hospital, hospitales or hospitalario/a as a whole word.
 HOSPITAL_PROGRAM2_KEYWORDS = r'\bHOSPITAL(ES|ARIOS?|ARIAS?)?\b'
@@ -150,11 +150,10 @@ project = df.PROJECT1.str.strip().str.upper()
 keyword_hit = project.str.contains(ROAD_PROJECT_KEYWORDS, regex=True, na=False)
 decision = project.map(reviewed_road)  # True = y, False = n, NaN = not reviewed yet
 outside_431 = ~df.FUNCTION3.str.startswith(ROAD_FUNCTION3_CODE, na=False)
-df['Road'] = flag(np.where(decision.notna(), decision, keyword_hit).astype(bool) & outside_431, 'y')
 unreviewed = sorted(set(project[keyword_hit & decision.isna() & outside_431]))
-print(f'{len(unreviewed)} road-matching project names are not in {PROJECT_MAPPING_FILE}; '
-      'they are flagged by the key words, review them and add them with road = y or n:')
-print('\n'.join(f'   {name}' for name in unreviewed))
+assert not unreviewed, (f'{len(unreviewed)} road-matching project names are not in {PROJECT_MAPPING_FILE}; '
+                        'review them and add them with road = y or n:\n' + '\n'.join(unreviewed))
+df['Road'] = flag(decision.fillna(False).astype(bool) & outside_431, 'y')
 df['hospital'] = flag(df.PROGRAM2.str.contains(HOSPITAL_PROGRAM2_KEYWORDS, case=False, regex=True, na=False), 1)
 
 df.to_csv(f'{raw_microdata_csv_dir}/cen.csv', index=False, encoding='utf-8')
