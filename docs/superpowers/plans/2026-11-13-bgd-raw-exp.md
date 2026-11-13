@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Inputs on the volume: exports `{RAW_INPUT_DIR}/Bangladesh/other/EXP_*.xlsx`; Keys `{TOP_DIR}/Documents/input/Auxiliary/Bangladesh Keys 23-25.xlsx`.
-- Output CSVs: `{WORKSPACE_DIR}/raw_microdata_csv/Bangladesh/<year>.csv` (via `prepare_raw_microdata_csv_dir`), overwritten every run so Keys updates take effect (spec said "skip if exists"; changed, see Task 1).
+- Output CSVs: `{WORKSPACE_DIR}/raw_microdata_csv/Bangladesh/<year>.csv` (via `prepare_raw_microdata_csv_dir`). A year is (re)written only when its CSV is missing or older (mtime) than the Keys file or that year's export; otherwise it is skipped with a printed message.
 - Year = end year of the export's title row (`FISCAL YEAR : 2021-22` → 2022; match case-insensitively).
 - Never write to SharePoint/OneDrive or `Auxiliary`.
 - Codes are matched on their leading digits, never on labels (`3-Recurrent Expenditure` vs `3 - Recurrent Expenditure`; `ADMIN2` values carry trailing spaces/newlines).
@@ -47,6 +47,7 @@
   - `leading_code(value) -> str | None` — leading digit run of a cell, else None.
   - `read_keys(path) -> tuple[dict, dict]` — `(econ_by_code7, admin_by_code3)`; `econ_by_code7[code7] = (econ1..econ5 labels)`, `admin_by_code3[code3] = (admin2_standardized, func1, func_group)`; first occurrence wins (both sheets verified conflict-free).
   - `read_export(path) -> tuple[int, pd.DataFrame]` — year from row 1, header on row 3, rows without `EXECUTED` dropped.
+  - `is_stale(csv_path, *input_paths) -> bool` — True when `csv_path` is missing or its mtime is older than any input's.
   - `classify(df, econ_by_code7, admin_by_code3) -> pd.DataFrame` — adds the Keys columns; 5-digit fallback for econ (any `econ_by_code7` entry whose code starts with the row's first 5 digits); prints rows/amount that used the fallback; raises `ValueError` listing every unmapped econ6 / admin2 value with its executed total.
 
 - [ ] **Step 1: Write the failing tests** in `tests/test_bangladesh_extract.py`, building fixtures with `helpers.write_workbook` and running the notebook with `helpers.run_script` (env `RAW_INPUT_DIR`, `KEYS_FILE`, `OUTPUT_DIR`). Fixture Keys: `ECON` rows for `3111101-Basic pay (Officer)` → (`3 - Recurrent Expenditure`, `31 - Compensation of Employees`, `311 - Wages and Salaries`, `3111 - Wages and salaries in cash`, `31111 - Officers' pay`) and `3211113-Electricity` → (`3 - Recurrent Expenditure`, `32 - Purchases of Goods and Services`, `321 - Administrative Expenses`, `3211 - Administrative expenses`, `32111 - Administrative Expenses`); `BT-ADM` title row, header row, then `101 | 101-President's Office | 101-President's Office | Public Services | Public Sector` and `113 | 113-Economic Relations Division | 113-Economic Relations Division | Public Services | Public Sector`. Exports: two title rows + the 13-column header.
@@ -57,18 +58,20 @@
   - `test_blank_and_no_executed_rows_dropped`: a fully blank row and a row with `EXECUTED` None → absent from the CSV (row count check).
   - `test_duplicate_year_fails`: `EXP_2021_22.xlsx` and `EXP_2021_22 copy.xlsx` both titled 2021-22 → failure mentioning `2022`.
   - `test_title_without_year_fails`: title `FISCAL YEAR :` → failure naming the file.
+  - `test_skips_when_csv_newer_than_inputs`: run once; set the CSV mtime to the future with `os.utime`; replace the export's `EXECUTED` value; run again → CSV content unchanged.
+  - `test_rewrites_when_keys_newer`: run once; set the CSV mtime to the past, change `func1` for `101` in the Keys fixture; run again → CSV shows the new `func1`.
 
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `cd tests && python -m unittest test_bangladesh_extract -v`
 Expected: FAIL/ERROR (notebook file does not exist).
 
-- [ ] **Step 3: Implement the notebook** with the functions above. Find exports with `glob(f"{RAW_INPUT_DIR}/Bangladesh/other/EXP_*.xlsx")`. Read the export with `pd.read_excel(path, header=2, dtype=str)` then `pd.to_numeric` on `EXECUTED`; read the title with openpyxl `read_only` (cell A1). Write each year with `df.to_csv(index=False, encoding='utf-8')`, overwriting. Append the `%run ./BGD_extract_raw_microdata_excel_to_csv` cell to `BGD_extract_microdata_excel_to_csv.py`.
+- [ ] **Step 3: Implement the notebook** with the functions above. Find exports with `glob(f"{RAW_INPUT_DIR}/Bangladesh/other/EXP_*.xlsx")`. Read the export with `pd.read_excel(path, header=2, dtype=str)` then `pd.to_numeric` on `EXECUTED`; read the title with openpyxl `read_only` (cell A1). Read the Keys file only if some year is stale. For each export, find the year from the title, then skip unless `is_stale(csv, KEYS_FILE, export)`; write with `df.to_csv(index=False, encoding='utf-8')`. Append the `%run ./BGD_extract_raw_microdata_excel_to_csv` cell to `BGD_extract_microdata_excel_to_csv.py`.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `cd tests && python -m unittest test_bangladesh_extract -v`
-Expected: 7 tests OK. Then the full suite `python -m unittest` still passes.
+Expected: 9 tests OK. Then the full suite `python -m unittest` still passes.
 
 - [ ] **Step 5: Run against the real files locally** (not committed)
 
@@ -137,7 +140,7 @@ Needs the user's go-ahead before pushing the branch or creating the pipeline.
 
 **Files:**
 - Create: `Bangladesh/README.md`
-- Modify: `docs/superpowers/specs/2026-11-13-bgd-raw-exp-design.md` (CSV overwrite instead of skip; extract wired via `%run`)
+- Modify: `docs/superpowers/specs/2026-11-13-bgd-raw-exp-design.md` (CSV rewritten only when older than Keys/export; extract wired via `%run`)
 
 - [ ] **Step 1: Write `Bangladesh/README.md`** with three sections:
   - **Sources and update steps:** which years come from which input; for a new year, drop `EXP_YYYY_YY.xlsx` into `BOOSTProcessed/input/Data from authorities/Bangladesh/other/`, refresh `Auxiliary/Bangladesh Keys 23-25.xlsx` when Massimo updates it, rerun the job; what an unmapped-code failure means and that the codes go back to Massimo.
