@@ -19,8 +19,8 @@ CSV_READ_OPTIONS = {
 @dlt.expect_or_drop("year_not_null", "Year IS NOT NULL")
 @dlt.table(name=f'bgd_2019_onward_boost_bronze')
 def boost_2019_onward_bronze():
-    # TODO: expand to 2018 and before, which have diff columns
-    file_paths = [f"{COUNTRY_MICRODATA_DIR}/2019.csv", f"{COUNTRY_MICRODATA_DIR}/202*.csv"]
+    # 2022 onward comes from the raw iBAS exports (bgd_2022_onward_boost_bronze)
+    file_paths = [f"{COUNTRY_MICRODATA_DIR}/{year}.csv" for year in (2019, 2020, 2021)]
 
     bronze_df = (spark.read
                  .format("csv")
@@ -119,8 +119,100 @@ def boost_2019_onward_silver():
             .when(col('ECON2') == '34 - Interest', 'Interest on debt') 
             .when(col('ECON2') == '35 - Subsidies', 'Subsidies')
             .when(col('econ_sub').isin('Social Assistance', 'Pensions'), 'Social benefits')
-            .otherwise('Other expenses') 
+            .otherwise('Other expenses')
         )
+    )
+
+# COMMAND ----------
+
+RAW_MICRODATA_DIR = f'{WORKSPACE_DIR}/raw_microdata_csv/{COUNTRY}'
+
+def code(column_name):
+    # Labels vary in spacing across exports ("3-Recurrent" vs "3 - Recurrent"); match on the code
+    return regexp_extract(col(column_name), r'^\s*(\d+)', 1)
+
+@dlt.expect_or_drop("year_not_null", "year IS NOT NULL")
+@dlt.table(name=f'bgd_2022_onward_boost_bronze')
+def boost_2022_onward_bronze():
+    return (spark.read
+            .format("csv")
+            .options(**CSV_READ_OPTIONS)
+            .option("inferSchema", "true")
+            .load(f"{RAW_MICRODATA_DIR}/*.csv")
+            .withColumn('year', col('year').cast('int')))
+
+# Same rules as bgd_2019_onward_boost_silver (CCI 2019+ formula set), on the raw export columns
+@dlt.table(name=f'bgd_2022_onward_boost_silver')
+def boost_2022_onward_silver():
+    return (dlt.read(f'bgd_2022_onward_boost_bronze')
+        .filter(code('econ1').isin(['3', '4']))
+        .withColumn(
+            'admin0',
+            when(col('admin1').startswith('CAFO') | col('admin1').startswith('DAFO'), 'Regional')
+            .otherwise('Central')
+        ).withColumn(
+            'geo1',
+            when(code('geo1') != '', regexp_replace(col('geo1'), r'^\d+\s*-?\s*', ''))
+            .otherwise('Central Scope')
+        ).withColumn(
+            'admin1',
+            when(col('admin0') == 'Central', 'Central Scope')
+            .otherwise(col('geo1'))
+        ).withColumn(
+            'admin2_code',
+            code('admin2')
+        ).withColumn(
+            'func',
+            when(col('func1') == 'Defence Services', 'Defence')
+            .when(col('func1') == 'Public Order and Safety', 'Public order and safety')
+            .when(col('func1') == 'Housing', 'Housing and community amenities')
+            .when(col('func1') == 'Health', 'Health')
+            .when(col('func1') == 'Recreation, Culture and Religious Affairs', 'Recreation, culture and religion')
+            .when(col('func1') == 'Education and Technology', 'Education')
+            .when(col('func1') == 'Social Security and Welfare', 'Social protection')
+            .when(col('admin2_code').isin(['145', '14503']), 'Environmental protection')
+            .when(
+                ((col('func_group') == 'Economic Sector')
+                & (~col('func1').isin(['Housing', 'Local Government and Rural Development']))),
+                'Economic affairs')
+            .otherwise(lit('General public services'))
+        ).withColumn(
+            'func_sub',
+            when(col('func') == 'Public order and safety',
+                 when(col('admin2_code').startswith('122'), 'Public Safety')
+                 .otherwise('Judiciary')
+            )
+            .when(col('func') == 'Education',
+                when(col('admin2_code').startswith('124'), 'Primary Education')
+                .when(col('admin2_code').startswith('125'), 'Secondary Education')
+            )
+        ).withColumn(
+            'econ_sub',
+            when(code('econ3') == '311',
+                when(code('econ5') == '31113', 'Allowances')
+                .otherwise('Basic Wages')
+            )
+            .when(
+                substring(code('econ6'), 1, 7).isin(
+                    ['3211113', '3211114', '3211115', '3211120', '3211122', '3211129']),
+                'Basic Services')
+            .when(code('econ4') == '3257', 'Employment Contracts')
+            .when(code('econ3') == '372', 'Social Assistance')
+            .when(code('econ5') == '37311', 'Pensions')
+        ).withColumn(
+            'econ',
+            when(code('econ1') == '4', 'Capital expenditures')
+            .when(code('econ2') == '31', 'Wage bill')
+            .when(code('econ2') == '32', 'Goods and services')
+            .when(code('econ2') == '34', 'Interest on debt')
+            .when(code('econ2') == '35', 'Subsidies')
+            .when(col('econ_sub').isin('Social Assistance', 'Pensions'), 'Social benefits')
+            .otherwise('Other expenses')
+        ).withColumn(
+            'admin2', col('admin2_standardized')
+        ).withColumn('BUDGET', lit(None).cast(DoubleType())
+        ).withColumn('REVISED', lit(None).cast(DoubleType())
+        ).withColumn('EXECUTED', col('executed').cast(DoubleType()))
     )
 
 # COMMAND ----------
@@ -487,8 +579,12 @@ def boost_gold():
     ]
 
     return (
-        dlt.read(f'bgd_2019_onward_boost_silver')
+        dlt.read(f'bgd_2022_onward_boost_silver')
         .select(*gold_cols)
+        .union(
+            dlt.read(f'bgd_2019_onward_boost_silver')
+            .select(*gold_cols)
+        )
         .union(
             dlt.read(f'bgd_2015_to_2018_boost_silver')
             .select(*gold_cols)
