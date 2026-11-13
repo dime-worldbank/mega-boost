@@ -51,8 +51,10 @@ def boost_2023_onward_bronze():
 # the comment), on the labels as written there (Excel compares text case-insensitively; the data is consistent).
 # Sub-categories come first and then the sheet order, so a line takes the first category that fits; a residual the
 # sheet defines by subtraction (transport, primary and secondary education, other expenses, general public services)
-# comes after what it is net of. The workbook's formulas differ between 2016-2021 and 2023-2025, and several criteria
-# match nothing in one era or in either (the unnumbered energy ministry labels, the bare "88", the programme "eau"):
+# comes after what it is net of. A function is the sheet's own top-level formula, not the parent of the line's
+# sub-function: the sheet's sub-function formulas reach ministries its function formulas leave out (the energy ministry
+# of chapter 84 is Energy but not Economic affairs), and both are reproduced as written. The workbook's formulas differ
+# between 2016-2021 and 2023-2025, and several criteria match nothing in one era or in either (the unnumbered energy ministry labels, the bare "88", the programme "eau"):
 # each table carries only what matches in its years.
 
 @dlt.table(name='caf_2022_and_before_boost_silver')
@@ -140,12 +142,8 @@ def boost_2022_and_before_silver():
         ).withColumn('func',
             # public order and safety (PUB_ORD_SAF = JUD + PUB_SAF)
             when(col('func_sub').isin('Judiciary', 'Public Safety'), 'Public order and safety')
-            # economic affairs (AGR, ROA, AIR_TRA, TRA, ENE, TEL)
-            .when(col('func_sub').isin('Agriculture', 'Roads', 'Air Transport', 'Transport', 'Energy', 'Telecom'), 'Economic affairs')
-            # housing and community amenities (WAT_SAN)
-            .when(col('func_sub') == 'Water Supply', 'Housing and community amenities')
-            # education (TER_EDU, PRI_SEC_EDU)
-            .when(col('func_sub').isin('Tertiary Education', 'Primary and Secondary education'), 'Education')
+            # education (EDU)
+            .when(col('ADMIN1').startswith('4'), 'Education')
             # defence (DEF)
             .when(col('ADMIN1').startswith('21'), 'Defence')
             # economic affairs (ECO_REL): chapters 90-93, 8x, 50 and 52, except 82, 84 and the "83 MINISTERE DE" ones
@@ -239,10 +237,8 @@ def boost_2023_onward_silver():
         ).withColumn('func',
             # public order and safety (PUB_ORD_SAF = JUD + PUB_SAF)
             when(col('func_sub').isin('Judiciary', 'Public Safety'), 'Public order and safety')
-            # economic affairs (AGR, TRA, ENE, TEL)
-            .when(col('func_sub').isin('Agriculture', 'Transport', 'Energy', 'Telecom'), 'Economic affairs')
-            # education (PRI_SEC_EDU)
-            .when(col('func_sub') == 'Primary and Secondary education', 'Education')
+            # education (EDU)
+            .when(col('ADMIN1').startswith('4'), 'Education')
             # defence (DEF)
             .when(col('ADMIN1').startswith('21'), 'Defence')
             # economic affairs (ECO_REL): chapters 90-93, 8x, 50 and 52, except 82 and 84
