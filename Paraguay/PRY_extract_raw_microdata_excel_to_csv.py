@@ -13,13 +13,15 @@ import pandas as pd
 IS_DATABRICKS = "DATABRICKS_RUNTIME_VERSION" in os.environ
 COUNTRY = 'Paraguay'
 if IS_DATABRICKS:
-    # RAW_INPUT_DIR, prepare_raw_microdata_csv_dir, normalize_cell and is_named_column come from %run ../utils
+    # TOP_DIR, RAW_INPUT_DIR, prepare_raw_microdata_csv_dir, normalize_cell and is_named_column come from %run ../utils
     raw_microdata_csv_dir = prepare_raw_microdata_csv_dir(COUNTRY)
+    AUXILIARY_DIR = f'{TOP_DIR}/Documents/input/Auxiliary/{COUNTRY}'  # our reviewed mapping files
 else:
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # utils.py sits at the repo root
     from utils import normalize_cell, is_named_column
     RAW_INPUT_DIR = os.environ.get('RAW_INPUT_DIR') or input("Enter the raw input directory (containing Paraguay/): ").strip()
+    AUXILIARY_DIR = os.environ.get('AUXILIARY_DIR') or input("Enter the auxiliary directory (containing the PRY_*_mapping.csv files): ").strip()
     raw_microdata_csv_dir = os.environ.get('OUTPUT_DIR') or input("Enter the output directory: ").strip()
     Path(raw_microdata_csv_dir).mkdir(parents=True, exist_ok=True)
 
@@ -86,140 +88,28 @@ FOREIGN_FIN_SOURCE2_CODES = [
 # (obras viales, red vial, accesos viales). Whole words only, so "piedra bruta" and "fluviales" do not match.
 ROAD_PROJECT_KEYWORDS = r'\b(RUTAS?|CAMINOS?|CORREDOR(ES)?|CORRIDORS?|VIAL(ES|IDAD)?)\b'
 ROAD_FUNCTION3_CODE = '431'
-# Reviewed project names, kept on the volume next to the ministry files: road = y flags a name the key words miss,
+# Reviewed project names, kept in the auxiliary folder on the volume: road = y flags a name the key words miss,
 # road = n removes a false positive. Each run prints the matched names that are not reviewed yet; add them to the
 # file with a decision.
-PROJECT_MAPPING_FILE = f'{RAW_INPUT_DIR}/{COUNTRY}/PRY_project_mapping.csv'
-# hospital is not in the manual: the workbook flags the sub-programmes (PROGRAM2) whose name contains HOSPITAL
-HOSPITAL_PROGRAM2_KEYWORD = 'HOSPITAL'
+PROJECT_MAPPING_FILE = f'{AUXILIARY_DIR}/PRY_project_mapping.csv'
+# hospital is not in the manual: the workbook flags the sub-programmes (PROGRAM2) whose name contains HOSPITAL.
+# Whole words only (hospital, hospitales, hospitalario/a), so "extrahospitalaria" (pre-hospital emergency care) and
+# "hospitalidad" (a hospitality degree) do not match.
+HOSPITAL_PROGRAM2_KEYWORDS = r'\bHOSPITAL(ES|ARIOS?|ARIAS?)?\b'
 
 # COMMAND ----------
 
 # Department of each municipality, by entity code (30.001 - ASUNCION -> 30.001): the ministry file has no department
-# column. Built from the consistent years of Paraguay BOOST.xlsx (2012 onward), Chaco set to the official codes
-# 16 Boqueron / 17 Alto Paraguay. A municipality created later gets a new code and must be added here.
-DEPARTMENT_MUNICIPALITIES = {
-    # Asuncion
-    '00 - ASUNCION': [
-        '30.001'
-    ],
-    # Concepcion, Belen, Horqueta, Loreto, San Lazaro, Yby Yau, San Carlos Del Apa, Azotey, Sargento Jose Felix
-    # Lopez, Paso Barreto, San Alfredo, Arroyito, Paso Horqueta, Itacua
-    '01 - CONCEPCION': [
-        '30.002', '30.003', '30.004', '30.005', '30.006', '30.007', '30.237', '30.238', '30.241', '30.248',
-        '30.249', '30.254', '30.257', '30.263'
-    ],
-    # San Pedro Del Ycuamandiyu, Antequera, Chore, Gral. Elizardo Aquino, Itacurubi Del Rosario, Lima, Nueva
-    # Germania, San Estanislao, Yrybucua, San Pablo, Tacuati, Union, 25 De Diciembre, Villa Del Rosario, Gral.
-    # Resquin, Yataity Del Norte, Guajayvi, Capiibary, Santa Rosa Del Aguaray, Liberacion, San Vicente Pancholo,
-    # San Jose Del Rosario
-    '02 - SAN PEDRO': [
-        '30.008', '30.009', '30.010', '30.011', '30.012', '30.013', '30.014', '30.015', '30.016', '30.017',
-        '30.018', '30.019', '30.020', '30.021', '30.022', '30.023', '30.024', '30.025', '30.026', '30.239',
-        '30.253', '30.260'
-    ],
-    # Caacupe, Altos, Arroyos Y Esteros, Atyra, Caraguatay, Emboscada, Eusebio Ayala, Isla Pucu, Itacurubi De Las
-    # Cordilleras, Juan De Mena, Loma Grande, Mbocayaty Del Yhaguy, Nueva Colombia, Piribebuy, Primero De Marzo,
-    # San Bernardino, Santa Elena, Tobati, Valenzuela, San Jose Obrero
-    '03 - CORDILLERA': [
-        '30.027', '30.028', '30.029', '30.030', '30.031', '30.032', '30.033', '30.034', '30.035', '30.036',
-        '30.037', '30.038', '30.039', '30.040', '30.041', '30.042', '30.043', '30.044', '30.045', '30.046'
-    ],
-    # Villarrica, Borja, Mauricio Jose Troche, Coronel Martinez, Felix Perez Cardozo, Gral. Eugenio A. Garay,
-    # Independencia, Itape, Iturbe, Jose Fassardi, Mbocayaty Del Guaira, Natalicio Talavera, Numi, San Salvador,
-    # Yataity Del Guaira, Dr. Bottrell, Paso Yobai, Tebicuary
-    '04 - GUAIRA': [
-        '30.047', '30.048', '30.049', '30.050', '30.051', '30.052', '30.053', '30.054', '30.055', '30.056',
-        '30.057', '30.058', '30.059', '30.060', '30.061', '30.062', '30.063', '30.234'
-    ],
-    # Coronel Oviedo, Caaguazu, Carayao, Dr. Cecilio Baez, Santa Rosa Del Mbutuy, Juan Manuel Frutos,
-    # Repatriacion, Nueva Londres, San Joaquin, San Jose De Los Arroyos, Yhu, J. Eulogio Estigarribia, R.I. 3
-    # Corrales, Raul Arsenio Oviedo, Jose Domingo Ocampos, Mcal. Francisco Solano Lopez, La Pastora, 3 De Febrero,
-    # Simon Bolivar, Vaqueria, Tembiapora, Nueva Toledo
-    '05 - CAAGUAZU': [
-        '30.064', '30.065', '30.066', '30.067', '30.068', '30.069', '30.070', '30.071', '30.072', '30.073',
-        '30.074', '30.075', '30.076', '30.077', '30.078', '30.079', '30.080', '30.081', '30.082', '30.083',
-        '30.233', '30.243'
-    ],
-    # Caazapa, Avai, Buena Vista, Moises Bertoni, Gral. Higinio Morinigo, Maciel, San Juan Nepomuceno, Tavai,
-    # Fulgencio Yegros, Yuty, 3 De Mayo
-    '06 - CAAZAPA': [
-        '30.084', '30.085', '30.086', '30.087', '30.088', '30.089', '30.090', '30.091', '30.092', '30.093',
-        '30.245'
-    ],
-    # Encarnacion, Bella Vista - Itapua, Cambyreta, Capitan Meza, Capitan Miranda, Nueva Alborada, Carmen Del
-    # Parana, Coronel Bogado, Carlos Antonio Lopez, Natalio, Fram, General Artigas, General Delgado, Hohenau,
-    # Jesus, Jose Leandro Oviedo, Obligado, Mayor Otano, San Cosme Y Damian, San Pedro Del Parana, San Rafael Del
-    # Parana, Trinidad, Edelira, Tomas Romero Pereira, Alto Vera, La Paz, Yatytay, San Juan Del Parana, Pirapo,
-    # Itapua Poty
-    '07 - ITAPUA': [
-        '30.094', '30.095', '30.096', '30.097', '30.098', '30.099', '30.100', '30.101', '30.102', '30.103',
-        '30.104', '30.105', '30.106', '30.107', '30.108', '30.109', '30.110', '30.111', '30.112', '30.113',
-        '30.114', '30.115', '30.116', '30.117', '30.118', '30.119', '30.120', '30.121', '30.122', '30.123'
-    ],
-    # San Juan Bautista, Ayolas, San Ignacio, San Miguel, San Patricio, Santa Maria, Santa Rosa Misiones,
-    # Santiago, Villa Florida, Yabebyry
-    '08 - MISIONES': [
-        '30.124', '30.125', '30.126', '30.127', '30.128', '30.129', '30.130', '30.131', '30.132', '30.133'
-    ],
-    # Paraguari, Acahay, Caapucu, Gral. Bernardino Caballero, Carapegua, Escobar, La Colmena, Mbuyapey, Pirayu,
-    # Quiindy, Quyquyho, San Roque Gonzalez De Santa Cruz, Sapucai, Tebicuarymi, Yaguaron, Ybycui, Ybytimi, Maria
-    # Antonia
-    '09 - PARAGUARI': [
-        '30.134', '30.135', '30.136', '30.137', '30.138', '30.139', '30.140', '30.141', '30.142', '30.143',
-        '30.144', '30.145', '30.146', '30.147', '30.148', '30.149', '30.150', '30.252'
-    ],
-    # Ciudad Del Este, Presidente Franco, Domingo Martinez De Irala, Juan Leon Mallorquin, Hernandarias, Santa Fe
-    # Del Parana, Itakyry, Juan E. O'Leary, Nacunday, Yguazu, Los Cedrales, Minga Guazu, San Cristobal, Santa
-    # Rita, Naranjal, Santa Rosa Del Monday, Minga Pora, Mbaracayu, San Alberto, Iruna, Tavapy, Dr. Raul Pena
-    '10 - ALTO PARANA': [
-        '30.151', '30.152', '30.153', '30.154', '30.155', '30.156', '30.157', '30.158', '30.159', '30.160',
-        '30.161', '30.162', '30.163', '30.164', '30.165', '30.166', '30.167', '30.168', '30.169', '30.170',
-        '30.240', '30.246'
-    ],
-    # Aregua, Capiata, Fernando De La Mora, Guarambare, Ita, Itaugua, Lambare, Limpio, Luque, Mariano Roque
-    # Alonso, Nueva Italia, Nemby, San Antonio, San Lorenzo, Villa Elisa, Villeta, Ypacarai, Ypane, J. Augusto
-    # Saldivar
-    '11 - CENTRAL': [
-        '30.171', '30.172', '30.173', '30.174', '30.175', '30.176', '30.177', '30.178', '30.179', '30.180',
-        '30.181', '30.182', '30.183', '30.184', '30.185', '30.186', '30.187', '30.188', '30.189'
-    ],
-    # Pilar, Alberdi, Cerrito, Desmochados, Gral. Jose Eduvigis Diaz, Guazu Cua, Humaita, Isla Umbu, Laureles,
-    # Mayor Jose D. Martinez, Paso De Patria, San Juan Bautista Neembucu, Tacuaras, Villa Franca, Villa Oliva,
-    # Villalbin
-    '12 - NEEMBUCU': [
-        '30.190', '30.191', '30.192', '30.193', '30.194', '30.195', '30.196', '30.197', '30.198', '30.199',
-        '30.200', '30.201', '30.202', '30.203', '30.204', '30.205'
-    ],
-    # Pedro Juan Caballero, Bella Vista - Amambay, Capitan Bado, Zanja Pyta, Karapai, Cerro Cora
-    '13 - AMAMBAY': [
-        '30.206', '30.207', '30.208', '30.242', '30.250', '30.259'
-    ],
-    # Salto Del Guaira, Corpus Christi, Villa Curuguaty, Yasy Cany, Villa Ygatimi, Itanara, Ypejhu, Gral.
-    # Francisco Caballero Alvarez, Katuete, La Paloma Del Espiritu Santo, Nueva Esperanza, Yvyrarobana, Yby Pyta,
-    # Maracana, Puerto Adela, Laurel
-    '14 - CANINDEYU': [
-        '30.209', '30.210', '30.211', '30.212', '30.213', '30.214', '30.215', '30.216', '30.217', '30.218',
-        '30.219', '30.244', '30.247', '30.251', '30.255', '30.256'
-    ],
-    # Benjamin Aceval, Puerto Pinasco, Villa Hayes, Nanawa, Jose Falcon, Teniente 1° Manuel Irala Fernandez,
-    # Teniente Esteban Martinez, General Jose Maria Bruguez, Campo Aceval, Municipalidad Nueva Asuncion
-    '15 - PRESIDENTE HAYES': [
-        '30.220', '30.221', '30.222', '30.223', '30.224', '30.229', '30.232', '30.236', '30.258', '30.262'
-    ],
-    # Jose Felix Estigarribia, Filadelfia, Loma Plata, Boqueron
-    '16 - BOQUERON': [
-        '30.228', '30.230', '30.231', '30.261'
-    ],
-    # Fuerte Olimpo, Puerto Casado, Bahia Negra, Carmelo Peralta
-    '17 - ALTO PARAGUAY': [
-        '30.225', '30.226', '30.227', '30.235'
-    ],
-}
-MUNICIPALITY_DEPARTMENT = {code: department for department, codes in DEPARTMENT_MUNICIPALITIES.items() for code in codes}
+# column. Kept in the auxiliary folder on the volume (admin2_code, municipality, department); built from the
+# consistent years of Paraguay BOOST.xlsx (2012 onward), Chaco set to the official codes 16 Boqueron / 17 Alto
+# Paraguay. A municipality created later gets a new code and must be added to the file.
+ADMIN_MAPPING_FILE = f'{AUXILIARY_DIR}/PRY_admin_mapping.csv'
 
 # COMMAND ----------
 
+# TODO: generalize when the year coverage is updated. This reads the only delivery we have so far (one file per tier,
+# all years in a single "Database" sheet with these headers); later deliveries may come as yearly files, extra
+# sheets or renamed columns, so adapt the file pattern, sheet and column mapping once a new delivery arrives.
 def read_database(pattern, columns):
     """Read the ministry's single-sheet file, keep the named columns, rename them to the BOOST names, normalize cells."""
     files = glob(f'{RAW_INPUT_DIR}/{COUNTRY}/{pattern}')
@@ -272,7 +162,7 @@ unreviewed = sorted(set(project[keyword_hit & decision.isna() & outside_431]))
 print(f'{len(unreviewed)} road-matching project names are not in {PROJECT_MAPPING_FILE}; '
       'they are flagged by the key words, review them and add them with road = y or n:')
 print('\n'.join(f'   {name}' for name in unreviewed))
-df['hospital'] = flag(df.PROGRAM2.str.contains(HOSPITAL_PROGRAM2_KEYWORD, case=False, na=False), 1)
+df['hospital'] = flag(df.PROGRAM2.str.contains(HOSPITAL_PROGRAM2_KEYWORDS, case=False, regex=True, na=False), 1)
 
 df.to_csv(f'{raw_microdata_csv_dir}/cen.csv', index=False, encoding='utf-8')
 print(f'cen.csv: {len(df):,} rows')
@@ -293,10 +183,13 @@ df['approved'] = None  # not published for municipalities
 df['ECON6'] = None  # the ministry file stops at "Sub-Grupo Objeto del Gasto"
 
 # Department of each municipality, keyed on the entity code (30.001 - ASUNCION -> 30.001).
+admin_mapping = pd.read_csv(ADMIN_MAPPING_FILE, dtype=str)
+assert admin_mapping.admin2_code.is_unique, f'duplicate municipality codes in {ADMIN_MAPPING_FILE}'
+municipality_department = admin_mapping.set_index('admin2_code').department
 admin2_code = df.ADMIN2.str.strip().str[:6]
-unmapped = sorted(set(admin2_code) - set(MUNICIPALITY_DEPARTMENT))
-assert not unmapped, f'municipalities missing from DEPARTMENT_MUNICIPALITIES: {unmapped}'
-df['geo'] = admin2_code.map(MUNICIPALITY_DEPARTMENT).map(normalize_cell)
+unmapped = sorted(set(admin2_code) - set(municipality_department.index))
+assert not unmapped, f'municipalities missing from {ADMIN_MAPPING_FILE}: {unmapped}'
+df['geo'] = admin2_code.map(municipality_department).map(normalize_cell)
 
 df = df[['YEAR', 'ADMIN1', 'ADMIN2', 'ECON4', 'ECON5', 'ECON6', 'geo', 'approved', 'MODIFIED', 'COMMITTED', 'PAID']]
 df.to_csv(f'{raw_microdata_csv_dir}/Municipalidades.csv', index=False, encoding='utf-8')
