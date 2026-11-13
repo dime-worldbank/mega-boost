@@ -1,0 +1,3 @@
+year,codigo_fut,entity_name,concept_code,econ1,econ2,econ3,econ4,approved,executed,econ_rev,econ_rev_sub,exclude_from_total
+2020,216605266,ENVIGADO,TI.A.1.3,TI.A INGRESOS CORRIENTES,TI.A.1 TRIBUTARIOS,,TI.A.1.3 IMPUESTO PREDIAL UNIFICADO,80,70,Income Tax,,False
+2020,216605266,ENVIGADO,TI.A.1.5,TI.A INGRESOS CORRIENTES,TI.A.1 TRIBUTARIOS,,TI.A.1.5 IMPUESTO DE INDUSTRIA Y COMERCIO,30,30,Subnational Own Revenues,,False
