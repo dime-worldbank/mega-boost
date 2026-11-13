@@ -375,7 +375,7 @@ excluded_country_year_conditions = (
     (F.col('country_name') == 'Burkina Faso') & ((F.col('year') == 2016) |(F.col('year') > 2020))|
     (F.col('country_name') == 'Bangladesh') & (F.col('year') == 2008) |
     # 2022+ comes from the raw iBAS exports, which carry executed only; the CCI's 2022 was built
-    # from an earlier data version (see Bangladesh/README.md for the differences)
+    # from an earlier version of the FY22 data
     (F.col('country_name') == 'Bangladesh') & (F.col('year') == 2022) |
     (F.col('country_name') == 'Kenya') & (F.col('year').isin(list(range(2006, 2016)))) |
     (F.col('country_name') == 'Chile') & (F.col('year') < 2009)|
